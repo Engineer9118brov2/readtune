@@ -48,6 +48,7 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   const TTS = await import("../shared/tts.js");
   const EL = await import("../shared/elevenlabs.js");
   const IP = await import("../shared/inpage-style.js");
+  const CS = await import("../shared/calibration-score.js");
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -118,6 +119,38 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   aids.destroy();
 
   assert(typeof TTS.isTTSAvailable === "function" && typeof TTS.createTTS === "function", "tts exports");
+
+  /* ---- calibration scoring (single-change design + practice de-trend) ---- */
+  assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");
+
+  // pure practice ramp, no real setting effects: de-trend should wipe out every dimension
+  const ramp = [200, 220, 240, 260, 280, 300].map((wpm, p) => ({
+    key: p === 0 ? "baseline" : ["spacing", "dyslexic", "atkinson", "bionic", "chunk"][p - 1],
+    label: "x", apply: {}, position: p, wpm, correct: true, ease: 3,
+  }));
+  const rampA = CS.analyse(ramp, "baseline");
+  assert(Math.round(rampA.practiceSlope) === 20, "practice slope estimated (" + rampA.practiceSlope.toFixed(1) + ")");
+  assert(rampA.dims.every((d) => Math.abs(d.speedDelta) < 0.05), "de-trend removes the practice ramp — no false speed effect");
+
+  // a reader for whom spacing genuinely helps (on top of the ramp) and OpenDyslexic hurts
+  const eff = [200, 250, 205, 232, 248, 260].map((wpm, p) => ({
+    key: p === 0 ? "baseline" : ["spacing", "dyslexic", "atkinson", "bionic", "chunk"][p - 1],
+    label: ["Standard", "Roomier spacing", "OpenDyslexic", "Atkinson", "Bionic", "One sentence"][p],
+    apply: [{}, { lineHeight: 1.95 }, { font: "dyslexic" }, { font: "atkinson" }, { bionic: 40 }, { pacing: "sentence" }][p],
+    position: p, wpm, correct: p !== 2, ease: [3, 5, 2, 3, 4, 3][p],
+  }));
+  const an = CS.analyse(eff, "baseline");
+  assert(an.dims[0].key === "spacing", "top dimension is the one that helped (" + an.dims[0].key + ")");
+  assert(an.dims.find((d) => d.key === "dyslexic").help < 0, "a hurting change scores negative");
+  const built = CS.buildProfile({ dims: an.dims, baseline: { font: "sans" }, defaults: S.DEFAULT_PROFILE, fontKeys: new Set(["dyslexic", "atkinson"]), extra: { overlay: "none" } });
+  assert(built.kept.includes("spacing") && !built.kept.includes("dyslexic"), "kept the helpful change, dropped the harmful font");
+  assert(built.profile.font === "sans", "font stays standard when no font variant helped");
+
+  const flat = CS.analyse(
+    [0, 1, 2, 3].map((p) => ({ key: p === 0 ? "baseline" : "d" + p, label: "x", apply: {}, position: p, wpm: 200, correct: true, ease: 3 })),
+    "baseline"
+  );
+  assert(flat.dims.every((d) => Math.abs(d.help) < 0.05), "no signal in → no dimension kept");
 
   /* ---- ElevenLabs read-aloud ---- */
   const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };

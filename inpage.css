@@ -7,11 +7,14 @@
 .bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 2px;
+  max-width: calc(100vw - 24px);
   padding: 5px;
   background: #ffffff;
   border: 1px solid #e4e1d8;
-  border-radius: 999px;
+  border-radius: 20px;
   box-shadow: 0 2px 8px rgba(20, 20, 15, 0.12), 0 12px 32px rgba(20, 20, 15, 0.14);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -50,16 +53,42 @@
 .bar button.on i {
   opacity: 0.9;
 }
+.bar button:focus-visible {
+  outline: 2px solid #1f7a5c;
+  outline-offset: 1px;
+}
 .bar .dot {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.25);
   display: inline-block;
+  flex: none;
+}
+.bar .sm,
+.bar .lg {
+  font-size: 10px;
+  vertical-align: super;
+}
+.bar .sep {
+  width: 1px;
+  height: 20px;
+  background: #e4e1d8;
+  margin: 0 3px;
+  flex: none;
+}
+.bar b {
+  font-weight: 800;
 }
 
-@media (max-width: 560px) {
-  .bar button i {
+@media (max-width: 620px) {
+  .bar button {
+    font-size: 12px;
+    min-width: 30px;
+    padding: 0 7px;
+    height: 32px;
+  }
+  .bar .sep {
     display: none;
   }
 }

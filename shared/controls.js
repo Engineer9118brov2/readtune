@@ -235,7 +235,7 @@ export function buildControls(profile, onChange) {
   const keyHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Your key is stored only in this browser and sent only to ElevenLabs. Free tier ≈ 10k characters / month. ElevenLabs accounts are 18+ (13+ with a parent)."
+    "Stored only in this browser, sent only to ElevenLabs. Give the key the voices_read and text_to_speech permissions. Note: ElevenLabs' free plan can't use its shared voices over the API — you need a voice you cloned or created, or a paid plan. Accounts are 18+ (13+ with a parent)."
   );
 
   const elVoiceSel = el("select", { class: "rt-select", "aria-label": "ElevenLabs voice" });
@@ -249,6 +249,19 @@ export function buildControls(profile, onChange) {
     el("div", { class: "rt-voice-row" }, [elVoiceSel, previewBtn("Preview this voice")]),
   ]);
 
+  // fallback for keys that can't list voices (missing voices_read, or free plan)
+  const manualId = el("input", { type: "text", class: "rt-input", placeholder: "Voice ID", spellcheck: "false", "aria-label": "ElevenLabs voice ID" });
+  const manualApply = el("button", { class: "rt-btn", type: "button", style: "width:auto" }, "Use");
+  manualApply.addEventListener("click", () => {
+    const v = manualId.value.trim();
+    if (v) onChange({ __tts: { voiceId: v, voiceName: "Voice " + v.slice(0, 6) } });
+  });
+  reg.manualId = manualId;
+  const manualVoiceRow = el("div", { class: "rt-field" }, [
+    el("span", { class: "rt-field-label" }, "Voice ID"),
+    el("div", { class: "rt-key-row" }, [manualId, manualApply, previewBtn("Preview this voice")]),
+  ]);
+
   const forgetBtn = el("button", { class: "rt-link", type: "button" }, "Remove key");
   forgetBtn.addEventListener("click", () => onChange({ __tts: { forget: true } }));
   const statusLine = el("p", { class: "rt-tts-status", role: "status" });
@@ -256,9 +269,9 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
-    engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, connectedRow, rateRow, statusLine, ttsState,
+    engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow, statusLine, ttsState,
   });
 
   body.append(el("p", { class: "rt-panel-hint" }, "Everything saves automatically and applies across ReadTune."));
@@ -311,12 +324,14 @@ export function buildControls(profile, onChange) {
     const t = reg.ttsState;
     const aloud = state.pacing === "aloud";
     const eleven = t.provider === "elevenlabs";
+    const canList = t.hasKey && t.voices.length > 0;
     reg.engineRow.hidden = !aloud;
     reg.rateRow.hidden = !aloud;
     reg.browserVoiceRow.hidden = !aloud || eleven;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
-    reg.elVoiceRow.hidden = !aloud || !eleven || !t.hasKey;
+    reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
+    reg.manualVoiceRow.hidden = !aloud || !eleven || !t.hasKey || canList;
     reg.connectedRow.hidden = !aloud || !eleven || !t.hasKey;
     for (const b of reg.engineBtns) b.setAttribute("aria-pressed", b.dataset.val === t.provider ? "true" : "false");
     if (t.error) {
@@ -325,17 +340,21 @@ export function buildControls(profile, onChange) {
     } else if (t.status === "checking") {
       reg.statusLine.textContent = "Checking your key…";
       reg.statusLine.dataset.kind = "info";
+    } else if (t.note) {
+      reg.statusLine.textContent = t.note;
+      reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
-      reg.statusLine.textContent = `Connected · ${t.voices.length} voices`;
+      reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices` : `Connected · using voice ${(t.voiceId || "").slice(0, 8) || "(none set)"}`;
       reg.statusLine.dataset.kind = "ok";
     } else {
       reg.statusLine.textContent = "";
     }
-    if (eleven && t.voices.length) {
+    if (canList) {
       const cur = t.voiceId || reg.elVoice.value;
       reg.elVoice.replaceChildren(...t.voices.map((v) => el("option", { value: v.id }, v.name)));
       reg.elVoice.value = cur || t.voices[0].id;
     }
+    if (t.hasKey && !canList && t.voiceId && reg.manualId.value !== t.voiceId) reg.manualId.value = t.voiceId;
   }
 
   paint();
@@ -356,11 +375,12 @@ export function buildControls(profile, onChange) {
       for (const v of voices) sel.append(el("option", { value: v.name }, `${v.name}${v.localService ? "" : " (online)"}`));
       sel.value = cur || "";
     },
-    /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error }. */
+    /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error, note }. */
     setTTS(next) {
+      reg.ttsState.error = "";
+      reg.ttsState.note = "";
+      reg.ttsState.status = "";
       Object.assign(reg.ttsState, next);
-      if ("error" in next && !next.error) reg.ttsState.error = "";
-      if (next.status === "ok") reg.ttsState.error = "";
       paintTTS();
     },
   };

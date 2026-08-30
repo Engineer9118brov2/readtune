@@ -15,18 +15,23 @@
         <span class="rt-chip">Calibration</span>
         <h1>Find your reading settings</h1>
         <p>
-          You'll read five short passages, each shown a different way — the font,
-          the spacing and the bolding all change. After each one you'll answer a
-          quick question and rate how it felt.
+          You'll read a short warm-up, then six passages. Each passage changes
+          <b>one</b> thing from plain text — the font, the spacing, the bolding,
+          or showing one sentence at a time — so the test can tell which of them
+          actually helps <i>you</i>, not just which combination you happened to get.
         </p>
-        <p>About two minutes. You can retake it any time.</p>
-        <p class="cal-fine">Nothing is uploaded. Results are saved only in this browser.</p>
+        <p>After each passage: one quick question, then rate how it felt. About four minutes.</p>
+        <p class="cal-fine">
+          It's a rough estimate from six short readings, not a formal assessment.
+          Nothing is uploaded — results are saved only in this browser.
+        </p>
         <button class="rt-btn rt-primary" id="start" type="button">Start</button>
       </section>
 
       <section id="screen-passage" hidden>
         <div class="cal-passage-head">
-          Passage <span id="p-num">1</span> of <span id="p-total">5</span> — read it at your normal pace
+          Passage <span id="p-num">1</span><span id="p-total-wrap"> of <span id="p-total">6</span></span>
+          — read it at your normal pace
         </div>
         <main class="rt-surface cal-surface" id="passage-surface"><div id="passage-view"></div></main>
         <div class="cal-actions">
@@ -56,17 +61,30 @@
       <section class="cal-card" id="screen-results" hidden>
         <span class="rt-chip">Your reading profile</span>
         <h1 id="result-title">Here's what worked best for you</h1>
-        <p id="result-desc"></p>
         <p id="result-headline" class="cal-headline" hidden></p>
+        <p id="result-confidence" class="cal-fine" hidden></p>
+        <p id="result-desc" class="cal-desc"></p>
+
         <div class="rt-surface cal-preview" id="preview-surface"><div id="preview-view"></div></div>
-        <div class="cal-tablewrap">
-          <table class="cal-table" id="result-table">
-            <thead>
-              <tr><th>Style</th><th>Words/min</th><th>Got it right</th><th>Felt easy</th></tr>
-            </thead>
-            <tbody id="result-rows"></tbody>
-          </table>
-        </div>
+
+        <p class="cal-breakdown-label">What each change did for you</p>
+        <div class="cal-breakdown" id="result-breakdown"></div>
+
+        <details class="cal-details">
+          <summary>Show the numbers</summary>
+          <div class="cal-tablewrap">
+            <table class="cal-table" id="result-table">
+              <thead>
+                <tr><th>Change</th><th>Words/min</th><th>Got it right</th><th>Felt easy</th></tr>
+              </thead>
+              <tbody id="result-rows"></tbody>
+            </table>
+          </div>
+          <p class="cal-fine">
+            Words/min is adjusted for practice effect (you speed up as you go, regardless of settings).
+          </p>
+        </details>
+
         <p id="result-compare" class="cal-fine" hidden></p>
         <p class="cal-fine">These settings now apply in Reader View and PDF mode automatically.</p>
         <div class="cal-result-actions">

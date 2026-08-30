@@ -134,16 +134,17 @@
   const barCssUrl = chrome.runtime.getURL("inpage.css");
   root.innerHTML =
     `<link rel="stylesheet" href="${barCssUrl}">` +
-    `<div class="bar" part="bar">
-       <button data-a="font"  title="Font">Aa <i data-l="font"></i></button>
-       <button data-a="size-" title="Smaller text">A−</button>
-       <button data-a="size+" title="Larger text">A+</button>
-       <button data-a="lead"  title="Line spacing"><i data-l="lead"></i></button>
-       <button data-a="tint"  title="Reading tint"><span class="dot" data-l="tint"></span></button>
-       <button data-a="bionic" title="Bionic bolding"><b>B</b></button>
-       <button data-a="ruler" title="Reading ruler">▤</button>
-       <button data-a="reader" title="Open full Reader View">⤢</button>
-       <button data-a="off"   title="Turn off ReadTune on this page">✕</button>
+    `<div class="bar" part="bar" role="toolbar" aria-label="ReadTune">
+       <button data-a="font"  title="Change font">Aa&nbsp;<i data-l="font"></i></button>
+       <button data-a="size-" title="Smaller text" aria-label="Smaller text">A<span class="sm">−</span></button>
+       <button data-a="size+" title="Larger text" aria-label="Larger text">A<span class="lg">+</span></button>
+       <button data-a="lead"  title="Line spacing" aria-label="Line spacing"><i data-l="lead"></i></button>
+       <button data-a="tint"  title="Reading tint" aria-label="Reading tint"><span class="dot" data-l="tint"></span><span>Tint</span></button>
+       <button data-a="bionic" title="Bold the start of each word" aria-label="Bionic bolding">Bionic</button>
+       <button data-a="ruler" title="Line guide that follows your cursor" aria-label="Reading ruler">Ruler</button>
+       <span class="sep"></span>
+       <button data-a="reader" title="Open the full Reader View" aria-label="Open Reader View">Reader&nbsp;View</button>
+       <button data-a="off"   title="Turn ReadTune off on this page" aria-label="Turn off">Done</button>
      </div>`;
   document.documentElement.appendChild(barHost);
 

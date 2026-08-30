@@ -22,7 +22,7 @@ import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
-import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize } from "./elevenlabs.js";
+import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
@@ -91,12 +91,20 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   /* ---- read-aloud engine (browser voice, or the user's ElevenLabs key) ---- */
   function pushTTS(extra = {}) {
+    const hasKey = !!ttsConfig.apiKey;
+    const canList = hasKey && (ttsConfig.voices || []).length > 0;
+    let note = extra.note || "";
+    if (!note && hasKey && !canList && ttsConfig.provider === "elevenlabs" && !extra.error && extra.status !== "checking") {
+      note = "This key can't list your voices — paste a voice ID from your ElevenLabs account (Voices → the voice → ID).";
+    }
     controls.setTTS({
       provider: ttsConfig.provider,
-      hasKey: !!ttsConfig.apiKey,
+      hasKey,
       voices: ttsConfig.voices || [],
       voiceId: ttsConfig.voiceId || "",
-      ...extra,
+      note,
+      error: extra.error || "",
+      status: extra.status || "",
     });
   }
   pushTTS();
@@ -108,7 +116,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
           ttsConfig = await saveTTSConfig({ voices });
           pushTTS();
         })
-        .catch((e) => pushTTS({ error: e.message }));
+        .catch(() => pushTTS()); // key may lack voices_read; keep whatever's stored, pushTTS shows the note
     });
   }
 
@@ -176,20 +184,31 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         pushTTS({ error: "ReadTune needs permission to reach api.elevenlabs.io." });
         return;
       }
+      let voices = [];
+      let note = "";
       try {
-        const voices = await fetchVoices(t.apiKey);
-        ttsConfig = await saveTTSConfig({
-          provider: "elevenlabs",
-          apiKey: t.apiKey,
-          voices,
-          voiceId: ttsConfig.voiceId || (voices[0] && voices[0].id) || "",
-          voiceName: ttsConfig.voiceName || (voices[0] && voices[0].name) || "",
-        });
-        pushTTS({ status: "ok" });
-        tts.reload();
+        voices = await fetchVoices(t.apiKey);
       } catch (e) {
-        pushTTS({ error: e.message || "Couldn't verify that key." });
+        // key may just lack voices_read, or the account is free-plan — check it can still synthesize
+        const chk = await keyCanSynthesize(t.apiKey);
+        if (!chk.ok) {
+          pushTTS({ error: chk.reason || e.message || "Couldn't verify that key." });
+          return;
+        }
+        note =
+          chk.note === "free-plan"
+            ? "Key accepted. ElevenLabs' free plan can't use its shared voices over the API — paste the ID of a voice you created or cloned."
+            : "Key accepted, but it can't list your voices. Paste a voice ID from your ElevenLabs account.";
       }
+      ttsConfig = await saveTTSConfig({
+        provider: "elevenlabs",
+        apiKey: t.apiKey,
+        voices,
+        voiceId: ttsConfig.voiceId || (voices[0] && voices[0].id) || "",
+        voiceName: ttsConfig.voiceName || (voices[0] && voices[0].name) || "",
+      });
+      pushTTS(note ? { note } : { status: "ok" });
+      tts.reload();
     }
     if (t.voiceId) {
       ttsConfig = await saveTTSConfig({ voiceId: t.voiceId, voiceName: t.voiceName || "" });

@@ -90,6 +90,23 @@ lib/                    Bundled third-party code (Manifest V3 forbids remote scr
 test/                   Browser test harness (not shipped)
 ```
 
+## Docs
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it's built and *why each part is the way it is*
+- [`docs/RESEARCH.md`](docs/RESEARCH.md) — the evidence behind each reading aid, including where it's weak
+- [`docs/DEVPOST.md`](docs/DEVPOST.md) / [`docs/VIDEO.md`](docs/VIDEO.md) — submission writeup + demo script
+
+## Tests
+
+```
+npm run check     # syntax, manifest, asset references
+npm run harness   # ~50 behavioural assertions in headless Chrome
+npm test          # both
+npm run build     # clean Web Store zip
+```
+
+CI runs all of the above on every push (`.github/workflows/ci.yml`).
+
 ## Bundled libraries
 
 Manifest V3 blocks remote scripts, so these are committed into `lib/`:

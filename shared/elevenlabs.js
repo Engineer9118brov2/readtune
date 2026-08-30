@@ -32,28 +32,55 @@ export async function requestElevenPermission() {
   }
 }
 
-function friendlyError(status) {
-  if (status === 401) return "That API key was rejected. Check it and paste it again.";
-  if (status === 402 || status === 429) return "Your ElevenLabs quota is used up for now. Falling back to the browser voice.";
-  if (status === 422) return "ElevenLabs couldn't read that passage. Falling back to the browser voice.";
-  return `ElevenLabs error (${status}). Falling back to the browser voice.`;
+async function apiError(res, fallback) {
+  let detail = "";
+  try {
+    const body = await res.json();
+    detail = (body && body.detail && (body.detail.message || body.detail)) || "";
+  } catch {
+    /* ignore */
+  }
+  const s = res.status;
+  let msg;
+  if (s === 401 && /permission/i.test(detail)) msg = `Key is missing a permission: ${detail}`;
+  else if (s === 401) msg = "That API key was rejected. Check it and paste it again.";
+  else if (s === 402) msg = detail || "ElevenLabs needs a paid plan for this. Using the browser voice.";
+  else if (s === 429) msg = "ElevenLabs quota used up for now. Using the browser voice.";
+  else if (s === 422) msg = "ElevenLabs couldn't read that passage. Using the browser voice.";
+  else msg = detail ? `ElevenLabs: ${detail}` : fallback || `ElevenLabs error (${s}).`;
+  const err = new Error(msg);
+  err.status = s;
+  err.detail = detail;
+  return err;
 }
 
 /** Validate a key and return its available voices: [{ id, name, preview }]. */
 export async function fetchVoices(apiKey) {
   if (!apiKey) throw new Error("No API key");
   const res = await fetch(`${API}/voices`, { headers: { "xi-api-key": apiKey } });
-  if (!res.ok) {
-    const err = new Error(friendlyError(res.status));
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw await apiError(res, "Couldn't list your ElevenLabs voices.");
   const data = await res.json();
   return (data.voices || []).map((v) => ({
     id: v.voice_id,
     name: v.name || v.voice_id,
     preview: v.preview_url || "",
   }));
+}
+
+/** Lightweight key check that doesn't need voices_read — returns true if the key can do TTS. */
+export async function keyCanSynthesize(apiKey) {
+  if (!apiKey) return { ok: false, reason: "No API key." };
+  // a deliberately tiny request to a premade voice id; 402 still means the key authenticates
+  const res = await fetch(`${API}/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_22050_32`, {
+    method: "POST",
+    headers: { "xi-api-key": apiKey, "content-type": "application/json" },
+    body: JSON.stringify({ text: "ok", model_id: "eleven_flash_v2_5" }),
+  }).catch(() => null);
+  if (!res) return { ok: false, reason: "Couldn't reach ElevenLabs." };
+  if (res.ok) return { ok: true };
+  if (res.status === 402) return { ok: true, note: "free-plan" }; // authenticates, but library voices need a paid plan
+  const err = await apiError(res);
+  return { ok: false, reason: err.message };
 }
 
 /**
@@ -77,11 +104,7 @@ export async function synthesize({ apiKey, voiceId, model = "eleven_flash_v2_5",
       }),
     }
   );
-  if (!res.ok) {
-    const err = new Error(friendlyError(res.status));
-    err.status = res.status;
-    throw err;
-  }
+  if (!res.ok) throw await apiError(res, "ElevenLabs couldn't generate that audio.");
   const data = await res.json();
   const bytes = base64ToBytes(data.audio_base64 || "");
   const a = data.alignment || data.normalized_alignment || {};

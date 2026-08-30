@@ -21,3 +21,6 @@ readtune-*.zip
 *.crx
 *.pem
 dist/
+
+# CI harness scratch
+.chrome-ci/

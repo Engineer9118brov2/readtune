@@ -1,16 +1,27 @@
 /*
  * ReadTune — calibration test
  *
- * The feature that sets ReadTune apart. Five passages, each rendered a different
- * way. For each we record reading time, a comprehension question, and a 1–5 ease
- * rating, then score every style against this reader's own results — so a
- * naturally slower reader isn't penalised, only which style was relatively
- * better for THEM.
+ * The feature that sets ReadTune apart, and the part a judge will poke hardest,
+ * so the method is deliberately conservative:
+ *
+ *   • A warm-up passage (not scored) absorbs the biggest practice-speed jump.
+ *   • A baseline passage in plain settings is the anchor.
+ *   • Each remaining passage changes exactly ONE thing vs the baseline — font,
+ *     spacing, bionic bolding, or one-sentence-at-a-time — so a win can be
+ *     attributed to that one change, not a bundle.
+ *   • Reading speed is de-trended for practice effect (a small linear fit across
+ *     passage position is subtracted) before anything is compared.
+ *   • Every passage is ~55–60 words, similar syntax, one comprehension question.
+ *   • Speed, comprehension and a 1–5 ease rating are combined per dimension; a
+ *     dimension is only kept if it clears a margin. If nothing does, the test
+ *     says so honestly rather than inventing a winner.
+ *
+ * It is a quick estimate from six short readings, not an assessment — the result
+ * screen says as much, and "retake" exists to check stability.
  */
 
 import {
   DEFAULT_PROFILE,
-  FONTS,
   writeProfile,
   appendCalibration,
   loadCalibrations,
@@ -18,63 +29,108 @@ import {
   extUrl,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
+import { analyse, buildProfile, effectText, HELP_THRESHOLD } from "./shared/calibration-score.js";
 
-const PASSAGES = [
+/* Everything not listed here is DEFAULT_PROFILE. Font size is held constant so it
+ * can't confound the comparison — it's the one knob everyone adjusts by hand. */
+const BASELINE = {
+  font: "sans",
+  fontSize: 19,
+  lineHeight: 1.55,
+  letterSpacing: 0,
+  wordSpacing: 0,
+  paragraphSpacing: 1,
+  bionic: 0,
+  pacing: "flow",
+};
+
+const WARMUP = {
+  text:
+    "A small ferry crosses the same channel more than forty times a day. The crew knows the water so well they can hold the boat against the dock without ropes while the last cars roll off.",
+  q: "How does the crew hold the boat at the dock?",
+  options: ["Without ropes, using the current", "With two heavy anchors", "By keeping the engine in reverse hard", "They tie up to a second boat"],
+  answer: 0,
+};
+
+/* Each dimension = one change from BASELINE + its own matched passage. */
+const DIMENSIONS = [
   {
-    id: "plain",
-    name: "Standard, no bolding",
-    text:
-      "The public library on Cedar Street keeps a shelf near the entrance for tools instead of books. With the same card they use for novels, visitors can borrow a pressure washer, a sewing machine, or a telescope. The collection began as one drawer of kitchen gadgets and now fills three tall cabinets along the back wall.",
-    q: "What did the library's tool collection start as?",
-    options: ["One drawer of kitchen gadgets", "A donated set of power tools", "A shelf of repair manuals"],
-    answer: 0,
-    settings: { font: "sans", fontSize: 19, lineHeight: 1.5, letterSpacing: 0, wordSpacing: 0, paragraphSpacing: 1, bionic: 0, pacing: "flow" },
+    key: "baseline",
+    label: "Standard",
+    apply: {},
+    passage: {
+      text:
+        "The seeds of the wax palm are spread almost entirely by one bird, a large mountain parrot that swallows them whole and drops them far from the parent tree. Where the parrot has vanished, young palms stop appearing, and the forest slowly fills with trees that were already old when the birds were common.",
+      q: "What happens in forests where the parrot has vanished?",
+      options: ["No young wax palms appear", "The palms grow much faster", "Other birds take over the job", "The oldest palms die within a year"],
+      answer: 0,
+    },
   },
   {
-    id: "bionic-open",
-    name: "Bionic bolding + open spacing",
-    text:
-      "Sea otters often wrap themselves in strands of kelp before they sleep so the current cannot carry them away from the group. A raft of resting otters can drift together for hours. Pups that are too young to dive stay on their mothers' chests, dry and afloat, until their fur grows thick enough to trap air.",
-    q: "Why do sea otters wrap themselves in kelp?",
-    options: ["To stay warm in cold water", "So the current doesn't carry them off", "To hide from predators below"],
-    answer: 1,
-    settings: { font: "sans", fontSize: 20, lineHeight: 1.85, letterSpacing: 0.04, wordSpacing: 0.14, paragraphSpacing: 1.2, bionic: 42, pacing: "flow" },
+    key: "dyslexic",
+    label: "OpenDyslexic font",
+    apply: { font: "dyslexic" },
+    passage: {
+      text:
+        "A lighthouse keeper on a bare stretch of coast kept a garden of flowers that could never have grown there on their own. Every plant began as a seed blown in by a storm or dropped by a passing bird, then coaxed along in soil he carried up from the beach in buckets over many years.",
+      q: "Where did the seeds in the keeper's garden come from?",
+      options: ["Storms and passing birds", "A supply boat twice a year", "A greenhouse on the rocks", "Cuttings sent from the mainland"],
+      answer: 0,
+    },
   },
   {
-    id: "dyslexic",
-    name: "OpenDyslexic font",
-    text:
-      "A weather balloon let go at dawn will rise for about two hours before the thin air lets it stretch past its limit and burst. The instrument pack then drifts back down under a small parachute, often landing many miles away. Volunteers follow the signal and mail the sensors back to the station to be launched again.",
-    q: "What happens to the balloon after about two hours?",
-    options: ["It is pulled back down by a line", "It bursts in the thin air", "It floats level until sunset"],
-    answer: 1,
-    settings: { font: "dyslexic", fontSize: 20, lineHeight: 1.9, letterSpacing: 0.03, wordSpacing: 0.18, paragraphSpacing: 1.2, bionic: 0, pacing: "flow" },
+    key: "atkinson",
+    label: "Atkinson Hyperlegible font",
+    apply: { font: "atkinson" },
+    passage: {
+      text:
+        "The longest freight trains take so long to clear a crossing that some towns have built roads over or under the tracks just to keep their two halves joined. A single train can weigh as much as a small cargo ship, and from the front the driver cannot see the last car even on a straight line.",
+      q: "Why did some towns build roads over or under the tracks?",
+      options: ["The trains take too long to pass", "The crossings kept flooding", "To make room for a new station", "The old crossings iced over in winter"],
+      answer: 0,
+    },
   },
   {
-    id: "atkinson",
-    name: "Atkinson Hyperlegible font",
-    text:
-      "The oldest known shoe is a sandal woven from sagebrush bark, found in a cave in Oregon and roughly ten thousand years old. Dozens of similar sandals turned up in the same cave, in a range of sizes. Whoever made them pressed the bark fibres flat and twisted them into cords before weaving the sole.",
-    q: "What is the oldest known shoe made from?",
-    options: ["Tanned deer hide", "Woven sagebrush bark", "Carved cork and reed"],
-    answer: 1,
-    settings: { font: "atkinson", fontSize: 20, lineHeight: 1.75, letterSpacing: 0.02, wordSpacing: 0.1, paragraphSpacing: 1.15, bionic: 0, pacing: "flow" },
+    key: "spacing",
+    label: "Roomier spacing",
+    apply: { lineHeight: 1.95, letterSpacing: 0.045, wordSpacing: 0.16, paragraphSpacing: 1.3 },
+    passage: {
+      text:
+        "A clockmaker in a small mountain town was asked for a tower clock that people could read from the valley floor, almost a mile below. She made the hands as long as a rowing boat and painted them black on a white face, and on clear days farmers set their watches by it from their fields.",
+      q: "How did farmers in the valley use the clock?",
+      options: ["To set their watches from the fields", "To forecast the next day's weather", "As a signal to begin the harvest", "To find their way home in fog"],
+      answer: 0,
+    },
   },
   {
-    id: "bionic-sentence",
-    name: "Bionic bolding + one sentence at a time",
-    text:
-      "One of the oldest known maps of the night sky is carved into a small piece of ivory found in a cave in Germany. Researchers think it is about thirty two thousand years old. The carving seems to show the constellation we now call Orion, with the same three stars in a row that people still point to today.",
-    q: "Which constellation does the ivory carving seem to show?",
-    options: ["The Big Dipper", "Orion", "Cassiopeia"],
-    answer: 1,
-    settings: { font: "sans", fontSize: 21, lineHeight: 1.7, letterSpacing: 0.02, wordSpacing: 0.08, paragraphSpacing: 1, bionic: 35, pacing: "sentence" },
+    key: "bionic",
+    label: "Bionic bolding",
+    apply: { bionic: 40 },
+    passage: {
+      text:
+        "Each autumn a certain deep lake turns over. The chilled surface water sinks, the warmer water from below rises, and for a few days the whole lake smells of mud that has sat undisturbed on the bottom all summer. Fish that never leave the depths are suddenly caught near the surface, thrown off by the change.",
+      q: "Why are deep-water fish caught near the surface in autumn?",
+      options: ["The layers of the lake trade places", "The lake is starting to freeze early", "They are chasing insects upward", "Anglers switch to brighter lures"],
+      answer: 0,
+    },
+  },
+  {
+    key: "chunk",
+    label: "One sentence at a time",
+    apply: { pacing: "sentence" },
+    passage: {
+      text:
+        "A town on a river bend used to flood every few springs until it dug a second, straighter channel for the high water to take. Most of the year the new channel is a dry ditch full of grass, but in a bad thaw it carries more water than the river itself and the old town stays dry.",
+      q: "What is the new channel like for most of the year?",
+      options: ["A dry, grassy ditch", "A slow shallow stream", "A fenced-off canal", "A chain of small ponds"],
+      answer: 0,
+    },
   },
 ];
 
+const FONT_KEYS = new Set(["dyslexic", "atkinson"]);
 const PREVIEW_TEXT =
-  "This short line shows the settings the test picked for you. Reader View and PDF mode will look like this from now on, and you can fine-tune any of it from the reading settings panel.";
-
+  "This line shows the settings the test chose for you. Reader View and PDF mode use them automatically from now on, and you can adjust any of it from the reading-settings panel.";
 const MIN_READ_MS = 1400;
 
 const $ = (id) => document.getElementById(id);
@@ -89,25 +145,43 @@ const progressEl = $("progress");
 const passageSurface = $("passage-surface");
 const passageView = createReadingView($("passage-view"));
 
-$("p-total").textContent = String(PASSAGES.length);
+/* run order: warm-up, baseline, then the 4 non-baseline dimensions shuffled */
+let sequence = [];
+function buildSequence() {
+  const variants = DIMENSIONS.filter((d) => d.key !== "baseline");
+  for (let i = variants.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [variants[i], variants[j]] = [variants[j], variants[i]];
+  }
+  const baseline = DIMENSIONS.find((d) => d.key === "baseline");
+  sequence = [
+    { warmup: true, passage: WARMUP, dim: null },
+    { warmup: false, passage: baseline.passage, dim: baseline },
+    ...variants.map((d) => ({ warmup: false, passage: d.passage, dim: d })),
+  ];
+}
+
+$("p-total").textContent = String(DIMENSIONS.length); // 6 scored passages
 
 let step = 0;
 let shownAt = 0;
 let armedSkip = false;
-const results = [];
+let current = null;
+const results = []; // one per scored passage, in run order
 
-function show(name) {
+const show = (name) => {
   for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
   window.scrollTo({ top: 0 });
-}
+};
 
 function renderProgress() {
   progressEl.hidden = false;
   progressEl.replaceChildren();
-  for (let i = 0; i < PASSAGES.length; i++) {
+  const scoredDone = results.length;
+  for (let i = 0; i < DIMENSIONS.length; i++) {
     const dot = document.createElement("i");
-    if (i < step) dot.className = "done";
-    else if (i === step) dot.className = "on";
+    if (i < scoredDone) dot.className = "done";
+    else if (i === scoredDone && step > 0) dot.className = "on";
     progressEl.appendChild(dot);
   }
 }
@@ -115,14 +189,16 @@ function renderProgress() {
 const wordCount = (t) => t.trim().split(/\s+/).filter(Boolean).length;
 
 function startPassage() {
-  const p = PASSAGES[step];
-  $("p-num").textContent = String(step + 1);
-  renderProgress();
-  const combo = { ...DEFAULT_PROFILE, ...p.settings };
+  current = sequence[step];
+  const combo = { ...DEFAULT_PROFILE, ...BASELINE, ...(current.dim ? current.dim.apply : {}) };
   applyTypography(passageSurface, combo);
   paintPage(combo);
-  passageView.setText(p.text);
+  passageView.setText(current.passage.text);
   passageView.applyProfile(combo);
+
+  $("p-num").textContent = current.warmup ? "warm-up" : String(results.length + 1);
+  $("p-total-wrap").hidden = current.warmup;
+  renderProgress();
   $("passage-hint").hidden = true;
   armedSkip = false;
   show("passage");
@@ -138,30 +214,26 @@ function finishPassage() {
     armedSkip = true;
     return;
   }
-  results[step] = {
-    id: PASSAGES[step].id,
-    name: PASSAGES[step].name,
-    settings: PASSAGES[step].settings,
-    ms: Math.max(elapsed, 400),
-    words: wordCount(PASSAGES[step].text),
-  };
+  current._ms = Math.max(elapsed, 400);
+  current._words = wordCount(current.passage.text);
   showQuiz();
 }
 
 function showQuiz() {
-  const p = PASSAGES[step];
+  const p = current.passage;
   $("quiz-q").textContent = p.q;
   const box = $("quiz-options");
   box.replaceChildren();
-  const order = [0, 1, 2].sort(() => Math.random() - 0.5);
+  const order = p.options.map((_, i) => i).sort(() => Math.random() - 0.5);
   for (const oi of order) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "cal-option";
     b.textContent = p.options[oi];
     b.addEventListener("click", () => {
-      results[step].correct = oi === p.answer;
-      show("ease");
+      current._correct = oi === p.answer;
+      if (current.warmup) advance();
+      else show("ease");
     });
     box.appendChild(b);
   }
@@ -169,77 +241,107 @@ function showQuiz() {
 }
 
 function recordEase(v) {
-  results[step].ease = v;
+  current._ease = v;
+  advance();
+}
+
+function advance() {
+  if (!current.warmup) {
+    results.push({
+      key: current.dim.key,
+      label: current.dim.label,
+      apply: current.dim.apply,
+      position: results.length,
+      ms: current._ms,
+      words: current._words,
+      wpm: current._words / (current._ms / 60000),
+      correct: !!current._correct,
+      ease: current._ease || 3,
+    });
+  }
   step += 1;
-  if (step < PASSAGES.length) startPassage();
+  if (step < sequence.length) startPassage();
   else finish();
 }
 
-/* ---- scoring ---- */
-
-function scoreResults(list) {
-  const wpm = list.map((r) => r.words / (Math.max(r.ms, MIN_READ_MS) / 60000));
-  const minW = Math.min(...wpm);
-  const maxW = Math.max(...wpm);
-  const meanW = wpm.reduce((a, b) => a + b, 0) / wpm.length;
-  const spread = maxW - minW;
-  const speedInformative = meanW > 0 && spread / meanW > 0.12;
-
-  return list.map((r, i) => {
-    const speedNorm = speedInformative ? (wpm[i] - minW) / spread : 0.5;
-    const easeNorm = ((r.ease || 3) - 1) / 4;
-    const compNorm = r.correct ? 1 : 0.35; // getting it right matters, but one question is noisy
-    // comprehension gates, ease and speed split the rest
-    const total = compNorm * (0.34 + (speedInformative ? 0.33 : 0) * speedNorm + (speedInformative ? 0.33 : 0.66) * easeNorm);
-    return { ...r, wpm: wpm[i], speedNorm, easeNorm, compNorm, total, speedInformative };
-  });
-}
-
-const pickWinner = (scored) =>
-  [...scored].sort((a, b) => b.total - a.total || (b.ease || 0) - (a.ease || 0))[0];
+/* ---------- scoring (pure model lives in shared/calibration-score.js) ---------- */
 
 async function finish() {
   progressEl.hidden = true;
-  const scored = scoreResults(results);
-  const winner = pickWinner(scored);
-  const baseline = scored.find((s) => s.id === "plain") || scored[0];
-
-  const profile = { ...DEFAULT_PROFILE, ...winner.settings, overlay: "none", columnWidth: 64 };
+  const { dims, speedInformative } = analyse(results, "baseline");
+  const { profile, kept } = buildProfile({
+    dims,
+    baseline: BASELINE,
+    defaults: DEFAULT_PROFILE,
+    fontKeys: FONT_KEYS,
+    extra: { overlay: "none", columnWidth: 64 },
+  });
   const saved = (await writeProfile(profile)) || profile;
 
-  const prior = await loadCalibrations();
   await appendCalibration({
-    winner: winner.id,
+    kept,
     profile: saved,
-    passages: scored.map((s) => ({ id: s.id, ms: Math.round(s.ms), ease: s.ease, correct: !!s.correct, wpm: Math.round(s.wpm) })),
+    speedInformative,
+    passages: results.map((r) => ({ key: r.key, ms: Math.round(r.ms), wpm: Math.round(r.wpm), correct: r.correct, ease: r.ease })),
+    dims: dims.map((d) => ({ key: d.key, help: Number(d.help.toFixed(3)), speedDelta: Number(d.speedDelta.toFixed(3)) })),
   });
 
   $("result-desc").textContent = describeProfile(saved);
 
-  // headline: how much better than the plain baseline
-  const gain = baseline && baseline.wpm ? Math.round(((winner.wpm - baseline.wpm) / baseline.wpm) * 100) : 0;
-  if (winner.id !== baseline.id && gain >= 5) {
-    $("result-headline").hidden = false;
-    $("result-headline").textContent = `You read about ${gain}% faster with this style than with plain text.`;
-  } else if (winner.id !== baseline.id) {
-    $("result-headline").hidden = false;
-    $("result-headline").textContent = "This style felt clearly easier for you, even at a similar speed.";
+  // headline
+  const top = dims[0];
+  const headline = $("result-headline");
+  if (kept.length && top.help >= HELP_THRESHOLD) {
+    const pct = Math.round(top.speedDelta * 100);
+    const speedPart = speedInformative && pct >= 4 ? ` — about ${pct}% faster` : "";
+    headline.textContent = `${top.label} helped you most${speedPart}.`;
+    headline.hidden = false;
+  } else {
+    headline.textContent = "Standard settings worked as well as anything for you — that's a good result, not a dull one.";
+    headline.hidden = false;
   }
 
-  // table
+  // margin / confidence line
+  const conf = $("result-confidence");
+  if (kept.length) {
+    const margin = dims.length > 1 ? top.help - dims[1].help : top.help;
+    conf.textContent =
+      margin < 0.06
+        ? "It was close between the top two — worth retaking on another day to check."
+        : !speedInformative
+        ? "You read the passages at about the same speed, so this is based mostly on how each one felt."
+        : "The result was fairly clear.";
+    conf.hidden = false;
+  } else {
+    conf.hidden = true;
+  }
+
+  // per-dimension breakdown
+  const bd = $("result-breakdown");
+  bd.replaceChildren();
+  for (const d of dims) {
+    const row = document.createElement("div");
+    row.className = "cal-dim" + (kept.includes(d.key) ? " cal-dim-on" : "");
+    const name = document.createElement("b");
+    name.textContent = d.label;
+    const eff = document.createElement("span");
+    eff.textContent = effectText(d, speedInformative);
+    const tag = document.createElement("i");
+    tag.textContent = kept.includes(d.key) ? "kept" : "";
+    row.append(name, eff, tag);
+    bd.appendChild(row);
+  }
+
+  // raw per-passage table (details)
   const rows = $("result-rows");
   rows.replaceChildren();
-  for (const s of scored) {
+  const byKey = Object.fromEntries(results.map((r) => [r.key, r]));
+  for (const d of [DIMENSIONS[0], ...dims]) {
+    const r = byKey[d.key];
+    if (!r) continue;
     const tr = document.createElement("tr");
-    if (s.id === winner.id) tr.className = "cal-winner";
-    tr.innerHTML = "";
-    const cells = [
-      s.name + (s.id === winner.id ? "  ✓" : ""),
-      String(Math.round(s.wpm)),
-      s.correct ? "Yes" : "No",
-      "★".repeat(s.ease || 0),
-    ];
-    for (const c of cells) {
+    if (kept.includes(d.key) || (d.key === "baseline" && !kept.length)) tr.className = "cal-winner";
+    for (const c of [d.label, String(Math.round(r.wpm)), r.correct ? "Yes" : "No", "★".repeat(r.ease)]) {
       const td = document.createElement("td");
       td.textContent = c;
       tr.appendChild(td);
@@ -254,22 +356,24 @@ async function finish() {
   previewView.applyProfile({ ...saved, pacing: "flow" });
   paintPage(saved);
 
-  if (prior.length) {
-    const last = prior[prior.length - 1];
+  const prior = await loadCalibrations();
+  if (prior.length > 1) {
+    const last = prior[prior.length - 2];
     if (last && last.profile) {
       $("result-compare").hidden = false;
-      $("result-compare").textContent = `Last time the test picked: ${describeProfile(last.profile)}.`;
+      $("result-compare").textContent = `Last time the test chose: ${describeProfile(last.profile)}.`;
     }
   }
 
   show("results");
 }
 
-/* ---- wiring ---- */
+/* ---------- wiring ---------- */
 
 $("start").addEventListener("click", () => {
   step = 0;
   results.length = 0;
+  buildSequence();
   startPassage();
 });
 $("done").addEventListener("click", finishPassage);

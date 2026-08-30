@@ -197,6 +197,65 @@
   font-weight: 650;
 }
 
+.cal-desc {
+  font-size: 0.92rem;
+}
+
+.cal-breakdown-label {
+  font-weight: 650;
+  font-size: 0.9rem;
+  margin: 18px 0 8px;
+  text-align: left;
+}
+.cal-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+.cal-dim {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.cal-dim b {
+  font-weight: 600;
+}
+.cal-dim span {
+  color: var(--rt-ui-ink-soft);
+  font-size: 0.84rem;
+  text-align: right;
+}
+.cal-dim i {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rt-ui-accent-ink);
+}
+.cal-dim-on {
+  border-color: var(--rt-ui-accent);
+  background: var(--rt-ui-accent-soft);
+}
+
+.cal-details {
+  text-align: left;
+  margin-bottom: 12px;
+}
+.cal-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--rt-ui-accent);
+  margin-bottom: 8px;
+}
+
 .cal-result-actions {
   display: flex;
   flex-wrap: wrap;
