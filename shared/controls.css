@@ -288,6 +288,40 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.85rem;
 }
 
+/* read-aloud: API key + status */
+.rt-key-row {
+  display: flex;
+  gap: 6px;
+}
+.rt-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 8px;
+  background: var(--rt-ui-panel);
+  color: var(--rt-ui-ink);
+}
+.rt-tts-connected {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rt-tts-status {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--rt-ui-ink-soft);
+}
+.rt-tts-status[data-kind="ok"] {
+  color: var(--rt-ui-accent-ink);
+}
+.rt-tts-status[data-kind="error"] {
+  color: #b3261e;
+}
+
 @media (max-width: 560px) {
   .rt-panel {
     width: 100%;

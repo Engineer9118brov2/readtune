@@ -37,13 +37,29 @@ async function openReaderFor(tab, { sameTab = false } = {}) {
   else await chrome.tabs.create({ url });
 }
 
+async function toggleInpage(tab) {
+  if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inpage.js"] });
+  } catch (err) {
+    console.warn("[ReadTune] toggle-inpage failed:", err);
+  }
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "open-reader") return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await openReaderFor(tab);
+    if (command === "open-reader") await openReaderFor(tab);
+    else if (command === "toggle-inpage") await toggleInpage(tab);
   } catch (err) {
-    console.warn("[ReadTune] open-reader command failed:", err);
+    console.warn(`[ReadTune] command ${command} failed:`, err);
+  }
+});
+
+// the in-page bar's "open full Reader View" button
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg && msg.type === "readtune-open-reader" && sender.tab) {
+    openReaderFor(sender.tab);
   }
 });
 

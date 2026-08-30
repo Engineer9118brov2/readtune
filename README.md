@@ -18,6 +18,7 @@ ReadTune opens with a **~2-minute calibration test**: five short passages, each 
 | --- | --- |
 | **Calibration test** | 5 passages, timed + comprehension-checked + rated, scored to pick your profile |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
+| **Restyle this page** | Applies your font / spacing / tint / bionic / ruler to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
 | **PDF mode** | Extracts text from a PDF worksheet/handout (pdf.js) and renders it through the *same* engine |
 | **Settings panel** | Everything below, live and saved, consistent across articles and PDFs |
 
@@ -37,7 +38,9 @@ ReadTune opens with a **~2-minute calibration test**: five short passages, each 
 - **One sentence at a time** — step through with the keyboard or the transport bar
 - **Speed reader (RSVP)** — one word at a time at an adjustable words-per-minute, with pivot-letter alignment
 - **Auto-scroll** — the page scrolls itself at your reading pace
-- **Read aloud** — the browser's built-in speech (no API key, no network), with the current sentence and word highlighted as it reads
+- **Read aloud** — the current sentence and word are highlighted as it speaks. Two voices:
+  - **Browser voice** (default) — your OS speech engine, no key, no network
+  - **ElevenLabs** (optional) — paste your own API key in the panel for much better voices with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
 
 ### Memory
 
@@ -51,7 +54,7 @@ ReadTune opens with a **~2-minute calibration test**: five short passages, each 
 2. Turn on **Developer mode** (top-right)
 3. Click **Load unpacked** and pick this folder
 4. Pin **ReadTune** from the puzzle-piece menu
-5. Click the icon → **Find my reading settings** to calibrate, then open an article and press **Alt+R**
+5. Click the icon → **Find my reading settings** to calibrate, then open an article and press **Alt+R** (Reader View) or **Alt+Shift+R** (restyle in place)
 
 "Load unpacked" is the normal way to demo a hackathon project — no Web Store submission needed.
 
@@ -62,18 +65,22 @@ Everything for submission is prepared: [`PRIVACY.md`](PRIVACY.md) (host it as a 
 ## Project layout
 
 ```
-manifest.json          Manifest V3 — activeTab, scripting, storage; optional host perms for auto-open
-background.js           Service worker: Alt+R command + per-site auto-open
-content.js              Injected on demand (activeTab) to capture the current page
+manifest.json          Manifest V3 — activeTab, scripting, storage; optional host perms
+background.js           Service worker: Alt+R / Alt+Shift+R commands + per-site auto-open
+content.js              Injected on demand to capture the current page for Reader View
+inpage.js / inpage.css  "Restyle this page" — content script + its shadow-DOM control bar
 popup.*                 Entry points, profile summary, per-site auto-open toggle
 reader.* / pdf.*        Reader View / PDF mode (thin — most logic is shared/)
 calibration.*           The calibration test + scoring
 shared/
-  settings.js           Profile schema, defaults, storage wrappers, per-page + per-site memory
+  settings.js           Profile schema, defaults, storage wrappers, per-page + per-site memory,
+                        read-aloud config (incl. the ElevenLabs key — local storage only)
   render.js             The one formatting engine: sanitize → structure → typography → bionic →
                         syllables → sentence-wrap → pacing (flow / sentence / RSVP)
+  inpage-style.js       Generates the CSS the in-page restyle injects (scoped to html.rt-inpage)
   aids.js               Ruler, progress bar, paragraph focus, resume position, highlights
-  tts.js                Read-aloud (Web Speech) with sentence + word highlighting
+  tts.js                Read-aloud: browser + ElevenLabs backends, sentence + word highlighting
+  elevenlabs.js         ElevenLabs API (voices, /with-timestamps synth, alignment → word index)
   transport.js          The floating playback bar
   controls.js           The settings panel
   screen.js             Wires a reading view to the panel / transport / tts / aids

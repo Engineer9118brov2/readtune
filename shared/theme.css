@@ -351,9 +351,9 @@ body.rt-reading-page > .rt-surface {
   height: var(--rt-ruler-h, 40px);
   pointer-events: none;
   z-index: 20;
-  box-shadow: 0 0 0 100vmax rgba(20, 22, 18, 0.42);
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 100vmax rgba(20, 22, 18, 0.2);
+  border-top: 2px solid color-mix(in srgb, var(--rt-ui-accent) 60%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--rt-ui-accent) 60%, transparent);
   transition: top 0.04s linear;
 }
 
@@ -524,3 +524,21 @@ body.rt-reading-page > .rt-surface {
 .rt-message-card h2 { margin: 0 0 8px; font-size: 1.1rem; }
 .rt-message-card p { margin: 0 0 16px; color: var(--rt-ui-ink-soft); font-size: 0.92rem; line-height: 1.5; }
 .rt-message-card .rt-btn { width: auto; display: inline-block; margin: 4px; }
+
+/* transient status line (read-aloud fell back, key rejected, …) */
+.rt-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(440px, calc(100vw - 32px));
+  background: #23231f;
+  color: #fbfaf7;
+  font-family: var(--rt-ui-font);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}

@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
 const version = manifest.version;
 
-const SHIP_FILES = ["manifest.json", "background.js", "content.js", "LICENSE"];
+const SHIP_FILES = ["manifest.json", "background.js", "content.js", "inpage.js", "inpage.css", "LICENSE"];
 const SHIP_GLOBS = [
   "popup.html", "popup.js", "popup.css",
   "reader.html", "reader.js",

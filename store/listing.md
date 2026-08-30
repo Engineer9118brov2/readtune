@@ -27,12 +27,13 @@ Everything you need to paste into the Developer Dashboard.
 > • Bionic bolding, adjustable spacing, hyphenation, syllable breaks
 > • 9 reading tints plus a custom colour, contrast control, hide images, freeze GIFs
 > • Reading ruler, paragraph focus, one-sentence-at-a-time, speed reader, auto-scroll
-> • Read aloud with the sentence and word highlighted — no account, no API key
+> • Read aloud with the sentence and word highlighted — the browser voice needs no account; an optional ElevenLabs voice is there if you bring your own key
+> • Reader View, or "Restyle this page" to reformat the page you're already on
 > • Remembers where you left off and keeps your highlights, per page
 > • Works on any article and on PDFs with selectable text
 >
 > PRIVACY
-> ReadTune has no server, no account, no analytics. Everything is stored on your device with the browser's local storage and nothing is ever sent anywhere. It works offline.
+> ReadTune has no server, no account, no analytics. Everything is stored on your device with the browser's local storage. It works offline. The one exception is opt-in: if you enter your own ElevenLabs API key for read-aloud, the passage being read and your key go to api.elevenlabs.io and nowhere else.
 >
 > Free and open source.
 
@@ -49,17 +50,20 @@ Everything you need to paste into the Developer Dashboard.
 > Used only when the user clicks "Open Reader View" or presses the shortcut. It lets the extension read the current tab's article text once so it can display a reformatted, accessible version. No page access is retained.
 
 **scripting:**
-> Required to inject the one-off capture script into the active tab (with activeTab) that reads the article's markup for Reader View.
+> Required to inject, on the user's explicit action (with activeTab), the one-off script that reads the article markup for Reader View, or the "Restyle this page" script that reformats the current page in place.
 
 **storage:**
-> Stores the user's reading profile, calibration history, per-page reading position and highlights, locally on the user's device. Nothing is transmitted.
+> Stores the user's reading profile, calibration history, per-page reading position and highlights locally on the user's device. Also stores the user's own ElevenLabs API key locally if they choose to enable that optional voice. Nothing is transmitted except as described under host permissions.
 
-**Optional host permissions (`*://*/*`):**
-> Not requested at install. Requested only if the user turns on "auto-open in ReadTune" for a specific site, and scoped to that site, so pages on that site open in Reader View automatically.
+**Optional host permissions — `https://api.elevenlabs.io/*`:**
+> Not requested at install. Requested only when the user enters their own ElevenLabs API key to use ElevenLabs voices for read-aloud. Used only to send the passage being read aloud and generate word timings.
 
-**Remote code:** None. All libraries (Readability, pdf.js, hyphenation, fonts) are bundled in the package.
+**Optional host permissions — `*://*/*`:**
+> Not requested at install. Requested only if the user turns on "auto-open" / "auto-restyle in ReadTune" for a specific site, scoped to that site, so its pages open in Reader View (or restyle) automatically.
 
-**Data usage disclosures:** Check "does not collect or use" for every category. ReadTune does not collect, transmit, or sell any user data.
+**Remote code:** None. All libraries (Readability, pdf.js, hyphenation, fonts) are bundled in the package. The optional ElevenLabs feature only calls the documented REST API — no remote code is loaded or executed.
+
+**Data usage disclosures:** ReadTune does not collect analytics or sell data. If you enable the optional ElevenLabs voice, disclose under "Web history / User activity" that the text the user chooses to have read aloud is transmitted to the user's own ElevenLabs account to generate audio, at the user's initiation.
 
 ## After submitting
 

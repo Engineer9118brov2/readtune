@@ -179,15 +179,75 @@ export function buildControls(profile, onChange) {
   const wpmRow = slider("wpm", SLIDERS.wpm);
   secMove.append(wpmRow);
   reg.wpmRow = wpmRow;
-  const voiceSel = el("select", { class: "rt-select", "aria-label": "Voice" });
-  voiceSel.append(el("option", { value: "" }, "Default voice"));
-  voiceSel.addEventListener("change", () => emit({ ttsVoice: voiceSel.value }));
-  reg.voice = voiceSel;
-  const voiceRow = field("Voice", voiceSel);
+
+  /* read-aloud: engine picker + browser voice + ElevenLabs key */
+  const ttsState = { provider: "browser", hasKey: false, voices: [], voiceId: "", status: "", error: "" };
+
+  const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
+  const engineBtns = [
+    { val: "browser", label: "Browser voice" },
+    { val: "elevenlabs", label: "ElevenLabs" },
+  ].map((o) => {
+    const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
+    b.addEventListener("click", () => onChange({ __tts: { provider: o.val } }));
+    return b;
+  });
+  engineSeg.append(...engineBtns);
+  reg.engineBtns = engineBtns;
+  const engineRow = field("Read-aloud voice", engineSeg);
+
+  const browserVoiceSel = el("select", { class: "rt-select", "aria-label": "Browser voice" });
+  browserVoiceSel.append(el("option", { value: "" }, "Default voice"));
+  browserVoiceSel.addEventListener("change", () => emit({ ttsVoice: browserVoiceSel.value }));
+  reg.voice = browserVoiceSel;
+  const browserVoiceRow = field("Voice", browserVoiceSel);
+
+  const keyInput = el("input", {
+    type: "password",
+    class: "rt-input",
+    placeholder: "ElevenLabs API key",
+    autocomplete: "off",
+    spellcheck: "false",
+    "aria-label": "ElevenLabs API key",
+  });
+  const keySave = el("button", { class: "rt-btn", type: "button", style: "width:auto" }, "Save key");
+  keySave.addEventListener("click", () => {
+    const v = keyInput.value.trim();
+    if (v) onChange({ __tts: { apiKey: v } });
+    keyInput.value = "";
+  });
+  keyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") keySave.click();
+  });
+  const keyRow = el("div", { class: "rt-field" }, [
+    el("span", { class: "rt-field-label" }, "ElevenLabs API key"),
+    el("div", { class: "rt-key-row" }, [keyInput, keySave]),
+  ]);
+  const keyHint = el(
+    "p",
+    { class: "rt-panel-hint" },
+    "Your key is stored only in this browser and sent only to ElevenLabs. Free tier ≈ 10k characters / month. ElevenLabs accounts are 18+ (13+ with a parent)."
+  );
+
+  const elVoiceSel = el("select", { class: "rt-select", "aria-label": "ElevenLabs voice" });
+  elVoiceSel.addEventListener("change", () => {
+    const opt = elVoiceSel.selectedOptions[0];
+    onChange({ __tts: { voiceId: elVoiceSel.value, voiceName: opt ? opt.textContent : "" } });
+  });
+  reg.elVoice = elVoiceSel;
+  const elVoiceRow = field("Voice", elVoiceSel);
+
+  const forgetBtn = el("button", { class: "rt-link", type: "button" }, "Remove key");
+  forgetBtn.addEventListener("click", () => onChange({ __tts: { forget: true } }));
+  const statusLine = el("p", { class: "rt-tts-status", role: "status" });
+  const connectedRow = el("div", { class: "rt-field rt-tts-connected" }, [statusLine, forgetBtn]);
+
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
-  secMove.append(voiceRow, rateRow);
-  reg.voiceRow = voiceRow;
-  reg.rateRow = rateRow;
+
+  secMove.append(engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, connectedRow, rateRow);
+  Object.assign(reg, {
+    engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, connectedRow, rateRow, statusLine, ttsState,
+  });
 
   body.append(el("p", { class: "rt-panel-hint" }, "Everything saves automatically and applies across ReadTune."));
   const resetBtn = el("button", { class: "rt-link rt-reset", type: "button" }, "Reset to defaults");
@@ -232,8 +292,38 @@ export function buildControls(profile, onChange) {
     reg.rulerRow.hidden = state.focus !== "ruler";
     const isPaced = state.pacing === "word" || state.pacing === "scroll";
     reg.wpmRow.hidden = !isPaced;
-    reg.voiceRow.hidden = state.pacing !== "aloud";
-    reg.rateRow.hidden = state.pacing !== "aloud";
+    paintTTS();
+  }
+
+  function paintTTS() {
+    const t = reg.ttsState;
+    const aloud = state.pacing === "aloud";
+    const eleven = t.provider === "elevenlabs";
+    reg.engineRow.hidden = !aloud;
+    reg.rateRow.hidden = !aloud;
+    reg.browserVoiceRow.hidden = !aloud || eleven;
+    reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
+    reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
+    reg.elVoiceRow.hidden = !aloud || !eleven || !t.hasKey;
+    reg.connectedRow.hidden = !aloud || !eleven || !t.hasKey;
+    for (const b of reg.engineBtns) b.setAttribute("aria-pressed", b.dataset.val === t.provider ? "true" : "false");
+    if (t.error) {
+      reg.statusLine.textContent = t.error;
+      reg.statusLine.dataset.kind = "error";
+    } else if (t.status === "checking") {
+      reg.statusLine.textContent = "Checking your key…";
+      reg.statusLine.dataset.kind = "info";
+    } else if (t.hasKey) {
+      reg.statusLine.textContent = `Connected · ${t.voices.length} voices`;
+      reg.statusLine.dataset.kind = "ok";
+    } else {
+      reg.statusLine.textContent = "";
+    }
+    if (eleven && t.voices.length) {
+      const cur = t.voiceId || reg.elVoice.value;
+      reg.elVoice.replaceChildren(...t.voices.map((v) => el("option", { value: v.id }, v.name)));
+      reg.elVoice.value = cur || t.voices[0].id;
+    }
   }
 
   paint();
@@ -253,6 +343,13 @@ export function buildControls(profile, onChange) {
       sel.replaceChildren(el("option", { value: "" }, "Default voice"));
       for (const v of voices) sel.append(el("option", { value: v.name }, `${v.name}${v.localService ? "" : " (online)"}`));
       sel.value = cur || "";
+    },
+    /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error }. */
+    setTTS(next) {
+      Object.assign(reg.ttsState, next);
+      if ("error" in next && !next.error) reg.ttsState.error = "";
+      if (next.status === "ok") reg.ttsState.error = "";
+      paintTTS();
     },
   };
 }

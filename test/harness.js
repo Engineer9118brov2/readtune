@@ -46,6 +46,8 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   const { extractPdfText, itemsToParagraphs } = await import("../shared/pdftext.js");
   const { createReadingAids } = await import("../shared/aids.js");
   const TTS = await import("../shared/tts.js");
+  const EL = await import("../shared/elevenlabs.js");
+  const IP = await import("../shared/inpage-style.js");
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -116,6 +118,46 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   aids.destroy();
 
   assert(typeof TTS.isTTSAvailable === "function" && typeof TTS.createTTS === "function", "tts exports");
+
+  /* ---- ElevenLabs read-aloud ---- */
+  const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };
+  assert(EL.charIndexAt(align, 0) === 0 && EL.charIndexAt(align, 0.7) === 1 && EL.charIndexAt(align, 2.0) === 3 && EL.charIndexAt(align, 99) === 4, "charIndexAt binary search");
+  assert(EL.charIndexAt({ starts: [] }, 1) === -1, "charIndexAt empty alignment");
+  assert(EL.ELEVEN_ORIGIN === "https://api.elevenlabs.io/*", "eleven origin constant");
+
+  await S.saveTTSConfig({ provider: "elevenlabs", apiKey: "sk-test-123", voiceId: "v1", voiceName: "Aria" });
+  let tc = await S.loadTTSConfig();
+  assert(tc.provider === "elevenlabs" && tc.apiKey === "sk-test-123" && tc.voiceId === "v1", "TTS config round-trip");
+  await S.forgetTTSKey();
+  tc = await S.loadTTSConfig();
+  assert(tc.provider === "browser" && !tc.apiKey, "forgetTTSKey clears key + reverts to browser");
+  assert(!JSON.stringify(S.DEFAULT_PROFILE).includes("apiKey"), "API key is NOT part of the profile object");
+
+  await S.setSiteAutoStyle("https://blog.test", true);
+  assert((await S.loadSites())["https://blog.test"].autoStyle === true, "per-site autoStyle");
+
+  /* ---- in-page stylesheet generation ---- */
+  const ipCss = IP.inpageCSS({ ...S.DEFAULT_PROFILE, font: "dyslexic", fontSize: 22, overlay: "cream", bionic: 40, hideImages: true }, "/*ff*/");
+  assert(/html\.rt-inpage/.test(ipCss) && /OpenDyslexic/.test(ipCss), "inpageCSS scoped + font applied");
+  assert(/22px !important/.test(ipCss), "inpageCSS font-size");
+  assert(/#f7f0dc/.test(ipCss) && /display: none !important/.test(ipCss), "inpageCSS tint + hide-images");
+  assert(/:not\(svg\)/.test(ipCss), "inpageCSS guards icons/svg");
+  const ipNone = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "none" }, "");
+  assert(!/background: #/.test(ipNone.replace(/#readtune-ruler[^}]+}/g, "")), "inpageCSS overlay=none leaves page colours alone");
+
+  /* ---- controls: read-aloud engine picker ---- */
+  let ttsPatch = null;
+  const cp = buildControls({ ...S.DEFAULT_PROFILE, pacing: "aloud" }, (p) => (ttsPatch = p));
+  document.body.append(cp.panel);
+  const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Read-aloud voice/.test(n.textContent));
+  assert(engRow && !engRow.closest(".rt-field").hidden, "engine picker visible in aloud mode");
+  cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="elevenlabs"]').click();
+  assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "elevenlabs", "engine → __tts patch");
+  cp.setTTS({ provider: "elevenlabs", hasKey: true, voices: [{ id: "a", name: "Aria" }, { id: "b", name: "Bill" }], voiceId: "a", status: "ok" });
+  assert(cp.reg ? true : cp.panel.querySelector(".rt-tts-connected") && !cp.panel.querySelector(".rt-tts-connected").hidden, "connected row shown when key present");
+  const elSel = [...cp.panel.querySelectorAll("select")].find((s) => s.options.length === 2 && s.options[0].textContent === "Aria");
+  assert(elSel, "EL voice list populated");
+  cp.panel.remove();
 
   /* controls */
   let patch = null;

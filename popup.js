@@ -79,7 +79,24 @@ async function openReader() {
   }
 }
 
+async function restylePage() {
+  setStatus("");
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) {
+      setStatus("Open a normal web page first, then click this again.");
+      return;
+    }
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inpage.js"] });
+    window.close();
+  } catch (err) {
+    console.warn("[ReadTune] restyle failed:", err);
+    setStatus("This page doesn't allow extensions (chrome:// pages and the Web Store are blocked).");
+  }
+}
+
 $("btn-reader").addEventListener("click", openReader);
+$("btn-restyle").addEventListener("click", restylePage);
 $("btn-pdf").addEventListener("click", () => openPage("pdf.html"));
 $("btn-calibrate").addEventListener("click", () => openPage("calibration.html"));
 $("btn-retake").addEventListener("click", () => openPage("calibration.html"));

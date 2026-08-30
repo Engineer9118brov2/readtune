@@ -13,20 +13,27 @@ import {
   writeProfile,
   loadPageMemory,
   savePageMemory,
+  loadTTSConfig,
+  saveTTSConfig,
+  forgetTTSKey,
   DEFAULT_PROFILE,
 } from "./settings.js";
 import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
+import { fetchVoices, requestElevenPermission, hasElevenPermission } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
+  let ttsConfig = await loadTTSConfig();
   let memory = { scroll: 0, highlights: [] };
   let saveTimer = 0;
   let autoRAF = 0;
   let autoScrolling = false;
+
+  const toast = makeToast();
 
   const aids = createReadingAids({
     getFlow: () => view.getFlowEl(),
@@ -42,17 +49,17 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
   });
 
-  const tts = isTTSAvailable()
-    ? createTTS({
-        getFlow: () => view.getFlowEl(),
-        onState: (st) => {
-          if (profile.pacing !== "aloud") return;
-          transport.setPlaying(st.playing);
-          transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
-          if (st.done) change({ pacing: "flow" });
-        },
-      })
-    : null;
+  const tts = createTTS({
+    getFlow: () => view.getFlowEl(),
+    getConfig: () => ttsConfig,
+    onError: (msg) => toast(msg),
+    onState: (st) => {
+      if (profile.pacing !== "aloud") return;
+      transport.setPlaying(st.playing);
+      transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
+      if (st.done) change({ pacing: "flow" });
+    },
+  });
 
   const transport = createTransport({
     onExit: () => change({ pacing: "flow" }),
@@ -81,6 +88,71 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   const controls = buildControls(profile, change);
   document.body.append(controls.toggle, controls.panel);
   onVoicesReady((voices) => controls.setVoices(voices));
+
+  /* ---- read-aloud engine (browser voice, or the user's ElevenLabs key) ---- */
+  function pushTTS(extra = {}) {
+    controls.setTTS({
+      provider: ttsConfig.provider,
+      hasKey: !!ttsConfig.apiKey,
+      voices: ttsConfig.voices || [],
+      voiceId: ttsConfig.voiceId || "",
+      ...extra,
+    });
+  }
+  pushTTS();
+  if (ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey) {
+    hasElevenPermission().then((ok) => {
+      if (!ok) return;
+      fetchVoices(ttsConfig.apiKey)
+        .then(async (voices) => {
+          ttsConfig = await saveTTSConfig({ voices });
+          pushTTS();
+        })
+        .catch((e) => pushTTS({ error: e.message }));
+    });
+  }
+
+  async function handleTTSPatch(t) {
+    if (t.forget) {
+      await forgetTTSKey();
+      ttsConfig = await loadTTSConfig();
+      pushTTS({ status: "" });
+      tts.reload();
+      return;
+    }
+    if (t.provider && t.provider !== ttsConfig.provider) {
+      ttsConfig = await saveTTSConfig({ provider: t.provider });
+      pushTTS();
+      tts.reload();
+    }
+    if (typeof t.apiKey === "string" && t.apiKey) {
+      pushTTS({ status: "checking" });
+      const granted = await requestElevenPermission();
+      if (!granted) {
+        pushTTS({ error: "ReadTune needs permission to reach api.elevenlabs.io." });
+        return;
+      }
+      try {
+        const voices = await fetchVoices(t.apiKey);
+        ttsConfig = await saveTTSConfig({
+          provider: "elevenlabs",
+          apiKey: t.apiKey,
+          voices,
+          voiceId: ttsConfig.voiceId || (voices[0] && voices[0].id) || "",
+          voiceName: ttsConfig.voiceName || (voices[0] && voices[0].name) || "",
+        });
+        pushTTS({ status: "ok" });
+        tts.reload();
+      } catch (e) {
+        pushTTS({ error: e.message || "Couldn't verify that key." });
+      }
+    }
+    if (t.voiceId) {
+      ttsConfig = await saveTTSConfig({ voiceId: t.voiceId, voiceName: t.voiceName || "" });
+      pushTTS();
+      tts.reload();
+    }
+  }
 
   view.on((ev) => {
     if (ev.type === "progress") transport.setProgress(ev.value, ev.label);
@@ -146,6 +218,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       writeProfile({ ...DEFAULT_PROFILE }).then((next) => applyAll(next || { ...DEFAULT_PROFILE }));
       return;
     }
+    if (patch.__tts) {
+      handleTTSPatch(patch.__tts);
+      return;
+    }
     const prevPacing = profile.pacing;
     profile = { ...profile, ...patch };
     applyTypography(surface, profile);
@@ -194,10 +270,33 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   return {
     getProfile: () => profile,
     destroy() {
+      toast.destroy();
       aids.destroy();
       transport.destroy();
       if (tts) tts.destroy();
       view.destroy();
     },
   };
+}
+
+/** Small transient status line (read-aloud fell back, key rejected, …). */
+function makeToast() {
+  const el = document.createElement("div");
+  el.className = "rt-toast";
+  el.setAttribute("role", "status");
+  el.hidden = true;
+  document.body.appendChild(el);
+  let timer = 0;
+  const fn = (msg) => {
+    if (!msg) return;
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => (el.hidden = true), 5200);
+  };
+  fn.destroy = () => {
+    clearTimeout(timer);
+    el.remove();
+  };
+  return fn;
 }

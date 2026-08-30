@@ -1,0 +1,65 @@
+/* ReadTune in-page control bar — lives in a shadow root, isolated from page CSS */
+
+:host {
+  all: initial;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  background: #ffffff;
+  border: 1px solid #e4e1d8;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(20, 20, 15, 0.12), 0 12px 32px rgba(20, 20, 15, 0.14);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bar button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #23231f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+.bar button:hover {
+  background: #eef3f0;
+}
+.bar button.on {
+  background: #1f7a5c;
+  color: #fff;
+}
+.bar button i {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.75;
+}
+.bar button.on i {
+  opacity: 0.9;
+}
+.bar .dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  display: inline-block;
+}
+
+@media (max-width: 560px) {
+  .bar button i {
+    display: none;
+  }
+}

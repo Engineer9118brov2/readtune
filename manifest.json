@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ReadTune",
-  "version": "0.2.0",
-  "description": "Finds your ideal reading settings with a short calibration test, then applies them to any article or PDF. Free, private, no login.",
+  "version": "0.3.0",
+  "description": "Finds your ideal reading settings with a short calibration test, then applies them to any article, PDF, or web page. Free, private, no login.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "ReadTune — calm, personalized reading",
@@ -22,11 +22,21 @@
     "type": "module"
   },
   "permissions": ["activeTab", "scripting", "storage"],
-  "optional_host_permissions": ["*://*/*"],
+  "optional_host_permissions": ["https://api.elevenlabs.io/*", "*://*/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/inpage-style.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "commands": {
     "open-reader": {
       "suggested_key": { "default": "Alt+R" },
       "description": "Open the current article in ReadTune Reader View"
+    },
+    "toggle-inpage": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "Restyle the current page in place with your ReadTune settings"
     }
   }
 }

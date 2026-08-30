@@ -10,8 +10,9 @@
 export const PROFILE_KEY = "readtune_profile";
 export const HISTORY_KEY = "readtune_calibrations";
 export const ARTICLE_KEY = "readtune_article";
-export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, marks }
+export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle }
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
+export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
 
 export const FONTS = {
   sans: { label: "Standard", stack: 'var(--rt-ui-font)' },
@@ -251,7 +252,7 @@ function normalizeUrl(url) {
   }
 }
 
-/* ---- per-site settings (auto-open) ---- */
+/* ---- per-site settings (auto-open Reader View / auto-restyle in place) ---- */
 
 export async function loadSites() {
   try {
@@ -263,16 +264,71 @@ export async function loadSites() {
   }
 }
 
-export async function setSiteAutoOpen(origin, on) {
+async function setSiteFlag(origin, flag, on) {
   try {
     const sites = await loadSites();
-    if (on) sites[origin] = { ...(sites[origin] || {}), autoOpen: true };
-    else if (sites[origin]) delete sites[origin].autoOpen;
+    if (on) sites[origin] = { ...(sites[origin] || {}), [flag]: true };
+    else if (sites[origin]) {
+      delete sites[origin][flag];
+      if (!Object.keys(sites[origin]).length) delete sites[origin];
+    }
     await chrome.storage.local.set({ [SITES_KEY]: sites });
     return sites;
   } catch (err) {
-    console.warn("[ReadTune] setSiteAutoOpen failed:", err);
+    console.warn(`[ReadTune] setSiteFlag(${flag}) failed:`, err);
     return null;
+  }
+}
+
+export const setSiteAutoOpen = (origin, on) => setSiteFlag(origin, "autoOpen", on);
+export const setSiteAutoStyle = (origin, on) => setSiteFlag(origin, "autoStyle", on);
+
+/* ---- read-aloud engine config (browser voice, or the user's ElevenLabs key) ---- */
+
+export const DEFAULT_TTS = {
+  provider: "browser", // "browser" | "elevenlabs"
+  apiKey: "", // the user's own ElevenLabs key — stored here only, never in a file or the profile
+  voiceId: "", // ElevenLabs voice id
+  voiceName: "",
+  model: "eleven_flash_v2_5",
+  voices: [], // cached [{id,name}] for the picker
+};
+
+export async function loadTTSConfig() {
+  try {
+    const got = await chrome.storage.local.get(TTS_KEY);
+    return { ...DEFAULT_TTS, ...(got && got[TTS_KEY] ? got[TTS_KEY] : {}) };
+  } catch (err) {
+    console.warn("[ReadTune] loadTTSConfig failed:", err);
+    return { ...DEFAULT_TTS };
+  }
+}
+
+export async function saveTTSConfig(patch) {
+  try {
+    const cur = await loadTTSConfig();
+    const next = { ...cur, ...patch };
+    if (next.provider !== "elevenlabs" && !patch.apiKey && patch.provider) {
+      // switching away from ElevenLabs keeps the key so the user doesn't have to re-paste
+    }
+    await chrome.storage.local.set({ [TTS_KEY]: next });
+    return next;
+  } catch (err) {
+    console.warn("[ReadTune] saveTTSConfig failed:", err);
+    return null;
+  }
+}
+
+export async function forgetTTSKey() {
+  try {
+    const cur = await loadTTSConfig();
+    await chrome.storage.local.set({
+      [TTS_KEY]: { ...cur, provider: "browser", apiKey: "", voices: [] },
+    });
+    return true;
+  } catch (err) {
+    console.warn("[ReadTune] forgetTTSKey failed:", err);
+    return false;
   }
 }
 
