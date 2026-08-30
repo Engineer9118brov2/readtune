@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune — PDF</title>
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="shared/controls.css" />
+    <link rel="stylesheet" href="pdf.css" />
+    <!-- pdf.js, bundled locally (Manifest V3 disallows remote code) -->
+    <script src="lib/pdf.min.js"></script>
+  </head>
+  <body class="rt-ui rt-reading-page">
+    <div id="drop" class="pdf-drop">
+      <div class="pdf-card" id="drop-card">
+        <h1>Open a PDF</h1>
+        <p>
+          Worksheets, handouts, readings — ReadTune reformats the text with your
+          calibrated settings. The file stays on your computer.
+        </p>
+        <button class="rt-btn rt-primary" id="pick" type="button">Choose a PDF file</button>
+        <input type="file" id="file" accept="application/pdf,.pdf" />
+        <div class="pdf-progress" id="progress"></div>
+        <div class="pdf-error" id="error"></div>
+      </div>
+    </div>
+
+    <main id="surface" class="rt-surface" hidden>
+      <div id="view"></div>
+    </main>
+    <div id="message" hidden></div>
+
+    <script type="module" src="pdfview.js"></script>
+  </body>
+</html>

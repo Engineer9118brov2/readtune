@@ -1,0 +1,23 @@
+# Secrets — never commit a real API key into a public repo.
+config.js
+config.local.js
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Node (tooling only — not shipped in the extension)
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Build output
+readtune-*.zip
+*.crx
+*.pem
+dist/

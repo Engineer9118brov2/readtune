@@ -1,0 +1,136 @@
+.rt-ui {
+  width: 328px;
+}
+
+.pop {
+  padding: 16px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.pop-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.pop-mark {
+  width: 38px;
+  height: 38px;
+  flex: none;
+}
+.pop-head h1 {
+  font-size: 1.06rem;
+  line-height: 1.1;
+}
+.pop-tag {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--rt-ui-ink-soft);
+}
+
+.pop-status {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: #fdf3e7;
+  border: 1px solid #f0d8b8;
+  color: #6b4413;
+}
+.pop-status[data-kind="info"] {
+  background: var(--rt-ui-accent-soft);
+  border-color: #c4e0d4;
+  color: var(--rt-ui-accent-ink);
+}
+
+.pop-onboard {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--rt-ui-ink);
+  background: var(--rt-ui-accent-soft);
+  border: 1px solid #c9e3d8;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.pop-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pop-profile {
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: var(--rt-ui-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.pop-profile p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.pop-auto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.pop-auto > span:first-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.pop-auto-sub {
+  color: var(--rt-ui-ink-soft);
+  font-size: 0.78rem;
+}
+.pop-auto input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pop-auto .rt-switch {
+  width: 40px;
+  height: 23px;
+  border-radius: 999px;
+  background: var(--rt-ui-line);
+  position: relative;
+  flex: none;
+  transition: background 0.14s ease;
+}
+.pop-auto .rt-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.14s ease;
+}
+.pop-auto input:checked + .rt-switch {
+  background: var(--rt-ui-accent);
+}
+.pop-auto input:checked + .rt-switch::after {
+  transform: translateX(17px);
+}
+
+.pop-foot {
+  text-align: center;
+  font-size: 0.74rem;
+  color: var(--rt-ui-ink-soft);
+  padding-top: 2px;
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune</title>
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="rt-ui">
+    <div class="pop">
+      <header class="pop-head">
+        <svg class="pop-mark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2" y="2" width="44" height="44" rx="12" fill="#1f7a5c" />
+          <rect x="11" y="14" width="18" height="4.2" rx="2.1" fill="#fbf6e9" />
+          <rect x="11" y="22" width="26" height="4.2" rx="2.1" fill="#bfe3d3" />
+          <rect x="11" y="30" width="21" height="4.2" rx="2.1" fill="#bfe3d3" />
+          <circle cx="35.5" cy="16.1" r="3.4" fill="#fbf6e9" />
+        </svg>
+        <div>
+          <h1>ReadTune</h1>
+          <p class="pop-tag">Calm, personalized reading</p>
+        </div>
+      </header>
+
+      <div id="status" class="pop-status" hidden></div>
+
+      <div class="pop-onboard" id="onboard" hidden>
+        <strong>Start here.</strong> A 2-minute test finds the font, spacing and
+        bolding that work best for you, then applies them everywhere.
+      </div>
+
+      <div class="pop-actions">
+        <button class="rt-btn rt-primary" id="btn-calibrate" type="button">
+          <span class="rt-btn-title" id="calibrate-title">Find my reading settings</span>
+          <span class="rt-btn-sub" id="calibrate-sub">A 5-passage test — about 2 minutes</span>
+        </button>
+        <button class="rt-btn" id="btn-reader" type="button">
+          <span class="rt-btn-title">Open Reader View</span>
+          <span class="rt-btn-sub">Reformat the article in this tab · Alt+R</span>
+        </button>
+        <button class="rt-btn" id="btn-pdf" type="button">
+          <span class="rt-btn-title">Open a PDF</span>
+          <span class="rt-btn-sub">Worksheets &amp; handouts, same reading view</span>
+        </button>
+      </div>
+
+      <div class="pop-profile" id="profile-box" hidden>
+        <span class="rt-chip">Your profile</span>
+        <p id="profile-desc"></p>
+        <button class="rt-link" id="btn-retake" type="button">Retake the test</button>
+      </div>
+
+      <label class="pop-auto" id="auto-row" hidden>
+        <span>
+          <strong>Auto-open on <span id="auto-host">this site</span></strong>
+          <span class="pop-auto-sub">Skip the click — every article opens in ReadTune</span>
+        </span>
+        <input type="checkbox" id="auto-toggle" />
+        <span class="rt-switch" aria-hidden="true"></span>
+      </label>
+
+      <footer class="pop-foot">Free · no login · nothing leaves your device</footer>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

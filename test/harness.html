@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReadTune test harness</title>
+    <link rel="stylesheet" href="../shared/theme.css" />
+    <link rel="stylesheet" href="../shared/controls.css" />
+    <script src="../lib/readability.js"></script>
+    <script src="../lib/pdf.min.js"></script>
+    <style>
+      body { padding: 20px; }
+      #results { font-family: ui-monospace, monospace; font-size: 13px; list-style: none; padding: 0; line-height: 1.7; }
+      #reading { border: 1px solid #ccc; margin-top: 16px; min-height: 120px; }
+      h2 { margin: 24px 0 8px; }
+    </style>
+  </head>
+  <body class="rt-ui rt-reading-page">
+    <h1>ReadTune test harness</h1>
+    <ul id="results"></ul>
+    <div id="panel-slot"></div>
+    <h2>Live render</h2>
+    <div id="reading" class="rt-surface"></div>
+    <script type="module" src="harness.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReadTune — Reader View sandbox</title>
+    <link rel="stylesheet" href="../shared/theme.css" />
+    <link rel="stylesheet" href="../shared/controls.css" />
+    <script>
+      // Stub chrome.* BEFORE the module loads, and pre-stash an article.
+      (function () {
+        const mem = { local: {}, session: {} };
+        try {
+          const saved = JSON.parse(localStorage.getItem("rt-sandbox-profile") || "null");
+          if (saved) mem.local.readtune_profile = saved;
+        } catch (e) {}
+        window.chrome = {
+          runtime: { getURL: (p) => new URL("../" + p.replace(/^\.?\//, ""), location.href).href, id: "sandbox" },
+          permissions: { contains: async () => false, request: async () => false, remove: async () => true },
+          storage: {
+            local: {
+              async get(k) { return k == null ? { ...mem.local } : { [k]: mem.local[k] }; },
+              async set(o) {
+                Object.assign(mem.local, o);
+                try { if (o.readtune_profile) localStorage.setItem("rt-sandbox-profile", JSON.stringify(o.readtune_profile)); } catch (e) {}
+              },
+              async remove(k) { (Array.isArray(k) ? k : [k]).forEach((x) => delete mem.local[x]); },
+            },
+            session: {
+              async get(k) { return k == null ? { ...mem.session } : { [k]: mem.session[k] }; },
+              async set(o) { Object.assign(mem.session, o); },
+              async remove(k) { delete mem.session[k]; },
+            },
+          },
+        };
+        mem.session.readtune_article = {
+          ok: true,
+          url: "https://shoreline.test/tide-pools",
+          title: "How tide pools reset twice a day",
+          html:
+            '<!doctype html><html><head><title>How tide pools reset twice a day — Shoreline Notes</title>' +
+            '<meta property="og:site_name" content="Shoreline Notes"></head><body><article>' +
+            '<h1>How tide pools reset twice a day</h1><p class="byline">By J. Marsh</p>' +
+            "<p>Twice a day the sea climbs the rocks and then falls back, and every pool left behind becomes a small, sealed world for a few hours. The animals in it — anemones, crabs, tiny fish — have to tolerate water that heats up, loses oxygen, and grows saltier as it evaporates under the sun.</p>" +
+            "<p>When the tide returns it floods the pool with cool, fresh seawater in a matter of minutes. Larvae and plankton wash in, waste washes out, and the temperature drops back to something the residents can bear. Then the whole cycle starts again from the beginning.</p>" +
+            "<h2>Why the timing shifts</h2>" +
+            "<p>High tide arrives about fifty minutes later each day, tracking the moon rather than the sun. Over roughly two weeks the strongest tides give way to the mildest and slowly back again.</p>" +
+            "<ul><li>Spring tides bring the highest highs and the lowest lows.</li><li>Neap tides are a gentler swing, about a week later.</li></ul>" +
+            "<p>Marine biologists use the predictable exposure to run long experiments without any equipment in the water at all.</p>" +
+            "</article></body></html>",
+        };
+      })();
+    </script>
+    <script src="../lib/readability.js"></script>
+  </head>
+  <body class="rt-ui rt-reading-page">
+    <main id="surface" class="rt-surface"><div id="view"></div></main>
+    <div id="message" hidden></div>
+    <script type="module" src="../reader.js"></script>
+  </body>
+</html>

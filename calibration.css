@@ -1,0 +1,215 @@
+.cal-wrap {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: clamp(24px, 6vh, 64px) 20px 80px;
+}
+
+.cal-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 26px;
+}
+.cal-progress i {
+  width: 26px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--rt-ui-line);
+}
+.cal-progress i.on {
+  background: var(--rt-ui-accent);
+}
+.cal-progress i.done {
+  background: color-mix(in srgb, var(--rt-ui-accent) 55%, var(--rt-ui-line));
+}
+
+.cal-card {
+  background: var(--rt-ui-panel);
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 18px;
+  padding: 30px 28px;
+  box-shadow: var(--rt-ui-shadow);
+  text-align: center;
+}
+.cal-card h1 {
+  font-size: 1.4rem;
+  margin: 12px 0 10px;
+}
+.cal-card h2 {
+  font-size: 1.18rem;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.cal-card p {
+  color: var(--rt-ui-ink-soft);
+  line-height: 1.55;
+  margin: 0 auto 14px;
+  max-width: 46ch;
+}
+.cal-card .rt-btn {
+  width: auto;
+  display: inline-block;
+  margin-top: 6px;
+}
+.cal-fine {
+  font-size: 0.82rem;
+}
+.cal-headline {
+  font-weight: 650;
+  color: var(--rt-ui-ink) !important;
+  background: var(--rt-ui-accent-soft);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: inline-block;
+}
+
+.cal-passage-head {
+  text-align: center;
+  font-size: 0.86rem;
+  color: var(--rt-ui-ink-soft);
+  margin-bottom: 14px;
+}
+.cal-passage-head span {
+  font-weight: 700;
+  color: var(--rt-ui-ink);
+}
+
+.cal-surface {
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 16px;
+  box-shadow: var(--rt-ui-shadow);
+  overflow: hidden;
+}
+.cal-surface .rt-column {
+  padding: clamp(24px, 5vw, 40px);
+}
+
+.cal-actions {
+  text-align: center;
+  margin-top: 20px;
+}
+.cal-actions .rt-btn {
+  width: auto;
+  display: inline-block;
+}
+.cal-hint {
+  color: var(--rt-ui-warn);
+  font-size: 0.86rem;
+  margin: 12px 0 0;
+}
+
+.cal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cal-option {
+  appearance: none;
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 0.98rem;
+  color: var(--rt-ui-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.1s ease, background 0.1s ease;
+}
+.cal-option:hover {
+  border-color: var(--rt-ui-accent);
+  background: var(--rt-ui-accent-soft);
+}
+
+.cal-scale {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.cal-scale button {
+  appearance: none;
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-bg);
+  border-radius: 12px;
+  padding: 16px 4px 10px;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--rt-ui-ink);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cal-scale button small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--rt-ui-ink-soft);
+}
+.cal-scale button:hover {
+  border-color: var(--rt-ui-accent);
+  background: var(--rt-ui-accent-soft);
+}
+
+.cal-preview {
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 14px;
+  margin: 16px 0;
+  text-align: left;
+  overflow: hidden;
+}
+.cal-preview .rt-column {
+  padding: 20px 22px;
+}
+
+.cal-tablewrap {
+  overflow-x: auto;
+  margin: 4px 0 14px;
+}
+.cal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.cal-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--rt-ui-ink-soft);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--rt-ui-line);
+  white-space: nowrap;
+}
+.cal-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--rt-ui-line);
+  text-align: left;
+}
+.cal-table td:not(:first-child) {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cal-table tr.cal-winner td {
+  background: var(--rt-ui-accent-soft);
+  font-weight: 650;
+}
+
+.cal-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.cal-result-actions .rt-btn {
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .cal-scale button {
+    font-size: 1rem;
+    padding: 12px 2px 8px;
+  }
+}

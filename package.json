@@ -1,0 +1,12 @@
+{
+  "name": "readtune",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A Chrome extension that measures which reading settings work for you, then applies them everywhere.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,3 @@
+pdf.js (pdfjs-dist 3.11.174) — Copyright Mozilla Foundation — Apache License 2.0
+https://github.com/mozilla/pdf.js/blob/master/LICENSE
+Full license text is also included at the top of pdf.min.js and pdf.worker.min.js.

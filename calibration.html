@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune — Find my settings</title>
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="calibration.css" />
+  </head>
+  <body class="rt-ui rt-reading-page">
+    <div class="cal-wrap">
+      <div class="cal-progress" id="progress" hidden></div>
+
+      <section class="cal-card" id="screen-intro">
+        <span class="rt-chip">Calibration</span>
+        <h1>Find your reading settings</h1>
+        <p>
+          You'll read five short passages, each shown a different way — the font,
+          the spacing and the bolding all change. After each one you'll answer a
+          quick question and rate how it felt.
+        </p>
+        <p>About two minutes. You can retake it any time.</p>
+        <p class="cal-fine">Nothing is uploaded. Results are saved only in this browser.</p>
+        <button class="rt-btn rt-primary" id="start" type="button">Start</button>
+      </section>
+
+      <section id="screen-passage" hidden>
+        <div class="cal-passage-head">
+          Passage <span id="p-num">1</span> of <span id="p-total">5</span> — read it at your normal pace
+        </div>
+        <main class="rt-surface cal-surface" id="passage-surface"><div id="passage-view"></div></main>
+        <div class="cal-actions">
+          <button class="rt-btn rt-primary" id="done" type="button">I've finished reading</button>
+          <p class="cal-hint" id="passage-hint" hidden>
+            Take your time and read the whole passage. Tap again to continue.
+          </p>
+        </div>
+      </section>
+
+      <section class="cal-card" id="screen-quiz" hidden>
+        <h2 id="quiz-q">Question</h2>
+        <div class="cal-options" id="quiz-options"></div>
+      </section>
+
+      <section class="cal-card" id="screen-ease" hidden>
+        <h2>How easy was that to read?</h2>
+        <div class="cal-scale" id="scale">
+          <button type="button" data-v="1">1<small>Hard</small></button>
+          <button type="button" data-v="2">2<small></small></button>
+          <button type="button" data-v="3">3<small>OK</small></button>
+          <button type="button" data-v="4">4<small></small></button>
+          <button type="button" data-v="5">5<small>Easy</small></button>
+        </div>
+      </section>
+
+      <section class="cal-card" id="screen-results" hidden>
+        <span class="rt-chip">Your reading profile</span>
+        <h1 id="result-title">Here's what worked best for you</h1>
+        <p id="result-desc"></p>
+        <p id="result-headline" class="cal-headline" hidden></p>
+        <div class="rt-surface cal-preview" id="preview-surface"><div id="preview-view"></div></div>
+        <div class="cal-tablewrap">
+          <table class="cal-table" id="result-table">
+            <thead>
+              <tr><th>Style</th><th>Words/min</th><th>Got it right</th><th>Felt easy</th></tr>
+            </thead>
+            <tbody id="result-rows"></tbody>
+          </table>
+        </div>
+        <p id="result-compare" class="cal-fine" hidden></p>
+        <p class="cal-fine">These settings now apply in Reader View and PDF mode automatically.</p>
+        <div class="cal-result-actions">
+          <button class="rt-btn rt-primary" id="try-pdf" type="button">Try it on a PDF</button>
+          <button class="rt-btn" id="retake" type="button">Retake the test</button>
+          <button class="rt-btn" id="finish" type="button">Done</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="calibration.js"></script>
+  </body>
+</html>

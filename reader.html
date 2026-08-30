@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune — Reader View</title>
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="shared/controls.css" />
+    <!-- Mozilla Readability, bundled locally (Manifest V3 disallows remote code) -->
+    <script src="lib/readability.js"></script>
+  </head>
+  <body class="rt-ui rt-reading-page">
+    <main id="surface" class="rt-surface">
+      <div id="view"></div>
+    </main>
+    <div id="message" hidden></div>
+    <script type="module" src="reader.js"></script>
+  </body>
+</html>

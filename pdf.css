@@ -1,0 +1,51 @@
+.pdf-drop {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.pdf-card {
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  background: var(--rt-ui-panel);
+  border: 1px dashed var(--rt-ui-line);
+  border-radius: 16px;
+  padding: 36px 30px;
+  box-shadow: var(--rt-ui-shadow);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.pdf-card.drag {
+  border-color: var(--rt-ui-accent);
+  border-style: solid;
+  background: var(--rt-ui-accent-soft);
+}
+.pdf-card h1 {
+  font-size: 1.2rem;
+  margin: 0 0 6px;
+}
+.pdf-card p {
+  color: var(--rt-ui-ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+.pdf-card .rt-btn {
+  width: auto;
+  display: inline-block;
+}
+.pdf-progress {
+  margin-top: 16px;
+  font-size: 0.88rem;
+  color: var(--rt-ui-ink-soft);
+  min-height: 1.2em;
+}
+.pdf-error {
+  margin-top: 12px;
+  font-size: 0.88rem;
+  color: var(--rt-ui-warn);
+}
+input[type="file"] {
+  display: none;
+}
