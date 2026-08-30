@@ -288,6 +288,31 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.85rem;
 }
 
+/* read-aloud: voice picker + preview */
+.rt-voice-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.rt-voice-row .rt-select {
+  flex: 1;
+  min-width: 0;
+}
+.rt-preview {
+  flex: none;
+  width: 40px;
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-panel);
+  color: var(--rt-ui-accent);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.rt-preview:hover {
+  border-color: var(--rt-ui-accent);
+  background: var(--rt-ui-accent-soft);
+}
+
 /* read-aloud: API key + status */
 .rt-key-row {
   display: flex;

@@ -22,7 +22,7 @@ import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
-import { fetchVoices, requestElevenPermission, hasElevenPermission } from "./elevenlabs.js";
+import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
@@ -112,7 +112,51 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     });
   }
 
+  let previewAudio = null;
+  async function previewVoice() {
+    const line = "Hi — this is the voice ReadTune will use to read to you.";
+    if (previewAudio) {
+      previewAudio.pause();
+      previewAudio = null;
+    }
+    try {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+    } catch {}
+    if (ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey && ttsConfig.voiceId) {
+      try {
+        const { audio } = await synthesize({
+          apiKey: ttsConfig.apiKey,
+          voiceId: ttsConfig.voiceId,
+          model: ttsConfig.model,
+          text: line,
+        });
+        previewAudio = new Audio(URL.createObjectURL(audio));
+        previewAudio.playbackRate = profile.ttsRate;
+        previewAudio.play().catch(() => {});
+      } catch (e) {
+        toast(e && e.message ? e.message : "Couldn't play a preview.");
+      }
+    } else if (window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(line);
+      u.rate = profile.ttsRate;
+      if (profile.ttsVoice) {
+        const v = window.speechSynthesis.getVoices().find((x) => x.name === profile.ttsVoice);
+        if (v) {
+          u.voice = v;
+          u.lang = v.lang;
+        }
+      }
+      window.speechSynthesis.speak(u);
+    } else {
+      toast("Read-aloud isn't available in this browser.");
+    }
+  }
+
   async function handleTTSPatch(t) {
+    if (t.preview) {
+      previewVoice();
+      return;
+    }
     if (t.forget) {
       await forgetTTSKey();
       ttsConfig = await loadTTSConfig();

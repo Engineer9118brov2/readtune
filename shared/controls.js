@@ -196,11 +196,20 @@ export function buildControls(profile, onChange) {
   reg.engineBtns = engineBtns;
   const engineRow = field("Read-aloud voice", engineSeg);
 
+  const previewBtn = (aria) => {
+    const b = el("button", { class: "rt-preview", type: "button", "aria-label": aria, title: aria }, "▶");
+    b.addEventListener("click", () => onChange({ __tts: { preview: true } }));
+    return b;
+  };
+
   const browserVoiceSel = el("select", { class: "rt-select", "aria-label": "Browser voice" });
   browserVoiceSel.append(el("option", { value: "" }, "Default voice"));
   browserVoiceSel.addEventListener("change", () => emit({ ttsVoice: browserVoiceSel.value }));
   reg.voice = browserVoiceSel;
-  const browserVoiceRow = field("Voice", browserVoiceSel);
+  const browserVoiceRow = el("div", { class: "rt-field" }, [
+    el("span", { class: "rt-field-label" }, "Voice"),
+    el("div", { class: "rt-voice-row" }, [browserVoiceSel, previewBtn("Preview this voice")]),
+  ]);
 
   const keyInput = el("input", {
     type: "password",
@@ -235,7 +244,10 @@ export function buildControls(profile, onChange) {
     onChange({ __tts: { voiceId: elVoiceSel.value, voiceName: opt ? opt.textContent : "" } });
   });
   reg.elVoice = elVoiceSel;
-  const elVoiceRow = field("Voice", elVoiceSel);
+  const elVoiceRow = el("div", { class: "rt-field" }, [
+    el("span", { class: "rt-field-label" }, "Voice"),
+    el("div", { class: "rt-voice-row" }, [elVoiceSel, previewBtn("Preview this voice")]),
+  ]);
 
   const forgetBtn = el("button", { class: "rt-link", type: "button" }, "Remove key");
   forgetBtn.addEventListener("click", () => onChange({ __tts: { forget: true } }));
