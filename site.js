@@ -1,3 +1,22 @@
+/* Dyslexia-friendly view — OpenDyslexic + roomier spacing across the whole site.
+   Persisted per browser; applied pre-paint by the inline <head> script. */
+const DYS_KEY = "readtune-dys-view";
+const dysToggle = document.querySelector("#dys-toggle");
+if (dysToggle) {
+  const setDys = (on) => {
+    document.documentElement.classList.toggle("dys-mode", on);
+    dysToggle.setAttribute("aria-pressed", on ? "true" : "false");
+  };
+  let dysOn = false;
+  try { dysOn = localStorage.getItem(DYS_KEY) === "1"; } catch (e) {}
+  setDys(dysOn);
+  dysToggle.addEventListener("click", () => {
+    dysOn = dysToggle.getAttribute("aria-pressed") !== "true";
+    setDys(dysOn);
+    try { localStorage.setItem(DYS_KEY, dysOn ? "1" : "0"); } catch (e) {}
+  });
+}
+
 const specimen = document.querySelector("#specimen-reading");
 
 document.querySelectorAll("[data-demo-font]").forEach((button) => {

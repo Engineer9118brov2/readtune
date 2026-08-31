@@ -9,6 +9,9 @@
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
     <link rel="apple-touch-icon" href="/icons/icon128.png" />
     <link rel="stylesheet" href="site.css" />
+    <script>
+      try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -18,6 +21,10 @@
         <span>ReadTune</span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
+        <button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false" aria-label="Use a dyslexia-friendly view of this site">
+          <span class="a11y-toggle-mark" aria-hidden="true">Aa</span>
+          <span class="a11y-toggle-text">Dyslexia-friendly</span>
+        </button>
         <a href="#how-it-works">How it works</a>
         <a href="#read-along">Read along</a>
         <a href="/privacy.html">Privacy</a>

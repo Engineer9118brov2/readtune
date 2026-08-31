@@ -8,6 +8,9 @@
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
     <link rel="apple-touch-icon" href="/icons/icon128.png" />
     <link rel="stylesheet" href="site.css" />
+    <script>
+      try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
+    </script>
     <style>
       .privacy-page { max-width: 760px; padding-block: 90px 120px; }
       .privacy-page h1 { margin-bottom: 25px; font-size: clamp(3rem, 7vw, 5.8rem); }
@@ -20,7 +23,7 @@
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header shell"><a class="brand" href="/"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></a><a class="nav-cta" href="/">Back to home</a></header>
+    <header class="site-header shell"><a class="brand" href="/"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></a><nav class="nav" aria-label="Primary navigation"><button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false" aria-label="Use a dyslexia-friendly view of this site"><span class="a11y-toggle-mark" aria-hidden="true">Aa</span><span class="a11y-toggle-text">Dyslexia-friendly</span></button><a class="nav-cta" href="/">Back to home</a></nav></header>
     <main id="main" class="privacy-page shell">
       <a class="privacy-back" href="/">← ReadTune home</a>
       <p class="eyebrow"><span class="eyebrow-dot"></span> Plain-language privacy</p>
@@ -43,5 +46,6 @@
       <p class="mono-label">Last updated: August 2026</p>
     </main>
     <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+    <script src="site.js"></script>
   </body>
 </html>

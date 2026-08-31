@@ -158,6 +158,56 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .site-footer p { margin: 0; text-align: center; }
 .footer-links { display: flex; justify-content: flex-end; gap: 17px; font-family: var(--mono); font-size: .61rem; text-transform: uppercase; letter-spacing: .06em; }
 
+/* ---- Dyslexia-friendly view ---------------------------------------------- */
+.a11y-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 13px; border: 1px solid var(--ink); border-radius: 99px;
+  background: transparent; color: var(--ink); cursor: pointer;
+  font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.a11y-toggle:hover { background: var(--ink); color: var(--paper); }
+.a11y-toggle:focus-visible { outline: 3px solid var(--mint-deep); outline-offset: 2px; }
+.a11y-toggle[aria-pressed="true"] { background: var(--mint-deep); border-color: var(--mint-deep); color: var(--ink); }
+.a11y-toggle-mark { font-family: "OpenDyslexic", var(--body); font-size: 0.85rem; letter-spacing: 0; }
+
+html.dys-mode {
+  --body: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
+  --display: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
+}
+html.dys-mode body { font-size: 18.5px; line-height: 1.8; }
+html.dys-mode p, html.dys-mode li { line-height: 1.8; word-spacing: 0.02em; }
+html.dys-mode h1, html.dys-mode h2, html.dys-mode h3 { letter-spacing: -0.01em; line-height: 1.18; word-spacing: normal; }
+html.dys-mode h1 { font-size: clamp(2.2rem, 5vw, 3.7rem); }
+html.dys-mode .manifesto h2 { font-size: clamp(2rem, 4.6vw, 3.4rem); }
+html.dys-mode .read-along h2 { font-size: clamp(2.1rem, 4.8vw, 3.5rem); }
+html.dys-mode .closing h2 { font-size: clamp(2.3rem, 5vw, 3.6rem); }
+html.dys-mode .hero-lede { line-height: 1.6; }
+html.dys-mode .audio-text { font-size: clamp(1.35rem, 2.4vw, 1.85rem); line-height: 1.35; letter-spacing: 0; }
+html.dys-mode .eyebrow,
+html.dys-mode .mono-label,
+html.dys-mode .card-label,
+html.dys-mode .section-label,
+html.dys-mode .hero-proof,
+html.dys-mode .text-link,
+html.dys-mode .footer-links,
+html.dys-mode .status,
+html.dys-mode .specimen-note,
+html.dys-mode .audio-time,
+html.dys-mode .audio-speed,
+html.dys-mode .privacy-back,
+html.dys-mode .privacy-page .mono-label { text-transform: none; letter-spacing: 0.01em; font-family: var(--body); }
+html.dys-mode .button,
+html.dys-mode .brand,
+html.dys-mode .nav-cta,
+html.dys-mode .feature-icon,
+html.dys-mode .profile-score,
+html.dys-mode .specimen-meta h2 { letter-spacing: 0; }
+html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.skip-link) {
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 65px; }
   .hero-copy { max-width: 700px; }
@@ -169,8 +219,10 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 @media (max-width: 650px) {
   .shell { width: min(100% - 36px, 1180px); }
   .site-header { min-height: 76px; }
-  .nav { gap: 14px; }
+  .nav { gap: 12px; }
   .nav a:not(.nav-cta) { display: none; }
+  .a11y-toggle-text { display: none; }
+  .a11y-toggle { padding: 7px 10px; }
   .nav-cta { padding: 7px 10px; font-size: .76rem; }
   h1 { font-size: clamp(3.25rem, 16vw, 5rem); }
   .hero { padding-block: 65px 90px; }
