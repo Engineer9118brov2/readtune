@@ -231,7 +231,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   }
 
   let previewAudio = null;
-  async function previewVoice() {
+  async function previewVoice(browserVoice = "") {
     const line = "Hi — this is the voice ReadTune will use to read to you.";
     if (previewAudio) {
       previewAudio.pause();
@@ -257,8 +257,9 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     } else if (window.speechSynthesis) {
       const u = new SpeechSynthesisUtterance(line);
       u.rate = profile.ttsRate;
-      if (profile.ttsVoice) {
-        const v = window.speechSynthesis.getVoices().find((x) => x.name === profile.ttsVoice);
+      const activeVoice = browserVoice || profile.ttsVoice;
+      if (activeVoice) {
+        const v = window.speechSynthesis.getVoices().find((x) => x.name === activeVoice);
         if (v) {
           u.voice = v;
           u.lang = v.lang;
@@ -272,7 +273,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   async function handleTTSPatch(t) {
     if (t.preview) {
-      previewVoice();
+      previewVoice(typeof t.browserVoice === "string" ? t.browserVoice : "");
       return;
     }
     if (t.forget) {

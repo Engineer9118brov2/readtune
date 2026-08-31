@@ -15,13 +15,60 @@
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 
+const NATURAL_VOICE_RE = /\b(enhanced|natural|neural|premium|studio)\b/i;
+const PLATFORM_VOICE_RE = /\b(siri|apple|google|microsoft)\b/i;
+const BASIC_VOICE_RE = /\b(compact|classic|default|basic|simple)\b/i;
+
+const voiceName = (voice) => String((voice && (voice.name || voice.voiceURI)) || "").trim();
+const voiceLang = (voice) => String((voice && voice.lang) || "").toLowerCase();
+
+export function browserVoiceSource(voice) {
+  return voice && voice.localService === false ? "Online" : "On this device";
+}
+
+export function scoreBrowserVoice(voice) {
+  const name = voiceName(voice);
+  const lang = voiceLang(voice);
+  let score = 0;
+  if (voice && voice.localService !== false) score += 40;
+  if (voice && voice.default) score += 8;
+  if (NATURAL_VOICE_RE.test(name)) score += 18;
+  if (PLATFORM_VOICE_RE.test(name)) score += 10;
+  if (lang === "en-us" || lang === "en-gb") score += 6;
+  else if (lang.startsWith("en")) score += 3;
+  if (BASIC_VOICE_RE.test(name)) score -= 12;
+  return score;
+}
+
+export function rankBrowserVoices(voices) {
+  return [...(Array.isArray(voices) ? voices : [])].sort((a, b) => {
+    const diff = scoreBrowserVoice(b) - scoreBrowserVoice(a);
+    if (diff) return diff;
+    const aLocal = a && a.localService !== false ? 1 : 0;
+    const bLocal = b && b.localService !== false ? 1 : 0;
+    if (aLocal !== bLocal) return bLocal - aLocal;
+    return voiceName(a).localeCompare(voiceName(b));
+  });
+}
+
+export function recommendedBrowserVoices(voices, limit = 3) {
+  const ranked = rankBrowserVoices(voices);
+  const local = ranked.filter((voice) => voice && voice.localService !== false);
+  return (local.length ? local : ranked).slice(0, Math.max(0, limit));
+}
+
+export function formatBrowserVoiceLabel(voice) {
+  const name = voiceName(voice) || "Unnamed voice";
+  return `${name} (${browserVoiceSource(voice)})`;
+}
+
 export function isTTSAvailable() {
   return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 }
 
 export function listVoices() {
   if (!isTTSAvailable()) return [];
-  return window.speechSynthesis.getVoices().filter((v) => /^en(-|$)/i.test(v.lang));
+  return rankBrowserVoices(window.speechSynthesis.getVoices().filter((v) => /^en(-|$)/i.test(v.lang)));
 }
 
 export function onVoicesReady(cb) {

@@ -145,6 +145,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   aids.destroy();
 
   assert(typeof TTS.isTTSAvailable === "function" && typeof TTS.createTTS === "function", "tts exports");
+  const rankedVoices = TTS.rankBrowserVoices([
+    { name: "Cloud Natural", localService: false, lang: "en-US" },
+    { name: "Compact Voice", localService: true, lang: "en-US" },
+    { name: "Samantha Enhanced", localService: true, lang: "en-US" },
+  ]);
+  assert(rankedVoices[0].name === "Samantha Enhanced", "local enhanced voice ranks first");
+  assert(TTS.recommendedBrowserVoices(rankedVoices, 2)[0].name === "Samantha Enhanced", "recommended browser voice prefers local natural voices");
+  assert(TTS.formatBrowserVoiceLabel({ name: "Samantha", localService: true }) === "Samantha (On this device)", "browser voice label explains source");
   assert(RU.measuredLineHeight({ lineHeight: "normal", fontSize: "20px" }, 30) === 27, "normal line-height expands from font size");
   assert(RU.adaptiveRulerHeight({ lineHeightPx: 34, fontSizePx: 22, baseHeight: 40 }) > RU.adaptiveRulerHeight({ lineHeightPx: 20, fontSizePx: 14, baseHeight: 40 }), "ruler height tracks text metrics");
 
@@ -279,8 +287,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(patch && patch.__mode === "skim", "quick mode emits bundle patch");
   controls.sync({ ...S.DEFAULT_PROFILE, pacing: "sentence", focus: "off", hideImages: true, freezeMotion: true, columnWidth: 54 });
   assert(controls.panel.querySelector('.rt-mode[data-mode="skim"]').getAttribute("aria-pressed") === "true", "quick mode reflects matching profile");
-  controls.setVoices([{ name: "Test", localService: true }]);
-  assert(controls.panel.querySelector(".rt-select").options.length === 2, "setVoices");
+  controls.setVoices([
+    { name: "Compact Voice", localService: true, lang: "en-US" },
+    { name: "Samantha Enhanced", localService: true, lang: "en-US" },
+    { name: "Cloud Natural", localService: false, lang: "en-US" },
+  ]);
+  const browserSel = controls.panel.querySelector('select[aria-label="Browser voice"]');
+  assert(browserSel && browserSel.options.length === 4, "setVoices populates grouped browser voices");
+  assert(browserSel.querySelector('optgroup[label="Best free voices"]'), "browser voices surface recommended free voices first");
+  assert(browserSel.dataset.recommended === "Samantha Enhanced", "best free browser voice is exposed for preview");
+  assert(/strongest free voice/i.test(controls.panel.textContent), "browser voice guidance explains the recommendation");
 
   /* showcase */
   host.replaceChildren();

@@ -8,6 +8,7 @@
 
 import { RANGES, OVERLAYS, FONTS, PACING } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
+import { formatBrowserVoiceLabel, recommendedBrowserVoices } from "./tts.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
 const FOCUS_OPTS = [
@@ -223,20 +224,27 @@ export function buildControls(profile, onChange) {
     "Free voice uses your browser's built-in speech. No account, no API bill, nothing sent to our servers."
   );
 
-  const previewBtn = (aria) => {
+  const previewBtn = (aria, patchFactory = () => ({ preview: true })) => {
     const b = el("button", { class: "rt-preview", type: "button", "aria-label": aria, title: aria }, "▶");
-    b.addEventListener("click", () => onChange({ __tts: { preview: true } }));
+    b.addEventListener("click", () => onChange({ __tts: patchFactory() }));
     return b;
   };
 
   const browserVoiceSel = el("select", { class: "rt-select", "aria-label": "Browser voice" });
-  browserVoiceSel.append(el("option", { value: "" }, "Default voice"));
+  browserVoiceSel.append(el("option", { value: "" }, "Use browser default"));
   browserVoiceSel.addEventListener("change", () => emit({ ttsVoice: browserVoiceSel.value }));
   reg.voice = browserVoiceSel;
   const browserVoiceRow = el("div", { class: "rt-field" }, [
     el("span", { class: "rt-field-label" }, "Free voice"),
-    el("div", { class: "rt-voice-row" }, [browserVoiceSel, previewBtn("Preview this voice")]),
+    el("div", { class: "rt-voice-row" }, [
+      browserVoiceSel,
+      previewBtn("Preview this voice", () => ({
+        preview: true,
+        browserVoice: browserVoiceSel.value || browserVoiceSel.dataset.recommended || "",
+      })),
+    ]),
   ]);
+  const browserVoiceNote = el("p", { class: "rt-panel-hint rt-panel-hint-tight" });
 
   const keyInput = el("input", {
     type: "password",
@@ -296,9 +304,20 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, freeHint, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, freeHint, browserVoiceRow, browserVoiceNote, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
-    engineRow, freeHint, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow, statusLine, ttsState,
+    engineRow,
+    freeHint,
+    browserVoiceRow,
+    browserVoiceNote,
+    keyRow,
+    keyHint,
+    elVoiceRow,
+    manualVoiceRow,
+    connectedRow,
+    rateRow,
+    statusLine,
+    ttsState,
   });
 
   body.append(el("p", { class: "rt-panel-hint" }, "Everything saves automatically and applies across ReadTune."));
@@ -363,6 +382,7 @@ export function buildControls(profile, onChange) {
     reg.freeHint.hidden = !aloud || eleven;
     reg.rateRow.hidden = !aloud;
     reg.browserVoiceRow.hidden = !aloud || eleven;
+    reg.browserVoiceNote.hidden = !aloud || eleven;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
@@ -406,9 +426,36 @@ export function buildControls(profile, onChange) {
     setVoices(voices) {
       const sel = reg.voice;
       const cur = state.ttsVoice;
-      sel.replaceChildren(el("option", { value: "" }, "Default voice"));
-      for (const v of voices) sel.append(el("option", { value: v.name }, `${v.name}${v.localService ? "" : " (online)"}`));
+      const ranked = Array.isArray(voices) ? voices : [];
+      const recommended = recommendedBrowserVoices(ranked, 3);
+      const recommendedNames = new Set(recommended.map((voice) => voice.name));
+      const deviceVoices = ranked.filter((voice) => voice.localService !== false && !recommendedNames.has(voice.name));
+      const onlineVoices = ranked.filter((voice) => voice.localService === false && !recommendedNames.has(voice.name));
+      sel.replaceChildren(el("option", { value: "" }, "Use browser default"));
+      sel.dataset.recommended = recommended[0] ? recommended[0].name : "";
+
+      const appendGroup = (label, items) => {
+        if (!items.length) return;
+        const group = el("optgroup", { label });
+        for (const voice of items) group.append(el("option", { value: voice.name }, formatBrowserVoiceLabel(voice)));
+        sel.append(group);
+      };
+
+      appendGroup("Best free voices", recommended);
+      appendGroup("More on this device", deviceVoices);
+      appendGroup("Online voices", onlineVoices);
       sel.value = cur || "";
+      if (sel.value !== cur) sel.value = "";
+
+      if (!ranked.length) {
+        reg.browserVoiceNote.textContent = "This browser did not expose extra English voices here, so ReadTune will use your default voice.";
+        reg.browserVoiceNote.hidden = false;
+      } else if (recommended[0]) {
+        reg.browserVoiceNote.textContent =
+          recommended[0].localService === false
+            ? `${recommended[0].name} is the strongest free voice Chrome exposed here. It may use an online engine.`
+            : `${recommended[0].name} is the strongest free voice on this device right now. If you install richer system voices, ReadTune will surface them here automatically.`;
+      }
     },
     /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error, note }. */
     setTTS(next) {
