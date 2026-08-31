@@ -167,7 +167,7 @@ manifest.json         MV3. activeTab + scripting + storage; optional api.elevenl
 background.js          Service worker — Alt+R / Alt+Shift+R commands, per-site auto-open/restyle
 content.js             One-shot page capture for Reader View
 inpage.js / .css       "Restyle this page" — content script + shadow-DOM bar
-popup.*                Three entry points + profile summary + per-site automation toggles
+popup.*                Three entry points + profile summary + per-site automation mode chooser
 lab.*                  Reading Lab — confidence, stability, repeated wins
 reader.* / pdf.*       Thin — hand content to shared/screen.js
 calibration.*          The test UI; scoring is in shared/calibration-score.js

@@ -129,22 +129,32 @@
           <strong>Use ReadTune automatically on <span id="auto-host">this site</span></strong>
           <p>Pick one mode per site. Reader View suits article-heavy pages. Restyle suits denser sites and web apps.</p>
         </div>
-        <label class="pop-auto" id="auto-open-row">
-          <span>
-            <strong>Auto-open Reader View</strong>
-            <span class="pop-auto-sub">Every page from this site opens in the calmer Reader View</span>
-          </span>
-          <input type="checkbox" id="auto-open-toggle" />
-          <span class="rt-switch" aria-hidden="true"></span>
-        </label>
-        <label class="pop-auto" id="auto-style-row">
-          <span>
-            <strong>Auto-restyle this site</strong>
-            <span class="pop-auto-sub">Keep the page in place and apply your font, spacing, tint, and ruler automatically</span>
-          </span>
-          <input type="checkbox" id="auto-style-toggle" />
-          <span class="rt-switch" aria-hidden="true"></span>
-        </label>
+        <div class="pop-site-modes" role="radiogroup" aria-label="Automatic mode for this site">
+          <label class="pop-auto" id="auto-off-row">
+            <span>
+              <strong>Manual only</strong>
+              <span class="pop-auto-sub">Keep this site unchanged until you open Reader View or Restyle it yourself</span>
+            </span>
+            <input type="radio" id="site-mode-off" name="site-mode" value="off" />
+            <span class="pop-radio" aria-hidden="true"></span>
+          </label>
+          <label class="pop-auto" id="auto-open-row">
+            <span>
+              <strong>Auto-open Reader View</strong>
+              <span class="pop-auto-sub">Every page from this site opens in the calmer Reader View</span>
+            </span>
+            <input type="radio" id="site-mode-open" name="site-mode" value="open" />
+            <span class="pop-radio" aria-hidden="true"></span>
+          </label>
+          <label class="pop-auto" id="auto-style-row">
+            <span>
+              <strong>Auto-restyle this site</strong>
+              <span class="pop-auto-sub">Keep the page in place and apply your font, spacing, tint, and ruler automatically</span>
+            </span>
+            <input type="radio" id="site-mode-style" name="site-mode" value="style" />
+            <span class="pop-radio" aria-hidden="true"></span>
+          </label>
+        </div>
       </section>
 
       <footer class="pop-foot">Free · no login · nothing leaves your device</footer>

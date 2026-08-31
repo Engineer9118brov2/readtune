@@ -13,8 +13,8 @@ import {
   loadSetup,
   stashArticle,
   loadSites,
-  setSiteAutoOpen,
-  setSiteAutoStyle,
+  setSiteAutomation,
+  siteAutomationMode,
   extUrl,
 } from "./shared/settings.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
@@ -244,21 +244,14 @@ async function initSiteAutomationRows() {
     $("auto-host").textContent = host;
     $("site-box").hidden = false;
 
-    const sites = await loadSites();
-    const openToggle = $("auto-open-toggle");
-    const styleToggle = $("auto-style-toggle");
-
-    const setBusy = (busy) => {
-      openToggle.disabled = busy;
-      styleToggle.disabled = busy;
-    };
+    const modeInputs = [...document.querySelectorAll('input[name="site-mode"]')];
+    const setBusy = (busy) => modeInputs.forEach((input) => (input.disabled = busy));
 
     async function syncToggles() {
       const nextSites = await loadSites();
-      const site = nextSites[origin] || {};
-      openToggle.checked = !!site.autoOpen;
-      styleToggle.checked = !!site.autoStyle;
-      return site;
+      const mode = siteAutomationMode(nextSites[origin] || {});
+      for (const input of modeInputs) input.checked = input.value === mode;
+      return mode;
     }
 
     await syncToggles();
@@ -272,8 +265,8 @@ async function initSiteAutomationRows() {
     }
 
     async function releasePermissionIfUnused() {
-      const site = await syncToggles();
-      if (site && (site.autoOpen || site.autoStyle)) return;
+      const mode = await syncToggles();
+      if (mode !== "off") return;
       chrome.permissions.remove({ origins: [origin + "/*"] }).catch(() => {});
     }
 
@@ -282,35 +275,34 @@ async function initSiteAutomationRows() {
         await syncToggles();
         return;
       }
-      const openResult = await setSiteAutoOpen(origin, mode === "open");
-      const styleResult = await setSiteAutoStyle(origin, mode === "style");
-      const site = await syncToggles();
-      if (!openResult || !styleResult) {
+      const result = await setSiteAutomation(origin, mode);
+      const nextMode = await syncToggles();
+      if (!result) {
         setStatus("ReadTune couldn't save that site automation setting.", "warn");
         return;
       }
       setStatus(
-        site.autoOpen
+        nextMode === "open"
           ? `ReadTune will open Reader View automatically on ${host}.`
-          : site.autoStyle
+          : nextMode === "style"
             ? `ReadTune will restyle ${host} automatically in place.`
             : `Automatic ReadTune is off on ${host}.`,
         "info"
       );
     }
 
-    async function disableAuto(mode) {
-      const result = mode === "open" ? await setSiteAutoOpen(origin, false) : await setSiteAutoStyle(origin, false);
+    async function disableAuto() {
+      const result = await setSiteAutomation(origin, "off");
       if (!result) {
         await syncToggles();
         setStatus("ReadTune couldn't update that site automation setting.", "warn");
         return;
       }
-      const site = await syncToggles();
+      const mode = await syncToggles();
       await releasePermissionIfUnused();
       setStatus(
-        site.autoOpen || site.autoStyle
-          ? site.autoOpen
+        mode !== "off"
+          ? mode === "open"
             ? `Reader View auto-open stays on for ${host}.`
             : `Auto-restyle stays on for ${host}.`
           : `Automatic ReadTune is off on ${host}.`,
@@ -318,25 +310,18 @@ async function initSiteAutomationRows() {
       );
     }
 
-    openToggle.addEventListener("change", async (e) => {
-      setBusy(true);
-      try {
-        if (e.target.checked) await enableAuto("open");
-        else await disableAuto("open");
-      } finally {
-        setBusy(false);
-      }
-    });
-
-    styleToggle.addEventListener("change", async (e) => {
-      setBusy(true);
-      try {
-        if (e.target.checked) await enableAuto("style");
-        else await disableAuto("style");
-      } finally {
-        setBusy(false);
-      }
-    });
+    for (const input of modeInputs) {
+      input.addEventListener("change", async (e) => {
+        if (!e.target.checked) return;
+        setBusy(true);
+        try {
+          if (e.target.value === "off") await disableAuto();
+          else await enableAuto(e.target.value);
+        } finally {
+          setBusy(false);
+        }
+      });
+    }
   } catch (err) {
     console.warn("[ReadTune] site automation rows failed:", err);
   }

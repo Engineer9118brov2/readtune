@@ -76,7 +76,7 @@ manifest.json          Manifest V3 — activeTab, scripting, storage; optional h
 background.js           Service worker: Alt+R / Alt+Shift+R commands + per-site auto-open/restyle
 content.js              Injected on demand to capture the current page for Reader View
 inpage.js / inpage.css  "Restyle this page" — content script + its shadow-DOM control bar
-popup.*                 Entry points, profile summary, and per-site automation toggles
+popup.*                 Entry points, profile summary, and per-site automation mode chooser
 lab.*                   Reading Lab — confidence, stability, retake history
 reader.* / pdf.*        Reader View / PDF mode (thin — most logic is shared/)
 calibration.*           The calibration test + scoring

@@ -242,24 +242,38 @@ export async function loadSites() {
   }
 }
 
-async function setSiteFlag(origin, flag, on) {
+export function siteAutomationMode(site) {
+  if (site && site.autoOpen) return "open";
+  if (site && site.autoStyle) return "style";
+  return "off";
+}
+
+async function writeSite(origin, patch = {}) {
   try {
     const sites = await loadSites();
-    if (on) sites[origin] = { ...(sites[origin] || {}), [flag]: true };
-    else if (sites[origin]) {
-      delete sites[origin][flag];
-      if (!Object.keys(sites[origin]).length) delete sites[origin];
+    const current = sites[origin] || {};
+    const next = { ...current, ...patch };
+    for (const key of Object.keys(next)) {
+      if (!next[key]) delete next[key];
     }
+    if (Object.keys(next).length) sites[origin] = next;
+    else delete sites[origin];
     await chrome.storage.local.set({ [SITES_KEY]: sites });
     return sites;
   } catch (err) {
-    console.warn(`[ReadTune] setSiteFlag(${flag}) failed:`, err);
+    console.warn("[ReadTune] writeSite failed:", err);
     return null;
   }
 }
 
-export const setSiteAutoOpen = (origin, on) => setSiteFlag(origin, "autoOpen", on);
-export const setSiteAutoStyle = (origin, on) => setSiteFlag(origin, "autoStyle", on);
+export function setSiteAutomation(origin, mode) {
+  if (mode === "open") return writeSite(origin, { autoOpen: true, autoStyle: false });
+  if (mode === "style") return writeSite(origin, { autoOpen: false, autoStyle: true });
+  return writeSite(origin, { autoOpen: false, autoStyle: false });
+}
+
+export const setSiteAutoOpen = (origin, on) => writeSite(origin, { autoOpen: !!on });
+export const setSiteAutoStyle = (origin, on) => writeSite(origin, { autoStyle: !!on });
 
 /* ---- read-aloud engine config (browser voice, or the user's ElevenLabs key) ---- */
 
