@@ -31,9 +31,7 @@ button { font: inherit; }
 
 .site-header { display: flex; align-items: center; justify-content: space-between; min-height: 94px; border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: var(--display); font-size: 1.05rem; font-weight: 700; letter-spacing: -0.04em; }
-.brand-mark { position: relative; display: inline-block; width: 27px; height: 27px; border: 2px solid currentColor; border-radius: 50%; transform: rotate(-28deg); }
-.brand-mark::after { position: absolute; content: ""; right: -4px; top: 8px; width: 17px; height: 9px; background: var(--paper); border-top: 2px solid currentColor; transform: rotate(-24deg); }
-.brand-mark span { position: absolute; left: 4px; bottom: 2px; width: 10px; height: 2px; background: currentColor; transform: rotate(-20deg); }
+.brand-mark { display: block; width: 28px; height: 28px; border-radius: 8px; box-shadow: 0 8px 20px rgba(16, 32, 31, 0.16); }
 .nav { display: flex; align-items: center; gap: 29px; font-size: 0.9rem; }
 .nav a, .footer-links a { text-decoration: none; }
 .nav a:not(.nav-cta):hover, .footer-links a:hover { color: var(--mint-deep); }
@@ -151,9 +149,7 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .feature-grid p { margin-bottom: 0; color: var(--ink-soft); font-size: .95rem; line-height: 1.4; }
 
 .closing { display: grid; place-items: center; min-height: 535px; padding: 90px 24px; color: var(--paper); background: var(--coral); text-align: center; }
-.closing-mark { position: relative; width: 47px; height: 47px; margin-bottom: 29px; border: 3px solid var(--paper); border-radius: 50%; transform: rotate(-28deg); }
-.closing-mark::after { position: absolute; content: ""; right: -8px; top: 15px; width: 27px; height: 13px; background: var(--coral); border-top: 3px solid var(--paper); }
-.closing-mark span { position: absolute; left: 6px; bottom: 4px; width: 18px; height: 3px; background: var(--paper); }
+.closing-mark { display: block; width: 74px; height: 74px; margin-bottom: 29px; border-radius: 22px; box-shadow: 0 18px 38px rgba(16, 32, 31, 0.18); }
 .closing .eyebrow { margin-bottom: 20px; }
 .closing h2 { margin-bottom: 24px; font-size: clamp(3.5rem, 7vw, 6.9rem); }
 .closing h2 em { color: var(--paper); text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 9px; }
