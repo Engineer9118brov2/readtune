@@ -13,6 +13,7 @@ export const ARTICLE_KEY = "readtune_article";
 export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle }
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
+export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
 
 export const FONTS = {
   sans: { label: "Standard", stack: 'var(--rt-ui-font)' },
@@ -334,6 +335,52 @@ export async function forgetTTSKey() {
     console.warn("[ReadTune] forgetTTSKey failed:", err);
     return false;
   }
+}
+
+/* ---- guided setup progress ---- */
+
+export const DEFAULT_SETUP = {
+  calibratedAt: 0,
+  voiceFitAt: 0,
+};
+
+function normalizeSetup(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const clean = {};
+  for (const key of Object.keys(DEFAULT_SETUP)) {
+    const val = Number(src[key]);
+    clean[key] = Number.isFinite(val) && val > 0 ? Math.round(val) : 0;
+  }
+  return clean;
+}
+
+export async function loadSetup() {
+  try {
+    const got = await chrome.storage.local.get(SETUP_KEY);
+    return normalizeSetup(got && got[SETUP_KEY]);
+  } catch (err) {
+    console.warn("[ReadTune] loadSetup failed:", err);
+    return { ...DEFAULT_SETUP };
+  }
+}
+
+export async function saveSetup(patch) {
+  try {
+    const current = await loadSetup();
+    const next = normalizeSetup({ ...current, ...(patch || {}) });
+    await chrome.storage.local.set({ [SETUP_KEY]: next });
+    return next;
+  } catch (err) {
+    console.warn("[ReadTune] saveSetup failed:", err);
+    return null;
+  }
+}
+
+export async function markSetupStep(step) {
+  const at = Date.now();
+  if (step === "calibrated") return saveSetup({ calibratedAt: at });
+  if (step === "voiceFit") return saveSetup({ voiceFitAt: at });
+  return loadSetup();
 }
 
 /* ---- article hand-off ---- */

@@ -10,6 +10,7 @@ import {
   hasProfile,
   describeProfile,
   loadCalibrations,
+  loadSetup,
   stashArticle,
   loadSites,
   setSiteAutoOpen,
@@ -63,10 +64,57 @@ function renderMetrics(items) {
   }
 }
 
+function renderSetupList(items) {
+  const host = $("setup-list");
+  host.replaceChildren();
+  for (const item of items) {
+    const row = document.createElement("article");
+    row.className = "pop-check";
+    row.dataset.state = item.state;
+    const badge = document.createElement("b");
+    badge.textContent = item.state === "done" ? "✓" : item.state === "active" ? "2" : "3";
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+    const body = document.createElement("span");
+    body.textContent = item.body;
+    copy.append(title, body);
+    row.append(badge, copy);
+    host.appendChild(row);
+  }
+}
+
+function configureSetupBox(show) {
+  $("setup-box").hidden = !show;
+  if (!show) return;
+  $("setup-pill").textContent = "Step 2 of 3";
+  $("setup-title").textContent = "Fit your free voice";
+  $("setup-desc").textContent =
+    "Your reading profile is ready. One fast step is left: pick the calmest free voice on this device so Listen feels like yours too.";
+  renderSetupList([
+    {
+      state: "done",
+      title: "Reading profile ready",
+      body: "The calibration found the settings ReadTune should carry into articles and PDFs.",
+    },
+    {
+      state: "active",
+      title: "Fit your free voice",
+      body: "Preview a few free voices and save the clearest one for read-aloud.",
+    },
+    {
+      state: "next",
+      title: "Try it on a real page",
+      body: "Open Reader View or a PDF and use Listen while following along.",
+    },
+  ]);
+}
+
 function configureFirstRun() {
   $("tagline").textContent = "Measure what actually helps you read, then use it everywhere.";
   $("onboard").hidden = false;
   $("profile-box").hidden = true;
+  $("setup-box").hidden = true;
   $("btn-lab").hidden = true;
   $("btn-calibrate").classList.add("rt-primary");
   $("btn-reader").classList.remove("rt-primary");
@@ -172,6 +220,7 @@ $("btn-pdf").addEventListener("click", () => openPage("pdf.html"));
 $("btn-calibrate").addEventListener("click", () => openPage("calibration.html"));
 $("btn-retake").addEventListener("click", () => openPage("calibration.html"));
 $("btn-lab").addEventListener("click", () => openPage("lab.html"));
+$("btn-setup-voice").addEventListener("click", () => openPage("lab.html?focus=voice&source=setup"));
 
 async function initAutoOpenRow() {
   try {
@@ -213,7 +262,9 @@ async function initAutoOpenRow() {
     if (has) {
       const profile = await loadProfile();
       const history = await loadCalibrations();
+      const setup = await loadSetup();
       configureReturningUser(profile, summarizeCalibrations(history, profile));
+      configureSetupBox(!setup.voiceFitAt);
     } else configureFirstRun();
   } catch (err) {
     console.warn("[ReadTune] popup init failed:", err);

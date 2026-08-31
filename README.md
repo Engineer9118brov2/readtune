@@ -17,10 +17,11 @@ ReadTune opens with a **~4-minute calibration test**: one warm-up plus six short
 | | |
 | --- | --- |
 | **Calibration test** | 1 warm-up + 6 passages, timed + comprehension-checked + rated, scored to pick your profile |
-| **Reading Lab** | Shows confidence, retake history, and which reading changes keep repeating |
+| **Reading Lab** | Shows confidence, retake history, Voice Fit, and which reading changes keep repeating |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
 | **Restyle this page** | Applies your font / spacing / tint / bionic / ruler to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
 | **PDF mode** | Extracts text from a PDF worksheet/handout (pdf.js) and renders it through the *same* engine |
+| **Guided setup** | Calibration now hands off into Voice Fit, so first-run users finish with both a reading profile and a free read-aloud voice |
 | **Settings panel** | Everything below, live and saved, consistent across articles and PDFs |
 
 ### Reading aids

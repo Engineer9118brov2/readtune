@@ -53,7 +53,9 @@ spacing.
 
 From then on, **Reader View**, **PDF mode**, and **"Restyle this page"** all use
 that profile automatically, and the Reading Lab explains how confident ReadTune
-is in the current result.
+is in the current result. The first-run flow now also hands off into **Voice
+Fit**, so the user finishes setup with both a tuned reading profile and a saved
+free voice for read-aloud.
 
 ## How it compares
 

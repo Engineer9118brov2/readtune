@@ -367,6 +367,85 @@
   margin-bottom: 8px;
 }
 
+.cal-setup-guide {
+  margin: 18px 0 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(201, 227, 216, 0.92);
+  background: linear-gradient(180deg, rgba(230, 241, 236, 0.94), rgba(255, 255, 255, 0.96));
+  text-align: left;
+}
+
+.cal-setup-copy span,
+.cal-setup-step span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rt-ui-ink-soft);
+}
+
+.cal-setup-copy strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  font-family: var(--rt-ui-display);
+}
+
+.cal-setup-copy p {
+  margin: 8px 0 0;
+  max-width: none;
+  font-size: 0.84rem;
+}
+
+.cal-setup-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.cal-setup-step {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(214, 206, 190, 0.9);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.cal-setup-step[data-state="done"] {
+  border-color: rgba(201, 227, 216, 0.92);
+  background: rgba(230, 241, 236, 0.78);
+}
+
+.cal-setup-step[data-state="active"] {
+  border-color: rgba(15, 108, 92, 0.32);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.cal-setup-step b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(214, 206, 190, 0.9);
+  color: var(--rt-ui-accent-ink);
+  font-size: 0.8rem;
+  font-family: var(--rt-ui-display);
+}
+
+.cal-setup-guide .rt-btn {
+  width: auto;
+  margin-top: 16px;
+}
+
 .cal-result-actions {
   display: flex;
   flex-wrap: wrap;
@@ -380,7 +459,8 @@
 @media (max-width: 480px) {
   .cal-hero-grid,
   .cal-insights,
-  .cal-use-cases {
+  .cal-use-cases,
+  .cal-setup-steps {
     grid-template-columns: 1fr;
   }
 

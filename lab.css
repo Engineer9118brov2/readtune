@@ -110,6 +110,27 @@
   padding: 20px;
 }
 
+.lab-panel-focus {
+  border-color: rgba(15, 108, 92, 0.42);
+  box-shadow: 0 18px 42px rgba(15, 108, 92, 0.12);
+  position: relative;
+}
+
+.lab-panel-focus::after {
+  content: "Recommended next step";
+  position: absolute;
+  top: -11px;
+  right: 18px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(15, 108, 92, 0.12);
+  color: var(--rt-ui-accent-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .lab-panel-head {
   display: flex;
   justify-content: space-between;

@@ -13,6 +13,7 @@ import {
   saveProfile,
   loadTTSConfig,
   saveTTSConfig,
+  markSetupStep,
   extUrl,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
@@ -25,6 +26,9 @@ const VOICE_SAMPLE =
   "ReadTune can read aloud while you follow along in your calibrated font and spacing. Pick the voice that feels clearest and least tiring for you.";
 
 const $ = (id) => document.getElementById(id);
+const launchParams = new URLSearchParams(location.search);
+const launchFocus = launchParams.get("focus");
+const launchSource = launchParams.get("source");
 
 let profile = null;
 let ttsConfig = null;
@@ -209,9 +213,13 @@ async function saveFreeVoice(name) {
   stopVoicePreview();
   profile = (await saveProfile({ ttsVoice: name })) || { ...profile, ttsVoice: name };
   ttsConfig = (await saveTTSConfig({ provider: "browser" })) || ttsConfig;
+  await markSetupStep("voiceFit");
   voiceNotice = name
     ? `${name} is now your free read-aloud voice. Reader View and PDFs will use it the next time you press Listen.`
     : "ReadTune is back on your browser's default free voice. Reader View and PDFs will use your system default when you press Listen.";
+  if (launchFocus === "voice" && (launchSource === "calibration" || launchSource === "setup")) {
+    voiceNotice += " Setup complete. Next, try Listen on a real page or PDF.";
+  }
   renderVoiceSummary();
   renderVoiceCards();
 }
@@ -355,6 +363,31 @@ function initVoiceFit() {
   });
 }
 
+function applyLaunchState() {
+  if (launchFocus !== "voice") return;
+  const voicePanel = $("lab-voice-panel");
+  voicePanel.classList.add("lab-panel-focus");
+  $("lab-close").textContent = launchSource === "calibration" || launchSource === "setup" ? "Done with setup" : "Done";
+
+  if (launchSource === "calibration") {
+    $("lab-hero-title").textContent = "Your reading profile is ready. Finish setup with Voice Fit.";
+    $("lab-hero-body").textContent =
+      "Preview a few free voices, keep the calmest one, and then use Listen while following along in your saved font and spacing.";
+    $("lab-voice-body").textContent =
+      "This is the fastest next step after calibration. Pick the voice that feels clearest so ReadTune personalizes listening as well as text.";
+  } else if (launchSource === "setup") {
+    $("lab-hero-title").textContent = "One setup step left: fit your free voice.";
+    $("lab-hero-body").textContent =
+      "Your reading profile is already doing the heavy lifting. Now choose the free voice that sounds calmest for read-aloud.";
+    $("lab-voice-body").textContent =
+      "Preview two or three strong free options, save the clearest one, and then try Listen on a real article or PDF.";
+  }
+
+  requestAnimationFrame(() => {
+    voicePanel.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+}
+
 async function init() {
   const has = await hasProfile();
   profile = await loadProfile();
@@ -399,6 +432,7 @@ async function init() {
   paintPage(profile);
 
   initVoiceFit();
+  applyLaunchState();
 }
 
 $("lab-retake").addEventListener("click", () => {

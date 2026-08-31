@@ -71,6 +71,12 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.writeProfile({ ...S.DEFAULT_PROFILE, font: "atkinson", bionic: 40, syllables: true });
   const lp = await S.loadProfile();
   assert(lp.font === "atkinson" && lp.bionic === 40 && lp.syllables, "profile round-trip");
+  const setup0 = await S.loadSetup();
+  assert(setup0.calibratedAt === 0 && setup0.voiceFitAt === 0, "setup defaults");
+  await S.saveSetup({ calibratedAt: 11 });
+  await S.saveSetup({ voiceFitAt: 22 });
+  const setup1 = await S.loadSetup();
+  assert(setup1.calibratedAt === 11 && setup1.voiceFitAt === 22, "setup progress round-trip");
   await S.writeProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence", font: "lexend" });
   const lp2 = await S.loadProfile();
   assert(lp2.font === "lexend" && lp2.pacing === "flow", "pacing is session-only");

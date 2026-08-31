@@ -25,6 +25,8 @@ import {
   writeProfile,
   appendCalibration,
   loadCalibrations,
+  markSetupStep,
+  loadSetup,
   extUrl,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
@@ -144,6 +146,7 @@ const screens = {
 const progressEl = $("progress");
 const passageSurface = $("passage-surface");
 const passageView = createReadingView($("passage-view"));
+const voiceFitUrl = () => extUrl("lab.html?focus=voice&source=calibration");
 
 /* run order: warm-up, baseline, then the 4 non-baseline dimensions shuffled */
 let sequence = [];
@@ -285,6 +288,7 @@ async function finish() {
     passages: results.map((r) => ({ key: r.key, ms: Math.round(r.ms), wpm: Math.round(r.wpm), correct: r.correct, ease: r.ease })),
     dims: dims.map((d) => ({ key: d.key, help: Number(d.help.toFixed(3)), speedDelta: Number(d.speedDelta.toFixed(3)) })),
   });
+  const setup = (await markSetupStep("calibrated")) || (await loadSetup());
 
   const history = await loadCalibrations();
   const insights = summarizeCalibrations(history, saved);
@@ -379,6 +383,24 @@ async function finish() {
     }
   }
 
+  const guide = $("result-setup-guide");
+  const guideTitle = $("result-setup-title");
+  const guideBody = $("result-setup-body");
+  const fitVoice = $("fit-voice");
+  if (setup && setup.voiceFitAt) {
+    guide.hidden = false;
+    guideTitle.textContent = "Your voice fit is already part of setup";
+    guideBody.textContent =
+      "ReadTune already has a saved free voice for Listen. Open Voice Fit if you want to review it or try a different one.";
+    fitVoice.textContent = "Review Voice Fit";
+  } else {
+    guide.hidden = false;
+    guideTitle.textContent = "Finish setup with Voice Fit";
+    guideBody.textContent =
+      "Pick the calmest free voice on this device so Listen follows along in your saved font and spacing.";
+    fitVoice.textContent = "Fit my free voice";
+  }
+
   show("results");
 }
 
@@ -401,6 +423,9 @@ $("try-pdf").addEventListener("click", () => {
 });
 $("btn-lab").addEventListener("click", () => {
   location.href = extUrl("lab.html");
+});
+$("fit-voice").addEventListener("click", () => {
+  location.href = voiceFitUrl();
 });
 $("finish").addEventListener("click", () => window.close());
 

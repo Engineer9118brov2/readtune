@@ -120,9 +120,34 @@
         </details>
 
         <p id="result-compare" class="cal-fine" hidden></p>
+        <section class="cal-setup-guide" id="result-setup-guide" hidden>
+          <div class="cal-setup-copy">
+            <span>Next up</span>
+            <strong id="result-setup-title">Finish setup with Voice Fit</strong>
+            <p id="result-setup-body">
+              Pick the calmest free voice on this device so Listen follows along
+              in your saved font and spacing.
+            </p>
+          </div>
+          <div class="cal-setup-steps">
+            <article class="cal-setup-step" data-state="done">
+              <b>1</b>
+              <span>Reading profile ready</span>
+            </article>
+            <article class="cal-setup-step" data-state="active">
+              <b>2</b>
+              <span>Fit your free voice</span>
+            </article>
+            <article class="cal-setup-step" data-state="next">
+              <b>3</b>
+              <span>Try Listen on a real page</span>
+            </article>
+          </div>
+          <button class="rt-btn rt-primary" id="fit-voice" type="button">Fit my free voice</button>
+        </section>
         <p class="cal-fine">These settings now apply in Reader View and PDF mode automatically.</p>
         <div class="cal-result-actions">
-          <button class="rt-btn rt-primary" id="try-pdf" type="button">Try it on a PDF</button>
+          <button class="rt-btn" id="try-pdf" type="button">Try it on a PDF</button>
           <button class="rt-btn" id="btn-lab" type="button">Open Reading Lab</button>
           <button class="rt-btn" id="retake" type="button">Retake the test</button>
           <button class="rt-btn" id="finish" type="button">Done</button>
