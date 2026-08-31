@@ -110,7 +110,6 @@ export function buildProfileTitle(profile, keptKeys = []) {
   const kept = [...new Set(asArray(keptKeys).map(normalizeLegacyKey))].filter((k) => !FONT_KEYS.has(k));
   if (kept.includes("spacing")) parts.push("roomier spacing");
   if (kept.includes("bionic")) parts.push("bionic anchors");
-  if (kept.includes("chunk")) parts.push("guided pacing");
 
   return parts.join(" + ");
 }
@@ -170,7 +169,9 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
     } else {
       confidenceLabel = "High confidence";
       confidenceBody = kept.length
-        ? `The same pattern is holding up across retakes, so this profile is worth treating as your everyday default.`
+        ? kept.includes("chunk")
+          ? "The same pattern is holding up across retakes. Keep the typography profile as your everyday default, and use one-sentence mode as an on-demand assist."
+          : "The same pattern is holding up across retakes, so this profile is worth treating as your everyday default."
         : "Repeated retakes are still landing on standard settings, which is a stable result rather than a missing one.";
     }
   }
@@ -312,8 +313,10 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
   let nextStepTitle = "Retake once more";
   let nextStepBody = "One more run on a different day will tell you whether today’s winner keeps holding up.";
   if (runs.length >= 2 && stabilityLabel === "Stable") {
-    nextStepTitle = "Use it everywhere";
-    nextStepBody = "Your profile looks steady enough to treat as your default. Retest later only if it stops feeling right.";
+    nextStepTitle = kept.includes("chunk") ? "Use the profile, keep sentence mode on demand" : "Use it everywhere";
+    nextStepBody = kept.includes("chunk")
+      ? "Your typography profile looks steady enough to use by default. Save one-sentence mode for overloaded or low-focus moments."
+      : "Your profile looks steady enough to treat as your default. Retest later only if it stops feeling right.";
   } else if (runs.length >= 2 && stabilityLabel === "Mixed") {
     nextStepTitle = "Retest when you are in a normal reading mood";
     nextStepBody = "Mixed results often mean the differences were small. A calmer retake helps separate real gains from noise.";

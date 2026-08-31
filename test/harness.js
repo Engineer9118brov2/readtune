@@ -69,6 +69,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.writeProfile({ ...S.DEFAULT_PROFILE, font: "atkinson", bionic: 40, syllables: true });
   const lp = await S.loadProfile();
   assert(lp.font === "atkinson" && lp.bionic === 40 && lp.syllables, "profile round-trip");
+  await S.writeProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence", font: "lexend" });
+  const lp2 = await S.loadProfile();
+  assert(lp2.font === "lexend" && lp2.pacing === "flow", "pacing is session-only");
   await S.savePageMemory("https://x.test/a?q=1", { scroll: 1200, highlights: [{ text: "hi", before: "" }] });
   const pm = await S.loadPageMemory("https://x.test/a?q=2");
   assert(pm.scroll === 1200 && pm.highlights.length === 1, "page memory by origin+path");
@@ -201,6 +204,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const summary = CI.summarizeCalibrations(history, history[2].profile);
   assert(summary.runs === 3 && summary.stabilityLabel === "Stable", "insights: stable pattern surfaces");
   assert(/spacing/i.test(summary.profileTitle) && summary.useCases.length === 3, "insights: title + use cases");
+  assert(CI.buildProfileTitle({ font: "atkinson" }, ["spacing", "chunk"]) === "Atkinson Hyperlegible + roomier spacing", "guided pacing stays out of default profile title");
 
   /* ---- ElevenLabs read-aloud ---- */
   const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };

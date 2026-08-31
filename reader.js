@@ -14,6 +14,15 @@ const surface = document.getElementById("surface");
 const viewHost = document.getElementById("view");
 const messageHost = document.getElementById("message");
 
+function cleanByline(raw) {
+  const line = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!line) return "";
+  if (line.length > 80) return "";
+  if (line.split(/\s+/).length > 12) return "";
+  if (/^\d+(?:\.\d+)+(?:\s|$)/.test(line)) return "";
+  return line;
+}
+
 async function init() {
   const view = createReadingView(viewHost);
 
@@ -52,7 +61,7 @@ async function init() {
   }
   document.title = `${title} — ReadTune`;
   const stats = view.getStats();
-  const parts = [site, meta.byline || "", `${stats.minutes} min read`];
+  const parts = [site, cleanByline(meta.byline), `${stats.minutes} min read`];
   if (stats.gradeReliable) parts.push(`Grade ${stats.grade} reading level`);
   view.setMeta({
     title,

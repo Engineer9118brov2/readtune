@@ -97,7 +97,7 @@ test/                   Browser test harness (not shipped)
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it's built and *why each part is the way it is*
 - [`docs/RESEARCH.md`](docs/RESEARCH.md) — the evidence behind each reading aid, including where it's weak
-- [`docs/DEVPOST.md`](docs/DEVPOST.md) / [`docs/VIDEO.md`](docs/VIDEO.md) — submission writeup + demo script
+- [`docs/DEVPOST.md`](docs/DEVPOST.md) / [`docs/VIDEO.md`](docs/VIDEO.md) / [`docs/VIDEO_PLAN.md`](docs/VIDEO_PLAN.md) — submission writeup, demo script, and participant-video production plan
 
 ## Tests
 

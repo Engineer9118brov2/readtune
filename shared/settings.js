@@ -79,6 +79,10 @@ export const DEFAULT_PROFILE = {
   ttsRate: 1, //  (0.6 – 1.8)
 };
 
+// Pacing is a mode, not a durable trait. New reading surfaces should always
+// open in normal flow unless the user switches mode for that session.
+const SESSION_ONLY_PROFILE_KEYS = new Set(["pacing"]);
+
 export const RANGES = {
   fontSize: { min: 15, max: 30, step: 1 },
   lineHeight: { min: 1.3, max: 2.6, step: 0.05 },
@@ -140,7 +144,7 @@ export function normalizeProfile(raw) {
 export async function loadProfile() {
   try {
     const got = await chrome.storage.local.get(PROFILE_KEY);
-    return normalizeProfile(got && got[PROFILE_KEY]);
+    return persistedProfile(got && got[PROFILE_KEY]);
   } catch (err) {
     console.warn("[ReadTune] loadProfile failed — using defaults:", err);
     return { ...DEFAULT_PROFILE };
@@ -160,7 +164,7 @@ export async function hasProfile() {
 export async function saveProfile(patch) {
   try {
     const current = await loadProfile();
-    const next = normalizeProfile({ ...current, ...patch });
+    const next = persistedProfile({ ...current, ...patch });
     await chrome.storage.local.set({ [PROFILE_KEY]: next });
     return next;
   } catch (err) {
@@ -170,7 +174,7 @@ export async function saveProfile(patch) {
 }
 
 export async function writeProfile(profile) {
-  const next = normalizeProfile(profile);
+  const next = persistedProfile(profile);
   try {
     await chrome.storage.local.set({ [PROFILE_KEY]: next });
   } catch (err) {
@@ -389,4 +393,10 @@ export function describeProfile(p) {
   if (p.focus !== "off") bits.push(`${p.focus} focus`);
   if (p.overlay !== "none") bits.push(`${(OVERLAYS[p.overlay] || {}).label || ""} tint`.trim());
   return bits.filter(Boolean).join(" · ");
+}
+
+function persistedProfile(raw) {
+  const next = normalizeProfile(raw);
+  for (const key of SESSION_ONLY_PROFILE_KEYS) next[key] = DEFAULT_PROFILE[key];
+  return next;
 }
