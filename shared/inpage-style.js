@@ -26,17 +26,26 @@ export const IN_PAGE_TINTS = {
   custom: null, // filled from profile.customTint
 };
 
-// elements that are usually icon glyphs, not prose — don't force our font on them
-const ICON_GUARD =
+// elements that are usually icon glyphs or interactive controls, not prose
+const READING_GUARD =
   ':not(i):not(.fa):not([class*="icon"]):not([class*="Icon"]):not([class*="fa-"])' +
   ':not([class*="material-icons"]):not([class*="material-symbols"]):not([class*="glyph"])' +
-  ':not([aria-hidden="true"]):not(svg):not(svg *)';
+  ':not([aria-hidden="true"]):not(svg):not(svg *)' +
+  ':not(button):not(input):not(select):not(textarea):not(option)';
 
 // containers that hold the actual reading text — safe to resize
 const TEXT_CONTAINERS = [
   "p", "li", "dd", "dt", "blockquote", "figcaption", "td", "th",
   "article", "main", "section",
   '[class*="article"]', '[class*="content"]', '[class*="post"]', '[class*="story"]',
+  '[class*="prose"]', '[class*="markdown"]', '[itemprop="articleBody"]',
+].map((s) => `html.rt-inpage ${s}`).join(", ");
+
+const FORM_CONTROLS = ["button", "input", "select", "textarea", "option"].map((s) => `html.rt-inpage ${s}`).join(", ");
+
+const TINT_SURFACES = [
+  "article", "main", "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+  '[class*="content"]', '[class*="article"]', '[class*="post"]', '[class*="story"]',
   '[class*="prose"]', '[class*="markdown"]', '[itemprop="articleBody"]',
 ].map((s) => `html.rt-inpage ${s}`).join(", ");
 
@@ -61,7 +70,7 @@ export function inpageCSS(profile, fontFaceBlock = "") {
 
   out.push(`
 html.rt-inpage, html.rt-inpage body { font-family: ${stack} !important; }
-html.rt-inpage *${ICON_GUARD} {
+html.rt-inpage *${READING_GUARD} {
   font-family: ${stack} !important;
   letter-spacing: ${ls}em !important;
   word-spacing: ${ws}em !important;
@@ -70,6 +79,12 @@ html.rt-inpage *${ICON_GUARD} {
 ${TEXT_CONTAINERS} {
   font-size: ${size}px !important;
   line-height: ${lh} !important;
+}
+${FORM_CONTROLS} {
+  font-family: ${stack} !important;
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  line-height: normal !important;
 }
 html.rt-inpage p, html.rt-inpage li, html.rt-inpage blockquote {
   margin-top: ${para * 0.5}em !important;
@@ -105,14 +120,14 @@ html.rt-inpage body {
   color: var(--rt-inpage-ink) !important;
   caret-color: var(--rt-inpage-ink) !important;
 }
-html.rt-inpage body *${ICON_GUARD} {
+html.rt-inpage body *${READING_GUARD} {
   color: var(--rt-inpage-ink) !important;
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;
 }
-html.rt-inpage :is(article, main, section, nav, aside, header, footer, table, thead, tbody, tfoot, tr, td, th, [class*="content"], [class*="article"], [class*="post"], [class*="story"], [class*="prose"], [class*="panel"], [class*="card"]) {
+${TINT_SURFACES} {
   background-color: transparent !important;
 }
-html.rt-inpage :is(a, a:visited, a:hover, a:active)${ICON_GUARD} {
+html.rt-inpage :is(a, a:visited, a:hover, a:active)${READING_GUARD} {
   color: var(--rt-inpage-ink) !important;
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;
   text-decoration-color: color-mix(in srgb, var(--rt-inpage-ink) 48%, transparent) !important;

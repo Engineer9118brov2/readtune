@@ -290,6 +290,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/22px !important/.test(ipCss), "inpageCSS font-size");
   assert(/#f7f0dc/.test(ipCss) && /display: none !important/.test(ipCss), "inpageCSS tint + hide-images");
   assert(/:not\(svg\)/.test(ipCss), "inpageCSS guards icons/svg");
+  assert(/:not\(button\):not\(input\):not\(select\):not\(textarea\):not\(option\)/.test(ipCss), "inpageCSS protects controls from prose spacing");
+  assert(/html\.rt-inpage button[^}]+letter-spacing: normal !important/.test(ipCss), "inpageCSS resets control spacing");
+  assert(!/nav, aside, header, footer/.test(ipCss), "inpageCSS keeps app chrome backgrounds intact");
   const ipDark = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "dark" }, "");
   assert(/color-scheme: dark/.test(ipDark) && /-webkit-text-fill-color: var\(--rt-inpage-ink\)/.test(ipDark), "inpageCSS dark tint forces readable text");
   const ipNone = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "none" }, "");

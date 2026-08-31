@@ -9,7 +9,10 @@
       * { box-sizing: border-box; }
       body { margin: 0; color: #293348; background: #e9edf3; font: 16px/1.35 Georgia, serif; }
       .site-shell { max-width: 1080px; margin: 0 auto; padding: 40px 48px 100px; background: #fff; }
-      nav { display: flex; justify-content: space-between; margin-bottom: 76px; font: 700 13px/1 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+      nav { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 76px; font: 700 13px/1 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+      .nav-actions { display: flex; align-items: center; gap: 10px; }
+      .nav-search { min-width: 220px; padding: 11px 13px; border: 1px solid #ccd5e1; border-radius: 999px; color: #293348; background: #f5f7fa; font: 500 14px/1.2 Arial, sans-serif; }
+      .nav-button { padding: 11px 16px; border: 0; border-radius: 999px; color: #f5f7fa; background: #2f6fed; font: 700 13px/1 Arial, sans-serif; text-transform: none; letter-spacing: 0; }
       nav a { color: #52647e; text-decoration: none; }
       main { max-width: 720px; margin: 0 auto; }
       .eyebrow { color: #3f8b71; font: 700 12px/1 Arial, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
@@ -64,7 +67,14 @@
   </head>
   <body>
     <div class="site-shell">
-      <nav><a href="#">Longform Journal</a><span>Design / Attention</span></nav>
+      <nav>
+        <a href="#">Longform Journal</a>
+        <div class="nav-actions">
+          <input class="nav-search" type="search" value="Reading friction" aria-label="Search notes" />
+          <button class="nav-button" type="button">Save note</button>
+          <span>Design / Attention</span>
+        </div>
+      </nav>
       <main>
         <div class="eyebrow">Field note 04 · ReadTune demo</div>
         <h1>Designing a quieter place for attention to land</h1>
