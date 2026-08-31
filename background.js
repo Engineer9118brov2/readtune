@@ -2,9 +2,9 @@
  * ReadTune — background service worker (module)
  *
  * Handles the Alt+R keyboard command and, for sites the user has explicitly
- * opted in, auto-opens Reader View when a page finishes loading. Auto-open needs
- * host permission for that site, which the popup requests at opt-in time — the
- * base install only asks for activeTab.
+ * opted in, either auto-opens Reader View or auto-restyles the page when it
+ * finishes loading. Site automation needs host permission for that site, which
+ * the popup requests at opt-in time — the base install only asks for activeTab.
  */
 
 import { stashArticle, loadSites, extUrl } from "./shared/settings.js";
@@ -82,12 +82,18 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
 
   const sites = await loadSites();
-  if (!sites[origin] || !sites[origin].autoOpen) return;
+  const site = sites[origin];
+  if (!site || (!site.autoOpen && !site.autoStyle)) return;
 
   const allowed = await chrome.permissions
     .contains({ origins: [origin + "/*"] })
     .catch(() => false);
   if (!allowed) return;
 
-  await openReaderFor(tab, { sameTab: true });
+  if (site.autoOpen) {
+    await openReaderFor(tab, { sameTab: true });
+    return;
+  }
+
+  if (site.autoStyle) await toggleInpage(tab);
 });

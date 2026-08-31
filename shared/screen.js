@@ -185,6 +185,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   }
 
   function startAloudAt(index = 0, { preserveScroll = false } = {}) {
+    stopPreview();
     const next = Math.max(0, Number(index) || 0);
     pendingAloudIndex = next;
     preserveScrollOnPacingChange = !!preserveScroll;
@@ -232,15 +233,35 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   }
 
   let previewAudio = null;
-  async function previewVoice(browserVoice = "") {
-    const line = "Hi — this is the voice ReadTune will use to read to you.";
+  let previewAudioUrl = "";
+
+  function stopPreview() {
     if (previewAudio) {
+      previewAudio.onended = null;
+      previewAudio.onerror = null;
       previewAudio.pause();
+      previewAudio.src = "";
       previewAudio = null;
+    }
+    if (previewAudioUrl) {
+      URL.revokeObjectURL(previewAudioUrl);
+      previewAudioUrl = "";
     }
     try {
       window.speechSynthesis && window.speechSynthesis.cancel();
     } catch {}
+  }
+
+  function stopTransientMode(pacing = profile.pacing) {
+    if (pacing === "scroll") stopAuto();
+    if (pacing === "aloud" && tts) {
+      tts.pause();
+      clearReadAlong();
+    }
+  }
+  async function previewVoice(browserVoice = "") {
+    const line = "Hi — this is the voice ReadTune will use to read to you.";
+    stopPreview();
     if (ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey && ttsConfig.voiceId) {
       try {
         const { audio } = await synthesize({
@@ -249,8 +270,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
           model: ttsConfig.model,
           text: line,
         });
-        previewAudio = new Audio(URL.createObjectURL(audio));
+        previewAudioUrl = URL.createObjectURL(audio);
+        previewAudio = new Audio(previewAudioUrl);
         previewAudio.playbackRate = profile.ttsRate;
+        previewAudio.onended = previewAudio.onerror = () => stopPreview();
         previewAudio.play().catch(() => {});
       } catch (e) {
         toast(e && e.message ? e.message : "Couldn't play a preview.");
@@ -334,7 +357,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (ev.type === "playing") transport.setPlaying(ev.value);
   });
 
-  view.getFlowEl().addEventListener("click", (ev) => {
+  const onFlowClick = (ev) => {
     if (profile.pacing !== "aloud" || !tts || ev.defaultPrevented) return;
     const target = ev.target;
     if (!target) return;
@@ -345,7 +368,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     const idx = sentenceIndexFromNode(target);
     if (idx < 0) return;
     startAloudAt(idx, { preserveScroll: true });
-  });
+  };
+  view.getFlowEl().addEventListener("click", onFlowClick);
 
   /* ---- auto-scroll ---- */
   function startAuto() {
@@ -404,6 +428,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   function change(patch) {
     if (patch.__reset) {
+      stopPreview();
+      stopTransientMode(profile.pacing);
+      pendingAloudIndex = 0;
+      preserveScrollOnPacingChange = false;
       writeProfile({ ...DEFAULT_PROFILE }).then((next) => applyAll(next || { ...DEFAULT_PROFILE }));
       return;
     }
@@ -426,11 +454,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     controls.sync(profile);
 
     if (patch.pacing !== undefined && patch.pacing !== prevPacing) {
-      stopAuto();
-      if (prevPacing === "aloud" && tts) {
-        tts.pause();
-        clearReadAlong();
-      }
+      stopPreview();
+      stopTransientMode(prevPacing);
       const stageMode = profile.pacing === "sentence" || profile.pacing === "word";
       if (stageMode && !preserveScrollOnPacingChange) window.scrollTo({ top: 0 });
       if (profile.pacing === "aloud" && tts) {
@@ -459,7 +484,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   }
 
   // global keys
-  document.addEventListener("keydown", (e) => {
+  const onKeyDown = (e) => {
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (e.key === "l" || e.key === "L") {
       if (profile.pacing === "aloud") change({ pacing: "flow" });
@@ -476,15 +501,21 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         change(patch);
       }
     }
-  });
+  };
+  document.addEventListener("keydown", onKeyDown);
 
   return {
     getProfile: () => profile,
     destroy() {
+      stopPreview();
       toast.destroy();
       aids.destroy();
       transport.destroy();
       if (tts) tts.destroy();
+      document.removeEventListener("keydown", onKeyDown);
+      view.getFlowEl().removeEventListener("click", onFlowClick);
+      controls.toggle.remove();
+      controls.panel.remove();
       view.destroy();
     },
   };

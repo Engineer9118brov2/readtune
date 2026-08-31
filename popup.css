@@ -70,6 +70,7 @@
 .pop-profile,
 .pop-setup,
 .pop-proof,
+.pop-site,
 .pop-auto {
   border: 1px solid rgba(211, 203, 187, 0.92);
   border-radius: 18px;
@@ -368,6 +369,24 @@
   padding: 10px 12px;
   cursor: pointer;
 }
+.pop-site {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pop-site-copy strong {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  font-family: var(--rt-ui-display);
+}
+.pop-site-copy p {
+  margin: 5px 0 0;
+  font-size: 0.79rem;
+  line-height: 1.4;
+  color: var(--rt-ui-ink-soft);
+}
 .pop-auto > span:first-child {
   flex: 1;
   display: flex;
@@ -375,9 +394,17 @@
   gap: 2px;
   font-size: 0.85rem;
 }
+.pop-auto strong {
+  font-size: 0.83rem;
+  line-height: 1.2;
+}
 .pop-auto-sub {
   color: var(--rt-ui-ink-soft);
   font-size: 0.78rem;
+}
+.pop-auto:has(input:checked) {
+  border-color: rgba(15, 108, 92, 0.28);
+  background: linear-gradient(180deg, rgba(230, 241, 236, 0.92), rgba(255, 255, 255, 0.94));
 }
 .pop-auto input {
   position: absolute;
@@ -410,6 +437,10 @@
 }
 .pop-auto input:checked + .rt-switch::after {
   transform: translateX(17px);
+}
+.pop-auto input:focus-visible + .rt-switch {
+  outline: 2px solid color-mix(in srgb, var(--rt-ui-accent) 55%, white);
+  outline-offset: 2px;
 }
 
 .pop-foot {

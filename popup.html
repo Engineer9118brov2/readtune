@@ -124,14 +124,28 @@
         </button>
       </div>
 
-      <label class="pop-auto" id="auto-row" hidden>
-        <span>
-          <strong>Auto-open on <span id="auto-host">this site</span></strong>
-          <span class="pop-auto-sub">Skip the click — every article opens in ReadTune</span>
-        </span>
-        <input type="checkbox" id="auto-toggle" />
-        <span class="rt-switch" aria-hidden="true"></span>
-      </label>
+      <section class="pop-site" id="site-box" hidden>
+        <div class="pop-site-copy">
+          <strong>Use ReadTune automatically on <span id="auto-host">this site</span></strong>
+          <p>Pick one mode per site. Reader View suits article-heavy pages. Restyle suits denser sites and web apps.</p>
+        </div>
+        <label class="pop-auto" id="auto-open-row">
+          <span>
+            <strong>Auto-open Reader View</strong>
+            <span class="pop-auto-sub">Every page from this site opens in the calmer Reader View</span>
+          </span>
+          <input type="checkbox" id="auto-open-toggle" />
+          <span class="rt-switch" aria-hidden="true"></span>
+        </label>
+        <label class="pop-auto" id="auto-style-row">
+          <span>
+            <strong>Auto-restyle this site</strong>
+            <span class="pop-auto-sub">Keep the page in place and apply your font, spacing, tint, and ruler automatically</span>
+          </span>
+          <input type="checkbox" id="auto-style-toggle" />
+          <span class="rt-switch" aria-hidden="true"></span>
+        </label>
+      </section>
 
       <footer class="pop-foot">Free · no login · nothing leaves your device</footer>
     </div>

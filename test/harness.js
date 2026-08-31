@@ -52,6 +52,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
+  const { createReadingScreen } = await import("../shared/screen.js");
   const { extractPdfText, itemsToParagraphs } = await import("../shared/pdftext.js");
   const { createReadingAids } = await import("../shared/aids.js");
   const TTS = await import("../shared/tts.js");
@@ -312,6 +313,52 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const elSel = [...cp.panel.querySelectorAll("select")].find((s) => s.options.length === 2 && s.options[0].textContent === "Aria");
   assert(elSel, "EL voice list populated");
   cp.panel.remove();
+
+  const originalSynth = Object.getOwnPropertyDescriptor(window, "speechSynthesis");
+  const originalUtterance = Object.getOwnPropertyDescriptor(window, "SpeechSynthesisUtterance");
+  let synthCancels = 0;
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+    getVoices: () => [{ name: "Samantha Enhanced", localService: true, lang: "en-US" }],
+    speak: () => {},
+    cancel: () => { synthCancels += 1; },
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  } });
+  Object.defineProperty(window, "SpeechSynthesisUtterance", {
+    configurable: true,
+    writable: true,
+    value: function SpeechSynthesisUtterance(text) {
+      this.text = text;
+      this.rate = 1;
+      this.lang = "en-US";
+      this.voice = null;
+    },
+  });
+
+  const screenSurface = document.createElement("section");
+  const screenHost = document.createElement("div");
+  screenSurface.appendChild(screenHost);
+  document.body.appendChild(screenSurface);
+  await S.writeProfile({ ...S.DEFAULT_PROFILE, focus: "ruler" });
+  const screenView = R.createReadingView(screenHost);
+  screenView.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+  const screen = await createReadingScreen({ surface: screenSurface, view: screenView, pageUrl: "" });
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
+  document.querySelector(".rt-reset").click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(
+    screen.getProfile().pacing === "flow" && synthCancels >= 1 && document.querySelector(".rt-transport").hidden,
+    "reset stops read-aloud cleanly"
+  );
+  screen.destroy();
+  assert(!document.querySelector(".rt-panel") && !document.querySelector(".rt-panel-toggle"), "reading screen destroy cleans up controls");
+  screenSurface.remove();
+  if (originalSynth) Object.defineProperty(window, "speechSynthesis", originalSynth);
+  else delete window.speechSynthesis;
+  if (originalUtterance) Object.defineProperty(window, "SpeechSynthesisUtterance", originalUtterance);
+  else delete window.SpeechSynthesisUtterance;
 
   const listenMode = RM.modePatch("listen", S.DEFAULT_PROFILE);
   assert(listenMode.pacing === "aloud" && listenMode.focus === "ruler" && listenMode.rulerLines === 3, "listen mode follows spoken sentence with more context");

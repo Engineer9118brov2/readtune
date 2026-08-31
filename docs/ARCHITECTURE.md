@@ -35,7 +35,7 @@ soon only, extension format) adds two constraints that shape the code:
    `activeTab`, `scripting`, `storage`. `activeTab` grants access to the current
    tab *only after you click the toolbar button or press the shortcut* — a user
    gesture. Anything broader (`api.elevenlabs.io`, or a whole site for
-   auto-open) is an **optional** permission requested at the moment you opt in,
+   auto-open or auto-restyle) is an **optional** permission requested at the moment you opt in,
    and revoked when you opt out.
 
 ---
@@ -164,10 +164,10 @@ you why.
 
 ```
 manifest.json         MV3. activeTab + scripting + storage; optional api.elevenlabs.io & <all_urls>
-background.js          Service worker — Alt+R / Alt+Shift+R commands, per-site auto-open
+background.js          Service worker — Alt+R / Alt+Shift+R commands, per-site auto-open/restyle
 content.js             One-shot page capture for Reader View
 inpage.js / .css       "Restyle this page" — content script + shadow-DOM bar
-popup.*                Three entry points + profile summary + per-site toggle
+popup.*                Three entry points + profile summary + per-site automation toggles
 lab.*                  Reading Lab — confidence, stability, repeated wins
 reader.* / pdf.*       Thin — hand content to shared/screen.js
 calibration.*          The test UI; scoring is in shared/calibration-score.js

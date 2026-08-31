@@ -53,7 +53,7 @@ The product now also ships a **research-backed starter** before calibration fini
 - Your profile is saved with `chrome.storage.local` — no account
 - The Reading Lab keeps your last 10 calibration runs locally so you can see what is stable vs. noisy
 - Reader View **remembers where you left off** and **keeps your highlights** per page
-- Optional **auto-open on a site** you choose (asks for that site's permission only when you turn it on)
+- Optional **auto-open** or **auto-restyle** on a site you choose (asks for that site's permission only when you turn it on)
 
 ## Load it in Chrome (unpacked)
 
@@ -73,10 +73,10 @@ Everything for submission is prepared: [`PRIVACY.md`](PRIVACY.md) (host it as a 
 
 ```
 manifest.json          Manifest V3 — activeTab, scripting, storage; optional host perms
-background.js           Service worker: Alt+R / Alt+Shift+R commands + per-site auto-open
+background.js           Service worker: Alt+R / Alt+Shift+R commands + per-site auto-open/restyle
 content.js              Injected on demand to capture the current page for Reader View
 inpage.js / inpage.css  "Restyle this page" — content script + its shadow-DOM control bar
-popup.*                 Entry points, profile summary, per-site auto-open toggle
+popup.*                 Entry points, profile summary, and per-site automation toggles
 lab.*                   Reading Lab — confidence, stability, retake history
 reader.* / pdf.*        Reader View / PDF mode (thin — most logic is shared/)
 calibration.*           The calibration test + scoring

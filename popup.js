@@ -14,6 +14,7 @@ import {
   stashArticle,
   loadSites,
   setSiteAutoOpen,
+  setSiteAutoStyle,
   extUrl,
 } from "./shared/settings.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
@@ -234,37 +235,92 @@ $("btn-retake").addEventListener("click", () => openPage("calibration.html"));
 $("btn-lab").addEventListener("click", () => openPage("lab.html"));
 $("btn-setup-voice").addEventListener("click", () => openPage("lab.html?focus=voice&source=setup"));
 
-async function initAutoOpenRow() {
+async function initSiteAutomationRows() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !/^https?:/i.test(tab.url || "")) return;
     const origin = new URL(tab.url).origin;
     const host = new URL(tab.url).hostname.replace(/^www\./, "");
     $("auto-host").textContent = host;
-    $("auto-row").hidden = false;
+    $("site-box").hidden = false;
 
     const sites = await loadSites();
-    const on = !!(sites[origin] && sites[origin].autoOpen);
-    $("auto-toggle").checked = on;
+    const openToggle = $("auto-open-toggle");
+    const styleToggle = $("auto-style-toggle");
+    openToggle.checked = !!(sites[origin] && sites[origin].autoOpen);
+    styleToggle.checked = !!(sites[origin] && sites[origin].autoStyle);
 
-    $("auto-toggle").addEventListener("change", async (e) => {
-      const want = e.target.checked;
-      if (want) {
-        const granted = await chrome.permissions.request({ origins: [origin + "/*"] }).catch(() => false);
-        if (!granted) {
-          e.target.checked = false;
-          setStatus("ReadTune needs permission for this site to auto-open.", "info");
-          return;
-        }
-        await setSiteAutoOpen(origin, true);
-        setStatus(`ReadTune will open automatically on ${host}.`, "info");
-      } else {
-        await setSiteAutoOpen(origin, false);
-        chrome.permissions.remove({ origins: [origin + "/*"] }).catch(() => {});
+    const setBusy = (busy) => {
+      openToggle.disabled = busy;
+      styleToggle.disabled = busy;
+    };
+
+    async function ensurePermission() {
+      const granted = await chrome.permissions.request({ origins: [origin + "/*"] }).catch(() => false);
+      if (!granted) setStatus("ReadTune needs permission for this site before it can automate it.", "info");
+      return granted;
+    }
+
+    async function releasePermissionIfUnused() {
+      const nextSites = await loadSites();
+      const site = nextSites[origin];
+      if (site && (site.autoOpen || site.autoStyle)) return;
+      chrome.permissions.remove({ origins: [origin + "/*"] }).catch(() => {});
+    }
+
+    async function enableAuto(mode) {
+      if (!(await ensurePermission())) {
+        openToggle.checked = false;
+        styleToggle.checked = false;
+        return;
+      }
+      await setSiteAutoOpen(origin, mode === "open");
+      await setSiteAutoStyle(origin, mode === "style");
+      openToggle.checked = mode === "open";
+      styleToggle.checked = mode === "style";
+      setStatus(
+        mode === "open"
+          ? `ReadTune will open Reader View automatically on ${host}.`
+          : `ReadTune will restyle ${host} automatically in place.`,
+        "info"
+      );
+    }
+
+    async function disableAuto(mode) {
+      if (mode === "open") await setSiteAutoOpen(origin, false);
+      else await setSiteAutoStyle(origin, false);
+      await releasePermissionIfUnused();
+      setStatus(
+        openToggle.checked || styleToggle.checked
+          ? mode === "open"
+            ? `Reader View auto-open is off on ${host}.`
+            : `Auto-restyle is off on ${host}.`
+          : `Automatic ReadTune is off on ${host}.`,
+        "info"
+      );
+    }
+
+    openToggle.addEventListener("change", async (e) => {
+      setBusy(true);
+      try {
+        if (e.target.checked) await enableAuto("open");
+        else await disableAuto("open");
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    styleToggle.addEventListener("change", async (e) => {
+      setBusy(true);
+      try {
+        if (e.target.checked) await enableAuto("style");
+        else await disableAuto("style");
+      } finally {
+        setBusy(false);
       }
     });
   } catch (err) {
-    console.warn("[ReadTune] auto-open row failed:", err);
+    console.warn("[ReadTune] site automation rows failed:", err);
   }
 }
 
@@ -282,5 +338,5 @@ async function initAutoOpenRow() {
     console.warn("[ReadTune] popup init failed:", err);
     configureFirstRun();
   }
-  initAutoOpenRow();
+  initSiteAutomationRows();
 })();
