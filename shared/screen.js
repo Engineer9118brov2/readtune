@@ -58,9 +58,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onError: (msg) => toast(msg),
     onState: (st) => {
       if (profile.pacing !== "aloud") return;
+      syncReadAlong(st.index);
       transport.setPlaying(st.playing);
       transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
-      if (st.done) change({ pacing: "flow" });
+      if (st.done) {
+        clearReadAlong();
+        change({ pacing: "flow" });
+      }
     },
   });
 
@@ -124,7 +128,35 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     return Math.max(0, Number(sentence.dataset.i) || 0);
   }
 
+  function sentenceEl(index) {
+    return view.getFlowEl().querySelector(`.rt-s[data-i="${Math.max(0, Number(index) || 0)}"]`);
+  }
+
+  function syncReadAlong(index) {
+    if (profile.focus !== "ruler") {
+      aids.clearRulerTracking();
+      return;
+    }
+    const el = sentenceEl(index);
+    if (el) aids.trackRulerTo(el);
+  }
+
+  function clearReadAlong() {
+    aids.clearRulerTracking();
+  }
+
+  function selectedSentenceIndex() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return -1;
+    const range = sel.getRangeAt(0);
+    const flow = view.getFlowEl();
+    if (!flow || !flow.contains(range.commonAncestorContainer)) return -1;
+    return sentenceIndexFromNode(range.startContainer);
+  }
+
   function currentSentenceIndex() {
+    const selected = selectedSentenceIndex();
+    if (selected >= 0) return selected;
     const flow = view.getFlowEl();
     if (!flow) return 0;
     const sentences = [...flow.querySelectorAll(".rt-s")];
@@ -159,6 +191,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       tts.setRate(profile.ttsRate);
       tts.setVoice(profile.ttsVoice);
       tts.start(next);
+      syncReadAlong(next);
       syncTransport();
       syncHeaderActions();
       return;
@@ -392,7 +425,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
     if (patch.pacing !== undefined && patch.pacing !== prevPacing) {
       stopAuto();
-      if (prevPacing === "aloud" && tts) tts.pause();
+      if (prevPacing === "aloud" && tts) {
+        tts.pause();
+        clearReadAlong();
+      }
       const stageMode = profile.pacing === "sentence" || profile.pacing === "word";
       if (stageMode && !preserveScrollOnPacingChange) window.scrollTo({ top: 0 });
       if (profile.pacing === "aloud" && tts) {
@@ -400,6 +436,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         tts.setRate(profile.ttsRate);
         tts.setVoice(profile.ttsVoice);
         tts.start(pendingAloudIndex);
+        syncReadAlong(pendingAloudIndex);
       }
       pendingAloudIndex = 0;
       preserveScrollOnPacingChange = false;

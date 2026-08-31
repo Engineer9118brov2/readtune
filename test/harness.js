@@ -60,6 +60,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const RU = await import("../shared/ruler.js");
   const CS = await import("../shared/calibration-score.js");
   const CI = await import("../shared/calibration-insights.js");
+  const RM = await import("../shared/reading-modes.js");
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -248,8 +249,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   let ttsPatch = null;
   const cp = buildControls({ ...S.DEFAULT_PROFILE, pacing: "aloud" }, (p) => (ttsPatch = p));
   document.body.append(cp.panel);
-  const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Read-aloud voice/.test(n.textContent));
+  const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Voice source/.test(n.textContent));
   assert(engRow && !engRow.closest(".rt-field").hidden, "engine picker visible in aloud mode");
+  assert(/No account, no API bill/.test(cp.panel.textContent), "browser voice is clearly free");
   cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="elevenlabs"]').click();
   assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "elevenlabs", "engine → __tts patch");
   cp.setTTS({ provider: "elevenlabs", hasKey: true, voices: [{ id: "a", name: "Aria" }, { id: "b", name: "Bill" }], voiceId: "a", status: "ok" });
@@ -257,6 +259,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const elSel = [...cp.panel.querySelectorAll("select")].find((s) => s.options.length === 2 && s.options[0].textContent === "Aria");
   assert(elSel, "EL voice list populated");
   cp.panel.remove();
+
+  const listenMode = RM.modePatch("listen", S.DEFAULT_PROFILE);
+  assert(listenMode.pacing === "aloud" && listenMode.focus === "ruler", "listen mode follows spoken sentence");
 
   /* controls */
   let patch = null;

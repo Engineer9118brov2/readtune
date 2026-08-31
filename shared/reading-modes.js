@@ -37,7 +37,7 @@ export function modePatch(mode, profile) {
     case "listen":
       return {
         pacing: "aloud",
-        focus: "off",
+        focus: "ruler",
         freezeMotion: true,
       };
     case "skim":

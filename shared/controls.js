@@ -207,8 +207,8 @@ export function buildControls(profile, onChange) {
 
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
-    { val: "browser", label: "Browser voice" },
-    { val: "elevenlabs", label: "Studio voice" },
+    { val: "browser", label: "Free voice" },
+    { val: "elevenlabs", label: "Bring your own" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
     b.addEventListener("click", () => onChange({ __tts: { provider: o.val } }));
@@ -216,7 +216,12 @@ export function buildControls(profile, onChange) {
   });
   engineSeg.append(...engineBtns);
   reg.engineBtns = engineBtns;
-  const engineRow = field("Read-aloud voice", engineSeg);
+  const engineRow = field("Voice source", engineSeg);
+  const freeHint = el(
+    "p",
+    { class: "rt-panel-hint" },
+    "Free voice uses your browser's built-in speech. No account, no API bill, nothing sent to our servers."
+  );
 
   const previewBtn = (aria) => {
     const b = el("button", { class: "rt-preview", type: "button", "aria-label": aria, title: aria }, "▶");
@@ -229,17 +234,17 @@ export function buildControls(profile, onChange) {
   browserVoiceSel.addEventListener("change", () => emit({ ttsVoice: browserVoiceSel.value }));
   reg.voice = browserVoiceSel;
   const browserVoiceRow = el("div", { class: "rt-field" }, [
-    el("span", { class: "rt-field-label" }, "Voice"),
+    el("span", { class: "rt-field-label" }, "Free voice"),
     el("div", { class: "rt-voice-row" }, [browserVoiceSel, previewBtn("Preview this voice")]),
   ]);
 
   const keyInput = el("input", {
     type: "password",
     class: "rt-input",
-    placeholder: "Premium voice key",
+    placeholder: "Optional premium key",
     autocomplete: "off",
     spellcheck: "false",
-    "aria-label": "Premium voice key",
+    "aria-label": "Optional premium key",
   });
   const keySave = el("button", { class: "rt-btn", type: "button", style: "width:auto" }, "Save key");
   keySave.addEventListener("click", () => {
@@ -251,13 +256,13 @@ export function buildControls(profile, onChange) {
     if (e.key === "Enter") keySave.click();
   });
   const keyRow = el("div", { class: "rt-field" }, [
-    el("span", { class: "rt-field-label" }, "Premium voice key"),
+    el("span", { class: "rt-field-label" }, "Optional premium key"),
     el("div", { class: "rt-key-row" }, [keyInput, keySave]),
   ]);
   const keyHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Optional ElevenLabs key. Stored only in this browser and sent only to ElevenLabs while reading. Free ElevenLabs plans cannot use shared voices over the API, so you need a voice you created or cloned. Accounts are 18+ (13+ with a parent)."
+    "Optional: connect your own ElevenLabs key for a different voice. ReadTune stays free without it. The key is stored only in this browser and sent only to ElevenLabs while reading."
   );
 
   const elVoiceSel = el("select", { class: "rt-select", "aria-label": "ElevenLabs voice" });
@@ -291,9 +296,9 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, freeHint, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
-    engineRow, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow, statusLine, ttsState,
+    engineRow, freeHint, browserVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow, statusLine, ttsState,
   });
 
   body.append(el("p", { class: "rt-panel-hint" }, "Everything saves automatically and applies across ReadTune."));
@@ -355,6 +360,7 @@ export function buildControls(profile, onChange) {
     const eleven = t.provider === "elevenlabs";
     const canList = t.hasKey && t.voices.length > 0;
     reg.engineRow.hidden = !aloud;
+    reg.freeHint.hidden = !aloud || eleven;
     reg.rateRow.hidden = !aloud;
     reg.browserVoiceRow.hidden = !aloud || eleven;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;

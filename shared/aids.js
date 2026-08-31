@@ -34,6 +34,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
 
   let profile = {};
   let rulerY = window.innerHeight * 0.4;
+  let rulerTarget = null;
   let saveTimer = 0;
   let highlights = [];
   let savedRange = null;
@@ -44,6 +45,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     const max = doc.scrollHeight - window.innerHeight;
     const frac = max > 0 ? doc.scrollTop / max : 0;
     if (!progress.hidden) progress.style.width = `${Math.min(100, Math.max(0, frac * 100))}%`;
+    if (!ruler.hidden && rulerTarget) positionRuler();
 
     if (profile.focus === "paragraph") updateFocusParagraph();
 
@@ -74,30 +76,51 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
 
   /* ---- pointer: ruler ---- */
   function onPointerMove(e) {
+    if (rulerTarget) return;
     rulerY = e.clientY;
     if (!ruler.hidden) positionRuler();
   }
   function positionRuler() {
-    const h = currentRulerHeight();
-    ruler.style.height = `${h}px`;
-    ruler.style.top = `${Math.max(0, rulerY - h / 2)}px`;
+    const { target, lineHeightPx, height } = currentRulerMetrics();
+    ruler.style.height = `${height}px`;
+    if (rulerTarget && target === rulerTarget && target.getBoundingClientRect) {
+      const rect = target.getBoundingClientRect();
+      const top = rect.top - Math.max(0, (height - Math.min(lineHeightPx, rect.height || lineHeightPx)) / 2);
+      ruler.style.top = `${Math.max(0, Math.min(window.innerHeight - height, top))}px`;
+      return;
+    }
+    ruler.style.top = `${Math.max(0, rulerY - height / 2)}px`;
   }
 
-  function currentRulerHeight() {
+  function currentRulerMetrics() {
     const flow = getFlow();
     const fallback = (Number(profile.fontSize) || 19) * (Number(profile.lineHeight) || 1.6);
-    const flowRect = flow && flow.getBoundingClientRect ? flow.getBoundingClientRect() : null;
-    const probeX = flowRect
-      ? Math.max(12, Math.min(window.innerWidth - 12, flowRect.left + Math.min(flowRect.width / 2, 120)))
-      : Math.max(12, Math.min(window.innerWidth - 12, window.innerWidth / 2));
-    let target = document.elementFromPoint(probeX, Math.max(8, Math.min(window.innerHeight - 8, rulerY)));
-    if (!flow || !target || !flow.contains(target)) target = flow || document.body;
+    let target = rulerTarget;
+    if (target && (!target.isConnected || (flow && !flow.contains(target)))) {
+      target = null;
+      rulerTarget = null;
+    }
+    if (!target) {
+      const flowRect = flow && flow.getBoundingClientRect ? flow.getBoundingClientRect() : null;
+      const probeX = flowRect
+        ? Math.max(12, Math.min(window.innerWidth - 12, flowRect.left + Math.min(flowRect.width / 2, 120)))
+        : Math.max(12, Math.min(window.innerWidth - 12, window.innerWidth / 2));
+      target = document.elementFromPoint(probeX, Math.max(8, Math.min(window.innerHeight - 8, rulerY)));
+      if (!flow || !target || !flow.contains(target)) target = flow || document.body;
+    } else {
+      rulerTarget = target;
+    }
     const style = target ? getComputedStyle(target) : null;
-    return adaptiveRulerHeight({
-      lineHeightPx: measuredLineHeight(style, fallback),
-      fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
-      baseHeight: Number(profile.rulerHeight) || 40,
-    });
+    const lineHeightPx = measuredLineHeight(style, fallback);
+    return {
+      target,
+      lineHeightPx,
+      height: adaptiveRulerHeight({
+        lineHeightPx,
+        fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
+        baseHeight: Number(profile.rulerHeight) || 40,
+      }),
+    };
   }
 
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -185,11 +208,22 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     const flowing = ["flow", "scroll", "aloud"].includes(profile.pacing || "flow");
     progress.hidden = !flowing;
     ruler.hidden = !flowing || profile.focus !== "ruler";
+    if (ruler.hidden) rulerTarget = null;
     if (!ruler.hidden) positionRuler();
     const flow = getFlow();
     if (flowing && profile.focus === "paragraph") updateFocusParagraph();
     else if (flow) for (const el of flow.children) el.classList.remove("rt-focus-active");
     onScroll();
+  }
+
+  function trackRulerTo(target) {
+    rulerTarget = target && target.isConnected ? target : null;
+    if (!ruler.hidden) positionRuler();
+  }
+
+  function clearRulerTracking() {
+    rulerTarget = null;
+    if (!ruler.hidden) positionRuler();
   }
 
   function restoreScroll(y) {
@@ -206,7 +240,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     hlButton.remove();
   }
 
-  return { apply, restoreScroll, restoreHighlights, destroy };
+  return { apply, restoreScroll, restoreHighlights, trackRulerTo, clearRulerTracking, destroy };
 }
 
 /* ---------- range helpers ---------- */
