@@ -2,9 +2,12 @@
   <rect width="440" height="280" fill="#10201f"/>
   <circle cx="377" cy="34" r="82" fill="none" stroke="#a9d0ba" stroke-opacity=".14"/>
   <circle cx="377" cy="34" r="56" fill="none" stroke="#a9d0ba" stroke-opacity=".11"/>
-  <g fill="none" stroke="#f5f0e5" stroke-width="3" transform="translate(28 27) rotate(-28 18 18)">
-    <circle cx="18" cy="18" r="15"/>
-    <path d="M32 15h13M8 27l15-5"/>
+  <g transform="translate(25 17)">
+    <rect width="38" height="38" rx="10" fill="#2d896c"/>
+    <rect x="7" y="8" width="15" height="5" rx="2.5" fill="#f5f0e5"/>
+    <circle cx="29" cy="10.5" r="3.5" fill="#f5f0e5"/>
+    <rect x="7" y="17" width="24" height="5" rx="2.5" fill="#f5f0e5"/>
+    <rect x="7" y="26" width="18" height="5" rx="2.5" fill="#b8d7c7"/>
   </g>
   <text x="75" y="48" fill="#f5f0e5" font-family="Arial,sans-serif" font-size="18" font-weight="700">ReadTune</text>
   <text x="30" y="126" fill="#f5f0e5" font-family="Arial,sans-serif" font-size="45" font-weight="700" letter-spacing="-2">Read what</text>
