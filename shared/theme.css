@@ -499,9 +499,17 @@ body.rt-reading-page > .rt-surface {
   background: color-mix(in srgb, var(--rt-ui-accent) 16%, transparent);
   border-radius: 3px;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--rt-ui-accent) 16%, transparent);
+  scroll-margin-block: 34vh;
 }
 .rt-speak-word {
   background: color-mix(in srgb, var(--rt-ui-accent) 42%, transparent);
+  border-radius: 3px;
+}
+.rt-surface[data-rt-pacing="aloud"] .rt-s {
+  cursor: pointer;
+}
+.rt-surface[data-rt-pacing="aloud"] .rt-s:hover {
+  background: color-mix(in srgb, var(--rt-ui-accent) 10%, transparent);
   border-radius: 3px;
 }
 

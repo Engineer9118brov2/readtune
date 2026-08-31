@@ -447,6 +447,7 @@ export function applyTypography(host, p) {
   host.classList.add("rt-surface");
   host.dataset.rtOverlay = OVERLAYS[prof.overlay] ? prof.overlay : "none";
   host.dataset.rtFont = prof.font;
+  host.dataset.rtPacing = prof.pacing || "flow";
   host.dataset.rtHideImages = prof.hideImages ? "true" : "false";
   host.dataset.rtFreeze = prof.freezeMotion ? "true" : "false";
   host.dataset.rtDeitalic = prof.deItalic ? "true" : "false";
@@ -728,6 +729,7 @@ export function createReadingView(host) {
           const node = document.createElement(a.href ? "a" : "button");
           node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
           node.textContent = a.label || "";
+          if (a.title) node.title = a.title;
           if (a.href) {
             node.href = a.href;
             node.target = "_blank";

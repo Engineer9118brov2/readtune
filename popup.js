@@ -35,6 +35,11 @@ function openPage(page) {
   window.close();
 }
 
+function isExpectedPageBlock(err) {
+  const msg = String((err && err.message) || err || "");
+  return /extensions gallery cannot be scripted|cannot access contents of url|cannot be scripted/i.test(msg);
+}
+
 function setActionOrder(ids) {
   const box = $("actions");
   for (const id of ids) {
@@ -121,7 +126,7 @@ async function openReader() {
         result = inj2 && inj2.result;
       }
     } catch (err) {
-      console.warn("[ReadTune] page injection failed:", err);
+      if (!isExpectedPageBlock(err)) console.warn("[ReadTune] page injection failed:", err);
       setStatus("This page doesn't allow extensions (Chrome Web Store and chrome:// pages are blocked).");
       btn.disabled = false;
       return;
@@ -155,7 +160,7 @@ async function restylePage() {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inpage.js"] });
     window.close();
   } catch (err) {
-    console.warn("[ReadTune] restyle failed:", err);
+    if (!isExpectedPageBlock(err)) console.warn("[ReadTune] restyle failed:", err);
     setStatus("This page doesn't allow extensions (chrome:// pages and the Web Store are blocked).");
   }
 }

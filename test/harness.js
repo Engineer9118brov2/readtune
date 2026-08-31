@@ -111,9 +111,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   view.applyProfile({ ...S.DEFAULT_PROFILE });
 
   R.applyTypography(host, { ...S.DEFAULT_PROFILE, overlay: "custom", customTint: "#101014", contrast: 85 });
-  assert(host.style.getPropertyValue("--rt-surface") === "#101014" && host.style.getPropertyValue("--rt-contrast") === "0.85", "custom tint + contrast vars");
-  view.setActions([{ label: "Listen", primary: true, onClick: () => {} }]);
-  assert(host.querySelectorAll(".rt-doc-action").length === 1, "doc action renders");
+  assert(
+    host.style.getPropertyValue("--rt-surface") === "#101014" &&
+      host.style.getPropertyValue("--rt-contrast") === "0.85" &&
+      host.dataset.rtPacing === "flow",
+    "custom tint + contrast vars + pacing dataset"
+  );
+  view.setActions([{ label: "Listen", title: "Start here", primary: true, onClick: () => {} }]);
+  assert(host.querySelectorAll(".rt-doc-action").length === 1 && host.querySelector(".rt-doc-action").title === "Start here", "doc action renders");
 
   /* pdftext */
   const p1 = itemsToParagraphs([

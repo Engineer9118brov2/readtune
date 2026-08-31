@@ -33,6 +33,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let saveTimer = 0;
   let autoRAF = 0;
   let autoScrolling = false;
+  let pendingAloudIndex = 0;
+  let preserveScrollOnPacingChange = false;
 
   const toast = makeToast();
 
@@ -95,16 +97,73 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     const ttsReady = isTTSAvailable();
     view.setActions([
       {
-        label: profile.pacing === "aloud" ? "Stop listening" : "Listen",
+        label: profile.pacing === "aloud" ? "Stop listening" : "Listen here",
         primary: profile.pacing === "aloud",
         pressed: profile.pacing === "aloud",
         disabled: !ttsReady,
+        title:
+          profile.pacing === "aloud"
+            ? "Stop read-aloud."
+            : "Start from the sentence near the middle of the page. While listening, click any sentence to jump there.",
         onClick: () => {
           if (!ttsReady) return;
-          change({ pacing: profile.pacing === "aloud" ? "flow" : "aloud" });
+          if (profile.pacing === "aloud") change({ pacing: "flow" });
+          else startAloudAt(currentSentenceIndex(), { preserveScroll: true });
         },
       },
     ]);
+  }
+
+  function sentenceIndexFromNode(node) {
+    const flow = view.getFlowEl();
+    if (!flow) return -1;
+    const el =
+      node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement ? node.parentElement : null;
+    const sentence = el && typeof el.closest === "function" ? el.closest(".rt-s") : null;
+    if (!sentence || !flow.contains(sentence)) return -1;
+    return Math.max(0, Number(sentence.dataset.i) || 0);
+  }
+
+  function currentSentenceIndex() {
+    const flow = view.getFlowEl();
+    if (!flow) return 0;
+    const sentences = [...flow.querySelectorAll(".rt-s")];
+    if (!sentences.length) return 0;
+
+    const eyeLine = window.innerHeight * 0.35;
+    let best = -1;
+    let bestDist = Infinity;
+
+    for (const el of sentences) {
+      const rect = el.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+      const center = rect.top + Math.min(rect.height, 72) / 2;
+      const dist = Math.abs(center - eyeLine);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = Number(el.dataset.i) || 0;
+      }
+    }
+
+    if (best >= 0) return best;
+
+    const firstBelow = sentences.find((el) => el.getBoundingClientRect().bottom >= 0);
+    return firstBelow ? Number(firstBelow.dataset.i) || 0 : 0;
+  }
+
+  function startAloudAt(index = 0, { preserveScroll = false } = {}) {
+    const next = Math.max(0, Number(index) || 0);
+    pendingAloudIndex = next;
+    preserveScrollOnPacingChange = !!preserveScroll;
+    if (profile.pacing === "aloud") {
+      tts.setRate(profile.ttsRate);
+      tts.setVoice(profile.ttsVoice);
+      tts.start(next);
+      syncTransport();
+      syncHeaderActions();
+      return;
+    }
+    change({ pacing: "aloud" });
   }
 
   /* ---- read-aloud engine (browser voice, or the user's ElevenLabs key) ---- */
@@ -240,6 +299,19 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (ev.type === "playing") transport.setPlaying(ev.value);
   });
 
+  view.getFlowEl().addEventListener("click", (ev) => {
+    if (profile.pacing !== "aloud" || !tts || ev.defaultPrevented) return;
+    const target = ev.target;
+    if (!target) return;
+    const owner = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
+    if (owner && owner.closest("a, button, input, select, textarea, summary")) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    const idx = sentenceIndexFromNode(target);
+    if (idx < 0) return;
+    startAloudAt(idx, { preserveScroll: true });
+  });
+
   /* ---- auto-scroll ---- */
   function startAuto() {
     if (autoScrolling) return;
@@ -321,13 +393,16 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (patch.pacing !== undefined && patch.pacing !== prevPacing) {
       stopAuto();
       if (prevPacing === "aloud" && tts) tts.pause();
-      window.scrollTo({ top: 0 });
+      const stageMode = profile.pacing === "sentence" || profile.pacing === "word";
+      if (stageMode && !preserveScrollOnPacingChange) window.scrollTo({ top: 0 });
       if (profile.pacing === "aloud" && tts) {
         view.applyProfile(profile);
         tts.setRate(profile.ttsRate);
         tts.setVoice(profile.ttsVoice);
-        tts.start(0);
+        tts.start(pendingAloudIndex);
       }
+      pendingAloudIndex = 0;
+      preserveScrollOnPacingChange = false;
     }
     syncTransport();
     syncHeaderActions();
@@ -347,7 +422,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   // global keys
   document.addEventListener("keydown", (e) => {
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-    if (e.key === "l" || e.key === "L") change({ pacing: profile.pacing === "aloud" ? "flow" : "aloud" });
+    if (e.key === "l" || e.key === "L") {
+      if (profile.pacing === "aloud") change({ pacing: "flow" });
+      else startAloudAt(currentSentenceIndex(), { preserveScroll: true });
+    }
     else if (e.key === "f" || e.key === "F") {
       const order = ["off", "paragraph", "ruler"];
       change({ focus: order[(order.indexOf(profile.focus) + 1) % 3] });
