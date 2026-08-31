@@ -62,6 +62,29 @@ export function formatBrowserVoiceLabel(voice) {
   return `${name} (${browserVoiceSource(voice)})`;
 }
 
+export function describeBrowserVoice(voice) {
+  if (!voice) {
+    return "Uses your browser's default speech voice. It is the simplest free setup and stays aligned with your device settings.";
+  }
+
+  const name = voiceName(voice);
+  const local = voice.localService !== false;
+
+  if (local && NATURAL_VOICE_RE.test(name)) {
+    return "A strong free local pick. It usually sounds richer than the plain default while keeping speech on this device.";
+  }
+  if (local && PLATFORM_VOICE_RE.test(name)) {
+    return "A polished system voice that stays private on this device. Good if you want free speech that still feels smooth.";
+  }
+  if (local) {
+    return "A free on-device voice. It keeps speech private and is a solid fallback if richer voices do not feel right.";
+  }
+  if (NATURAL_VOICE_RE.test(name)) {
+    return "Likely smoother, but Chrome reports it as an online voice, so spoken text may leave the device.";
+  }
+  return "Available here, but Chrome reports it as an online voice, so spoken text may leave the device.";
+}
+
 export function isTTSAvailable() {
   return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 }

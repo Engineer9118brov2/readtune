@@ -153,6 +153,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(rankedVoices[0].name === "Samantha Enhanced", "local enhanced voice ranks first");
   assert(TTS.recommendedBrowserVoices(rankedVoices, 2)[0].name === "Samantha Enhanced", "recommended browser voice prefers local natural voices");
   assert(TTS.formatBrowserVoiceLabel({ name: "Samantha", localService: true }) === "Samantha (On this device)", "browser voice label explains source");
+  assert(/strong free local pick/i.test(TTS.describeBrowserVoice({ name: "Samantha Enhanced", localService: true, lang: "en-US" })), "browser voice copy explains strong local picks");
   assert(RU.measuredLineHeight({ lineHeight: "normal", fontSize: "20px" }, 30) === 27, "normal line-height expands from font size");
   assert(RU.adaptiveRulerHeight({ lineHeightPx: 34, fontSizePx: 22, baseHeight: 40 }) > RU.adaptiveRulerHeight({ lineHeightPx: 20, fontSizePx: 14, baseHeight: 40 }), "ruler height tracks text metrics");
 

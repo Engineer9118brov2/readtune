@@ -42,6 +42,7 @@ ReadTune opens with a **~4-minute calibration test**: one warm-up plus six short
 - **Read aloud** — the current sentence and word are highlighted as it speaks. Two voices:
   - **Browser voice** (default) — your OS speech engine, no key, no network
   - **ElevenLabs** (optional) — paste your own API key in the panel for much better voices with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
+- **Voice Fit** — the Reading Lab surfaces the strongest free voices on your device, lets you preview them fast, and saves the one that feels clearest for read-aloud
 
 ### Memory
 
@@ -82,7 +83,8 @@ shared/
                         syllables → sentence-wrap → pacing (flow / sentence / RSVP)
   inpage-style.js       Generates the CSS the in-page restyle injects (scoped to html.rt-inpage)
   aids.js               Ruler, progress bar, paragraph focus, resume position, highlights
-  tts.js                Read-aloud: browser + ElevenLabs backends, sentence + word highlighting
+  tts.js                Read-aloud: browser + ElevenLabs backends, sentence + word highlighting,
+                        plus free-voice ranking and Voice Fit copy
   elevenlabs.js         ElevenLabs API (voices, /with-timestamps synth, alignment → word index)
   transport.js          The floating playback bar
   controls.js           The settings panel

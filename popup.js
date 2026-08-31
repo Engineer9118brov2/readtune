@@ -78,7 +78,7 @@ function configureFirstRun() {
 }
 
 function configureReturningUser(profile, insights) {
-  $("tagline").textContent = "Your profile is ready. Use it on this page, in PDFs, or keep tuning it over time.";
+  $("tagline").textContent = "Your profile is ready. Use it on this page, in PDFs, or keep tuning text and voice over time.";
   $("onboard").hidden = true;
   $("profile-box").hidden = false;
   $("btn-lab").hidden = false;
@@ -100,6 +100,7 @@ function configureReturningUser(profile, insights) {
   $("btn-reader").querySelector(".rt-btn-sub").textContent = "Open the current article in your saved profile · Alt+R";
   $("calibrate-title").textContent = "Retake the calibration";
   $("calibrate-sub").textContent = "See whether the result stays consistent";
+  $("btn-lab").querySelector(".rt-btn-sub").textContent = "See stability, repeated wins, and tune your free voice";
   setActionOrder(["reader", "restyle", "pdf", "lab", "calibrate"]);
 }
 

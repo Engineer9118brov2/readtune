@@ -45,6 +45,12 @@ retakes so you can see whether spacing, a font, or sentence chunking keeps
 winning or whether today's result was just a close call. It's a piece of
 self-knowledge, not just a settings blob.
 
+ReadTune now extends that same idea into **listening** too. Instead of dropping
+you into a flat voice picker, the Reading Lab surfaces the strongest free
+voices your device already has, lets you preview them quickly, and saves the
+one that feels clearest while you read along in your calibrated font and
+spacing.
+
 From then on, **Reader View**, **PDF mode**, and **"Restyle this page"** all use
 that profile automatically, and the Reading Lab explains how confident ReadTune
 is in the current result.

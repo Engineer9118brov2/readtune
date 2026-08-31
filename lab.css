@@ -181,6 +181,116 @@
   gap: 10px;
 }
 
+.lab-voice-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.lab-voice-stage,
+.lab-voice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lab-voice-status {
+  margin-top: 0;
+}
+
+.lab-voice-sample {
+  border: 1px solid rgba(214, 206, 190, 0.9);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.lab-voice-sample .rt-column {
+  padding: 20px 22px;
+}
+
+.lab-voice-card {
+  border-radius: 18px;
+  border: 1px solid rgba(214, 206, 190, 0.9);
+  background: rgba(248, 244, 235, 0.82);
+  padding: 16px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+}
+
+.lab-voice-card[data-active="true"] {
+  border-color: rgba(15, 108, 92, 0.4);
+  box-shadow: 0 12px 26px rgba(15, 108, 92, 0.1);
+  background: linear-gradient(180deg, rgba(230, 241, 236, 0.92), rgba(255, 255, 255, 0.96));
+}
+
+.lab-voice-card[data-playing="true"] {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(239, 141, 100, 0.18);
+}
+
+.lab-voice-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.lab-voice-card strong {
+  display: block;
+  font-family: var(--rt-ui-display);
+  font-size: 1rem;
+}
+
+.lab-voice-card p {
+  margin: 8px 0 0;
+}
+
+.lab-voice-meta,
+.lab-voice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lab-voice-meta {
+  margin-top: 10px;
+}
+
+.lab-voice-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(214, 206, 190, 0.9);
+  color: var(--rt-ui-ink-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.lab-voice-actions {
+  margin-top: 14px;
+}
+
+.lab-voice-actions .rt-btn {
+  width: auto;
+}
+
+.lab-voice-empty {
+  border-radius: 18px;
+  border: 1px dashed rgba(201, 227, 216, 0.92);
+  background: rgba(230, 241, 236, 0.42);
+  padding: 18px;
+}
+
+.lab-voice-empty strong {
+  display: block;
+  font-family: var(--rt-ui-display);
+  margin-bottom: 6px;
+}
+
 .lab-leader,
 .lab-use-case,
 .lab-timeline-item {
@@ -268,6 +378,10 @@
 @media (max-width: 860px) {
   .lab-hero,
   .lab-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-voice-grid {
     grid-template-columns: 1fr;
   }
 
