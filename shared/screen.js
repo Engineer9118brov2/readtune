@@ -261,6 +261,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   }
   async function previewVoice(browserVoice = "") {
     const line = "Hi — this is the voice ReadTune will use to read to you.";
+    if (tts && tts.isPlaying()) {
+      tts.pause();
+      clearReadAlong();
+      transport.setPlaying(false);
+    }
     stopPreview();
     if (ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey && ttsConfig.voiceId) {
       try {
@@ -300,6 +305,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       previewVoice(typeof t.browserVoice === "string" ? t.browserVoice : "");
       return;
     }
+    stopPreview();
     if (t.forget) {
       await forgetTTSKey();
       ttsConfig = await loadTTSConfig();

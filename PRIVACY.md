@@ -33,7 +33,7 @@ ReadTune is built so there is nothing to collect.
 
 ## Your control
 
-- Remove any saved data by using **Reset to defaults** in the settings panel, turning off "auto-open", or removing the extension (which clears all its local storage).
+- Remove any saved data by using **Reset to defaults** in the settings panel, turning off "auto-open" or "auto-restyle", or removing the extension (which clears all its local storage).
 
 ## Contact
 

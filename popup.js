@@ -247,54 +247,72 @@ async function initSiteAutomationRows() {
     const sites = await loadSites();
     const openToggle = $("auto-open-toggle");
     const styleToggle = $("auto-style-toggle");
-    openToggle.checked = !!(sites[origin] && sites[origin].autoOpen);
-    styleToggle.checked = !!(sites[origin] && sites[origin].autoStyle);
 
     const setBusy = (busy) => {
       openToggle.disabled = busy;
       styleToggle.disabled = busy;
     };
 
+    async function syncToggles() {
+      const nextSites = await loadSites();
+      const site = nextSites[origin] || {};
+      openToggle.checked = !!site.autoOpen;
+      styleToggle.checked = !!site.autoStyle;
+      return site;
+    }
+
+    await syncToggles();
+
     async function ensurePermission() {
+      const alreadyGranted = await chrome.permissions.contains({ origins: [origin + "/*"] }).catch(() => false);
+      if (alreadyGranted) return true;
       const granted = await chrome.permissions.request({ origins: [origin + "/*"] }).catch(() => false);
       if (!granted) setStatus("ReadTune needs permission for this site before it can automate it.", "info");
       return granted;
     }
 
     async function releasePermissionIfUnused() {
-      const nextSites = await loadSites();
-      const site = nextSites[origin];
+      const site = await syncToggles();
       if (site && (site.autoOpen || site.autoStyle)) return;
       chrome.permissions.remove({ origins: [origin + "/*"] }).catch(() => {});
     }
 
     async function enableAuto(mode) {
       if (!(await ensurePermission())) {
-        openToggle.checked = false;
-        styleToggle.checked = false;
+        await syncToggles();
         return;
       }
-      await setSiteAutoOpen(origin, mode === "open");
-      await setSiteAutoStyle(origin, mode === "style");
-      openToggle.checked = mode === "open";
-      styleToggle.checked = mode === "style";
+      const openResult = await setSiteAutoOpen(origin, mode === "open");
+      const styleResult = await setSiteAutoStyle(origin, mode === "style");
+      const site = await syncToggles();
+      if (!openResult || !styleResult) {
+        setStatus("ReadTune couldn't save that site automation setting.", "warn");
+        return;
+      }
       setStatus(
-        mode === "open"
+        site.autoOpen
           ? `ReadTune will open Reader View automatically on ${host}.`
-          : `ReadTune will restyle ${host} automatically in place.`,
+          : site.autoStyle
+            ? `ReadTune will restyle ${host} automatically in place.`
+            : `Automatic ReadTune is off on ${host}.`,
         "info"
       );
     }
 
     async function disableAuto(mode) {
-      if (mode === "open") await setSiteAutoOpen(origin, false);
-      else await setSiteAutoStyle(origin, false);
+      const result = mode === "open" ? await setSiteAutoOpen(origin, false) : await setSiteAutoStyle(origin, false);
+      if (!result) {
+        await syncToggles();
+        setStatus("ReadTune couldn't update that site automation setting.", "warn");
+        return;
+      }
+      const site = await syncToggles();
       await releasePermissionIfUnused();
       setStatus(
-        openToggle.checked || styleToggle.checked
-          ? mode === "open"
-            ? `Reader View auto-open is off on ${host}.`
-            : `Auto-restyle is off on ${host}.`
+        site.autoOpen || site.autoStyle
+          ? site.autoOpen
+            ? `Reader View auto-open stays on for ${host}.`
+            : `Auto-restyle stays on for ${host}.`
           : `Automatic ReadTune is off on ${host}.`,
         "info"
       );

@@ -317,9 +317,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const originalSynth = Object.getOwnPropertyDescriptor(window, "speechSynthesis");
   const originalUtterance = Object.getOwnPropertyDescriptor(window, "SpeechSynthesisUtterance");
   let synthCancels = 0;
+  let synthSpeaks = 0;
   Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
     getVoices: () => [{ name: "Samantha Enhanced", localService: true, lang: "en-US" }],
-    speak: () => {},
+    speak: () => { synthSpeaks += 1; },
     cancel: () => { synthCancels += 1; },
     addEventListener: () => {},
     removeEventListener: () => {},
@@ -346,6 +347,13 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
+  const preview = [...document.querySelectorAll(".rt-preview")].find((btn) => !btn.closest(".rt-field").hidden);
+  preview.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(
+    synthCancels >= 1 && synthSpeaks >= 2 && document.querySelector(".rt-play").textContent === "▶",
+    "voice preview pauses active read-aloud"
+  );
   document.querySelector(".rt-reset").click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(

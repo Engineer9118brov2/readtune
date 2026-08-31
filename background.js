@@ -53,6 +53,29 @@ async function toggleInpage(tab) {
   }
 }
 
+async function ensureInpage(tab) {
+  if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
+  try {
+    const [check] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        if (window.__readtuneInpageBoot) {
+          try {
+            await window.__readtuneInpageBoot;
+          } catch {
+            /* retry below */
+          }
+        }
+        return !!window.__readtuneInpage;
+      },
+    });
+    if (check && check.result) return;
+  } catch {
+    /* page not ready yet, fall through to a fresh inject */
+  }
+  await toggleInpage(tab);
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -95,5 +118,5 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     return;
   }
 
-  if (site.autoStyle) await toggleInpage(tab);
+  if (site.autoStyle) await ensureInpage(tab);
 });
