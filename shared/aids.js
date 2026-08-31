@@ -6,6 +6,8 @@
  * position, and persistent highlights. Attaches to the flow reading view.
  */
 
+import { measuredLineHeight, adaptiveRulerHeight } from "./ruler.js";
+
 export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
   const progress = document.createElement("div");
   progress.className = "rt-progress";
@@ -76,8 +78,26 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     if (!ruler.hidden) positionRuler();
   }
   function positionRuler() {
-    const h = profile.rulerHeight || 40;
+    const h = currentRulerHeight();
+    ruler.style.height = `${h}px`;
     ruler.style.top = `${Math.max(0, rulerY - h / 2)}px`;
+  }
+
+  function currentRulerHeight() {
+    const flow = getFlow();
+    const fallback = (Number(profile.fontSize) || 19) * (Number(profile.lineHeight) || 1.6);
+    const flowRect = flow && flow.getBoundingClientRect ? flow.getBoundingClientRect() : null;
+    const probeX = flowRect
+      ? Math.max(12, Math.min(window.innerWidth - 12, flowRect.left + Math.min(flowRect.width / 2, 120)))
+      : Math.max(12, Math.min(window.innerWidth - 12, window.innerWidth / 2));
+    let target = document.elementFromPoint(probeX, Math.max(8, Math.min(window.innerHeight - 8, rulerY)));
+    if (!flow || !target || !flow.contains(target)) target = flow || document.body;
+    const style = target ? getComputedStyle(target) : null;
+    return adaptiveRulerHeight({
+      lineHeightPx: measuredLineHeight(style, fallback),
+      fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
+      baseHeight: Number(profile.rulerHeight) || 40,
+    });
   }
 
   window.addEventListener("scroll", onScroll, { passive: true });

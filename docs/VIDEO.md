@@ -57,7 +57,7 @@ Land on the results screen. Point at the breakdown:
 - Same article → **Alt+Shift+R** → the *page itself* restyled in place, with the
   little bar.
 - Open a PDF worksheet → same reading view.
-- Hit **Read aloud** → show the sentence and word highlighting as it speaks.
+- Tap **Listen** → show the sentence and word highlighting as it speaks.
 
 > "Article, any web page, PDF — same settings, the ones the test picked for me.
 > Read-aloud highlights every word. No account, nothing sent anywhere — there's
@@ -87,5 +87,6 @@ Land on the results screen. Point at the breakdown:
 - [ ] Alt+Shift+R in-place restyle on the same site
 - [ ] PDF mode on a real worksheet
 - [ ] Read-aloud with visible word highlighting
+- [ ] If using a premium voice, set it up before recording and do not show the key field or say "API key" in the narration
 - [ ] Keep it under 4:00 — GatewayHacks caps at 5:00, shorter is better
 - [ ] Upload unlisted to YouTube, put the link on Devpost

@@ -26,7 +26,7 @@ const SLIDERS = {
   columnWidth: "Line width",
   bionic: "Bionic bolding",
   contrast: "Contrast",
-  rulerHeight: "Ruler height",
+  rulerHeight: "Ruler size",
   wpm: "Reading speed",
   ttsRate: "Voice speed",
 };
@@ -208,7 +208,7 @@ export function buildControls(profile, onChange) {
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
     { val: "browser", label: "Browser voice" },
-    { val: "elevenlabs", label: "ElevenLabs" },
+    { val: "elevenlabs", label: "Studio voice" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
     b.addEventListener("click", () => onChange({ __tts: { provider: o.val } }));
@@ -236,10 +236,10 @@ export function buildControls(profile, onChange) {
   const keyInput = el("input", {
     type: "password",
     class: "rt-input",
-    placeholder: "ElevenLabs API key",
+    placeholder: "Premium voice key",
     autocomplete: "off",
     spellcheck: "false",
-    "aria-label": "ElevenLabs API key",
+    "aria-label": "Premium voice key",
   });
   const keySave = el("button", { class: "rt-btn", type: "button", style: "width:auto" }, "Save key");
   keySave.addEventListener("click", () => {
@@ -251,13 +251,13 @@ export function buildControls(profile, onChange) {
     if (e.key === "Enter") keySave.click();
   });
   const keyRow = el("div", { class: "rt-field" }, [
-    el("span", { class: "rt-field-label" }, "ElevenLabs API key"),
+    el("span", { class: "rt-field-label" }, "Premium voice key"),
     el("div", { class: "rt-key-row" }, [keyInput, keySave]),
   ]);
   const keyHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Stored only in this browser, sent only to ElevenLabs. Give the key the voices_read and text_to_speech permissions. Note: ElevenLabs' free plan can't use its shared voices over the API — you need a voice you cloned or created, or a paid plan. Accounts are 18+ (13+ with a parent)."
+    "Optional ElevenLabs key. Stored only in this browser and sent only to ElevenLabs while reading. Free ElevenLabs plans cannot use shared voices over the API, so you need a voice you created or cloned. Accounts are 18+ (13+ with a parent)."
   );
 
   const elVoiceSel = el("select", { class: "rt-select", "aria-label": "ElevenLabs voice" });
@@ -373,7 +373,7 @@ export function buildControls(profile, onChange) {
       reg.statusLine.textContent = t.note;
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
-      reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices` : `Connected · using voice ${(t.voiceId || "").slice(0, 8) || "(none set)"}`;
+      reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";
       reg.statusLine.dataset.kind = "ok";
     } else {
       reg.statusLine.textContent = "";

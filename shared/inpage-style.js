@@ -79,16 +79,44 @@ html.rt-inpage :is(p, li, article, main) { text-align: left !important; }
 `);
 
   if (tint) {
+    const scheme = luminance(tint.bg) < 0.45 ? "dark" : "light";
     out.push(`
-html.rt-inpage { background: ${tint.bg} !important; }
-html.rt-inpage body { background: ${tint.bg} !important; }
-html.rt-inpage :is(body, p, li, dd, dt, h1, h2, h3, h4, h5, h6, span, div, article, section, main, blockquote, td, th, figcaption)${ICON_GUARD} {
-  color: ${tint.ink} !important;
+html.rt-inpage {
+  color-scheme: ${scheme} !important;
+  --rt-inpage-bg: ${tint.bg};
+  --rt-inpage-ink: ${tint.ink};
+  --rt-inpage-muted: color-mix(in srgb, var(--rt-inpage-ink) 72%, var(--rt-inpage-bg));
+  --rt-inpage-faint: color-mix(in srgb, var(--rt-inpage-ink) 18%, var(--rt-inpage-bg));
+  --color-base: var(--rt-inpage-ink);
+  --color-emphasized: var(--rt-inpage-ink);
+  --color-subtle: var(--rt-inpage-muted);
+  --color-muted: var(--rt-inpage-muted);
+  --color-placeholder: var(--rt-inpage-muted);
+  --background-color-base: var(--rt-inpage-bg);
+  --background-color-interactive-subtle: var(--rt-inpage-faint);
+  --background-color-neutral-subtle: var(--rt-inpage-faint);
+  --border-color-base: var(--rt-inpage-faint);
+  --border-color-subtle: var(--rt-inpage-faint);
+  background: var(--rt-inpage-bg) !important;
+  color: var(--rt-inpage-ink) !important;
 }
-html.rt-inpage :is(article, main, section, [class*="content"], [class*="article"], [class*="post"]) {
+html.rt-inpage body {
+  background: var(--rt-inpage-bg) !important;
+  color: var(--rt-inpage-ink) !important;
+  caret-color: var(--rt-inpage-ink) !important;
+}
+html.rt-inpage body *${ICON_GUARD} {
+  color: var(--rt-inpage-ink) !important;
+  -webkit-text-fill-color: var(--rt-inpage-ink) !important;
+}
+html.rt-inpage :is(article, main, section, nav, aside, header, footer, table, thead, tbody, tfoot, tr, td, th, [class*="content"], [class*="article"], [class*="post"], [class*="story"], [class*="prose"], [class*="panel"], [class*="card"]) {
   background-color: transparent !important;
 }
-html.rt-inpage a${ICON_GUARD} { color: ${tint.ink} !important; text-decoration-color: ${tint.ink}80 !important; }
+html.rt-inpage :is(a, a:visited, a:hover, a:active)${ICON_GUARD} {
+  color: var(--rt-inpage-ink) !important;
+  -webkit-text-fill-color: var(--rt-inpage-ink) !important;
+  text-decoration-color: color-mix(in srgb, var(--rt-inpage-ink) 48%, transparent) !important;
+}
 `);
   }
 
@@ -124,5 +152,5 @@ function clamp(v, lo, hi, dflt) {
 }
 function luminance(hex) {
   const n = parseInt(hex.slice(1), 16);
-  return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 > 107 ? 0.6 : 0.3;
+  return ((((n >> 16) & 255) * 0.299) + (((n >> 8) & 255) * 0.587) + ((n & 255) * 0.114)) / 255;
 }

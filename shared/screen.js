@@ -90,6 +90,23 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   document.body.append(controls.toggle, controls.panel);
   onVoicesReady((voices) => controls.setVoices(voices));
 
+  function syncHeaderActions() {
+    if (typeof view.setActions !== "function") return;
+    const ttsReady = isTTSAvailable();
+    view.setActions([
+      {
+        label: profile.pacing === "aloud" ? "Stop listening" : "Listen",
+        primary: profile.pacing === "aloud",
+        pressed: profile.pacing === "aloud",
+        disabled: !ttsReady,
+        onClick: () => {
+          if (!ttsReady) return;
+          change({ pacing: profile.pacing === "aloud" ? "flow" : "aloud" });
+        },
+      },
+    ]);
+  }
+
   /* ---- read-aloud engine (browser voice, or the user's ElevenLabs key) ---- */
   function pushTTS(extra = {}) {
     const hasKey = !!ttsConfig.apiKey;
@@ -275,6 +292,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       tts.setVoice(p.ttsVoice);
     }
     syncTransport();
+    syncHeaderActions();
   }
 
   function change(patch) {
@@ -312,6 +330,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       }
     }
     syncTransport();
+    syncHeaderActions();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveProfile(patch), 200);
   }

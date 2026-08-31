@@ -42,6 +42,7 @@ Structure:
 - A participant who has already had the product explained to them before cameras roll.
 - A simple consent form that covers recording, editing, and posting.
 - A calm room, good audio, and no time pressure.
+- If using a premium voice, configure it before filming. Do not capture the key field, the key label, or any account-specific voice IDs on screen.
 
 ## Best story to film
 

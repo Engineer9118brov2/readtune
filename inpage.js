@@ -17,7 +17,8 @@
   }
 
   const S = await import(chrome.runtime.getURL("shared/settings.js"));
-  const { inpageCSS, IN_PAGE_STACKS } = await import(chrome.runtime.getURL("shared/inpage-style.js"));
+  const { inpageCSS } = await import(chrome.runtime.getURL("shared/inpage-style.js"));
+  const { measuredLineHeight, adaptiveRulerHeight } = await import(chrome.runtime.getURL("shared/ruler.js"));
 
   const FONT_ORDER = ["sans", "dyslexic", "atkinson", "lexend"];
   const FONT_LABEL = { sans: "Standard", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
@@ -106,12 +107,29 @@
 
   /* ---------- reading ruler ---------- */
   let ruler = null;
+  let rulerX = window.innerWidth / 2;
+  let rulerY = window.innerHeight * 0.4;
   function onPointer(e) {
+    rulerY = e.clientY;
+    rulerX = e.clientX;
     if (ruler) {
-      const h = profile.rulerHeight || 40;
+      const h = currentRulerHeight();
       ruler.style.height = h + "px";
       ruler.style.top = Math.max(0, e.clientY - h / 2) + "px";
     }
+  }
+  function currentRulerHeight() {
+    const fallback = (Number(profile.fontSize) || 19) * (Number(profile.lineHeight) || 1.6);
+    const target = document.elementFromPoint(
+      Math.max(8, Math.min(window.innerWidth - 8, rulerX)),
+      Math.max(8, Math.min(window.innerHeight - 8, rulerY))
+    );
+    const style = target ? getComputedStyle(target) : null;
+    return adaptiveRulerHeight({
+      lineHeightPx: measuredLineHeight(style, fallback),
+      fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
+      baseHeight: Number(profile.rulerHeight) || 40,
+    });
   }
   function applyRuler(on) {
     if (on && !ruler) {
@@ -119,6 +137,9 @@
       ruler.id = "readtune-ruler";
       document.documentElement.appendChild(ruler);
       window.addEventListener("pointermove", onPointer, { passive: true });
+      onPointer({ clientX: rulerX, clientY: rulerY });
+    } else if (on && ruler) {
+      onPointer({ clientX: rulerX, clientY: rulerY });
     } else if (!on && ruler) {
       window.removeEventListener("pointermove", onPointer);
       ruler.remove();

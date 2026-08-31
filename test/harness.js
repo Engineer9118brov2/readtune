@@ -57,6 +57,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const TTS = await import("../shared/tts.js");
   const EL = await import("../shared/elevenlabs.js");
   const IP = await import("../shared/inpage-style.js");
+  const RU = await import("../shared/ruler.js");
   const CS = await import("../shared/calibration-score.js");
   const CI = await import("../shared/calibration-insights.js");
 
@@ -111,6 +112,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
   R.applyTypography(host, { ...S.DEFAULT_PROFILE, overlay: "custom", customTint: "#101014", contrast: 85 });
   assert(host.style.getPropertyValue("--rt-surface") === "#101014" && host.style.getPropertyValue("--rt-contrast") === "0.85", "custom tint + contrast vars");
+  view.setActions([{ label: "Listen", primary: true, onClick: () => {} }]);
+  assert(host.querySelectorAll(".rt-doc-action").length === 1, "doc action renders");
 
   /* pdftext */
   const p1 = itemsToParagraphs([
@@ -136,6 +139,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   aids.destroy();
 
   assert(typeof TTS.isTTSAvailable === "function" && typeof TTS.createTTS === "function", "tts exports");
+  assert(RU.measuredLineHeight({ lineHeight: "normal", fontSize: "20px" }, 30) === 27, "normal line-height expands from font size");
+  assert(RU.adaptiveRulerHeight({ lineHeightPx: 34, fontSizePx: 22, baseHeight: 40 }) > RU.adaptiveRulerHeight({ lineHeightPx: 20, fontSizePx: 14, baseHeight: 40 }), "ruler height tracks text metrics");
 
   /* ---- calibration scoring (single-change design + practice de-trend) ---- */
   assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");
@@ -229,6 +234,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/22px !important/.test(ipCss), "inpageCSS font-size");
   assert(/#f7f0dc/.test(ipCss) && /display: none !important/.test(ipCss), "inpageCSS tint + hide-images");
   assert(/:not\(svg\)/.test(ipCss), "inpageCSS guards icons/svg");
+  const ipDark = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "dark" }, "");
+  assert(/color-scheme: dark/.test(ipDark) && /-webkit-text-fill-color: var\(--rt-inpage-ink\)/.test(ipDark), "inpageCSS dark tint forces readable text");
   const ipNone = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "none" }, "");
   assert(!/background: #/.test(ipNone.replace(/#readtune-ruler[^}]+}/g, "")), "inpageCSS overlay=none leaves page colours alone");
 

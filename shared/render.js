@@ -502,11 +502,17 @@ export function createReadingView(host) {
   const docHead = document.createElement("header");
   docHead.className = "rt-doc-head";
   docHead.hidden = true;
+  const docHeadTop = document.createElement("div");
+  docHeadTop.className = "rt-doc-head-top";
   const docTitle = document.createElement("h1");
   docTitle.className = "rt-doc-title";
+  const docActions = document.createElement("div");
+  docActions.className = "rt-doc-actions";
+  docActions.hidden = true;
   const docMeta = document.createElement("p");
   docMeta.className = "rt-doc-meta";
-  docHead.append(docTitle, docMeta);
+  docHeadTop.append(docTitle, docActions);
+  docHead.append(docHeadTop, docMeta);
 
   const flow = document.createElement("div");
   flow.className = "rt-article";
@@ -541,8 +547,16 @@ export function createReadingView(host) {
   let rsvpPlaying = false;
   let profile = { ...DEFAULT_PROFILE };
   let onEvent = () => {};
+  let metaTitleText = "";
+  let metaParts = [];
+  let metaActions = 0;
 
   const cloneKids = (frag) => Array.from(frag.cloneNode(true).childNodes);
+
+  function syncDocHead() {
+    docActions.hidden = metaActions === 0;
+    docHead.hidden = !metaTitleText && !metaParts.length && metaActions === 0;
+  }
 
   function renderFlow() {
     flow.replaceChildren(...cloneKids(pristine));
@@ -698,11 +712,36 @@ export function createReadingView(host) {
       render();
     },
     setMeta({ title = "", parts = [] } = {}) {
-      docTitle.textContent = title || "";
+      metaTitleText = title || "";
+      metaParts = parts.filter(Boolean);
+      docTitle.textContent = metaTitleText;
       docMeta.replaceChildren(
-        ...parts.filter(Boolean).map((t) => Object.assign(document.createElement("span"), { textContent: t }))
+        ...metaParts.map((t) => Object.assign(document.createElement("span"), { textContent: t }))
       );
-      docHead.hidden = !title && !parts.filter(Boolean).length;
+      syncDocHead();
+    },
+    setActions(actions = []) {
+      const list = Array.isArray(actions) ? actions.filter(Boolean) : [];
+      metaActions = list.length;
+      docActions.replaceChildren(
+        ...list.map((a) => {
+          const node = document.createElement(a.href ? "a" : "button");
+          node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
+          node.textContent = a.label || "";
+          if (a.href) {
+            node.href = a.href;
+            node.target = "_blank";
+            node.rel = "noopener";
+          } else {
+            node.type = "button";
+            if (typeof a.onClick === "function") node.addEventListener("click", a.onClick);
+          }
+          if (a.disabled) node.setAttribute("disabled", "");
+          if (a.pressed != null) node.setAttribute("aria-pressed", a.pressed ? "true" : "false");
+          return node;
+        })
+      );
+      syncDocHead();
     },
     applyProfile(next) {
       const prev = profile;
