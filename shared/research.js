@@ -1,3 +1,5 @@
+import { DEFAULT_RULER_LINES, normalizeRulerLines } from "./ruler.js";
+
 /*
  * ReadTune — research-backed product guidance
  *
@@ -31,6 +33,7 @@ export const RESEARCH_STARTER_PROFILE = Object.freeze({
   hideImages: false,
   freezeMotion: false,
   focus: "off",
+  rulerLines: DEFAULT_RULER_LINES,
   rulerHeight: 40,
   pacing: "flow",
   wpm: 300,
@@ -99,8 +102,11 @@ export function evidenceLevel(level) {
 export function researchStarterPatch(current = {}) {
   const next = current && typeof current === "object" ? current : {};
   const rate = Number(next.ttsRate);
+  const rulerHeight = Number(next.rulerHeight);
   return {
     ...RESEARCH_STARTER_PROFILE,
+    rulerLines: normalizeRulerLines(next.rulerLines, RESEARCH_STARTER_PROFILE.rulerLines),
+    rulerHeight: Number.isFinite(rulerHeight) ? rulerHeight : RESEARCH_STARTER_PROFILE.rulerHeight,
     ttsVoice: next.ttsVoice || RESEARCH_STARTER_PROFILE.ttsVoice,
     ttsRate: Number.isFinite(rate) ? rate : RESEARCH_STARTER_PROFILE.ttsRate,
   };

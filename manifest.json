@@ -25,7 +25,7 @@
   "optional_host_permissions": ["https://api.elevenlabs.io/*", "*://*/*"],
   "web_accessible_resources": [
     {
-      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/inpage-style.js", "shared/ruler.js"],
+      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js"],
       "matches": ["<all_urls>"]
     }
   ],

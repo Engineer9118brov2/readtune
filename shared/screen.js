@@ -25,6 +25,7 @@ import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
+import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
@@ -465,8 +466,15 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       else startAloudAt(currentSentenceIndex(), { preserveScroll: true });
     }
     else if (e.key === "f" || e.key === "F") {
-      const order = ["off", "paragraph", "ruler"];
-      change({ focus: order[(order.indexOf(profile.focus) + 1) % 3] });
+      if (e.shiftKey && profile.focus === "ruler") {
+        change({ rulerLines: cycleRulerLines(profile.rulerLines) });
+      } else {
+        const order = ["off", "paragraph", "ruler"];
+        const nextFocus = order[(order.indexOf(profile.focus) + 1) % 3];
+        const patch = { focus: nextFocus };
+        if (nextFocus === "ruler") patch.rulerLines = normalizeRulerLines(profile.rulerLines);
+        change(patch);
+      }
     }
   });
 

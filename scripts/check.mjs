@@ -48,6 +48,10 @@ try {
     const p = manifest.icons && manifest.icons[size];
     if (!p || !existsSync(join(ROOT, p))) fail(`manifest → icons.${size}: missing`);
   }
+  const webResources = new Set((manifest.web_accessible_resources || []).flatMap((entry) => entry.resources || []));
+  for (const need of ["shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js"]) {
+    if (!webResources.has(need)) fail(`manifest → web_accessible_resources: missing ${need}`);
+  }
 } catch (e) {
   fail("manifest.json invalid JSON: " + e.message);
 }

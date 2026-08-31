@@ -207,10 +207,22 @@ async function restylePage() {
       return;
     }
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inpage.js"] });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        if (window.__readtuneInpageBoot) await window.__readtuneInpageBoot;
+        return true;
+      },
+    });
     window.close();
   } catch (err) {
-    if (!isExpectedPageBlock(err)) console.warn("[ReadTune] restyle failed:", err);
-    setStatus("This page doesn't allow extensions (chrome:// pages and the Web Store are blocked).");
+    const blocked = isExpectedPageBlock(err);
+    if (!blocked) console.warn("[ReadTune] restyle failed:", err);
+    setStatus(
+      blocked
+        ? "This page doesn't allow extensions (chrome:// pages and the Web Store are blocked)."
+        : "ReadTune couldn't restyle this page. Refresh the page and try again."
+    );
   }
 }
 

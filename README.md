@@ -22,7 +22,7 @@ The product now also ships a **research-backed starter** before calibration fini
 | **Research-backed starter** | Opens with calmer spacing, softer contrast, shorter lines, and honest evidence labels before you fine-tune anything |
 | **Reading Lab** | Shows confidence, retake history, Voice Fit, and which reading changes keep repeating |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
-| **Restyle this page** | Applies your font / spacing / tint / bionic / ruler to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
+| **Restyle this page** | Applies your font / spacing / tint / bionic / adaptive line focus to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
 | **PDF mode** | Extracts text from a PDF worksheet/handout (pdf.js) and renders it through the *same* engine |
 | **Guided setup** | Calibration now hands off into Voice Fit, so first-run users finish with both a reading profile and a free read-aloud voice |
 | **Settings panel** | Everything below, live and saved, consistent across articles and PDFs |
@@ -38,7 +38,7 @@ The product now also ships a **research-backed starter** before calibration fini
 
 ### Focus & pacing
 
-- **Reading ruler** — a highlight band that follows your line, dimming the rest
+- **Reading ruler** — an adaptive 1 / 3 / 5-line focus band that follows your line, dimming the rest
 - **Paragraph focus** — dims every paragraph except the one you're on
 - **One sentence at a time** — step through with the keyboard or the transport bar
 - **Speed reader (RSVP)** — one word at a time at an adjustable words-per-minute, with pivot-letter alignment

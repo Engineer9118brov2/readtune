@@ -10,15 +10,24 @@
  * imports the shared, web-accessible pieces.
  */
 
-(async () => {
-  if (window.__readtuneInpage) {
+const __readtuneToggleOff = !!window.__readtuneInpage;
+const __readtuneExistingBoot = !!window.__readtuneInpageBoot && window.__readtuneInpageBootStatus !== "failed";
+const __readtuneBoot = (async () => {
+  if (__readtuneToggleOff) {
     window.__readtuneInpage.toggleOff();
     return;
+  }
+  if (__readtuneExistingBoot) return;
+  if (window.__readtuneInpageBoot) {
+    delete window.__readtuneInpageBoot;
+    delete window.__readtuneInpageBootStatus;
   }
 
   const S = await import(chrome.runtime.getURL("shared/settings.js"));
   const { inpageCSS } = await import(chrome.runtime.getURL("shared/inpage-style.js"));
-  const { measuredLineHeight, adaptiveRulerHeight } = await import(chrome.runtime.getURL("shared/ruler.js"));
+  const { measuredLineHeight, adaptiveRulerHeight, normalizeRulerLines, rulerSpanLabel } = await import(
+    chrome.runtime.getURL("shared/ruler.js")
+  );
 
   const FONT_ORDER = ["sans", "dyslexic", "atkinson", "lexend"];
   const FONT_LABEL = { sans: "System Sans", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
@@ -129,6 +138,7 @@
       lineHeightPx: measuredLineHeight(style, fallback),
       fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
       baseHeight: Number(profile.rulerHeight) || 40,
+      lines: profile.rulerLines,
     });
   }
   function applyRuler(on) {
@@ -162,7 +172,7 @@
        <button data-a="lead"  title="Line spacing" aria-label="Line spacing"><i data-l="lead"></i></button>
        <button data-a="tint"  title="Reading tint" aria-label="Reading tint"><span class="dot" data-l="tint"></span><span>Tint</span></button>
        <button data-a="bionic" title="Bold the start of each word" aria-label="Bionic bolding">Bionic</button>
-       <button data-a="ruler" title="Line guide that follows your cursor" aria-label="Reading ruler">Ruler</button>
+       <button data-a="ruler" title="Line guide that follows your cursor" aria-label="Reading ruler">Ruler&nbsp;<i data-l="ruler"></i></button>
        <span class="sep"></span>
        <button data-a="reader" title="Open the full Reader View" aria-label="Open Reader View">Reader&nbsp;View</button>
        <button data-a="off"   title="Turn ReadTune off on this page" aria-label="Turn off">Done</button>
@@ -176,8 +186,16 @@
     const dot = root.querySelector('[data-l="tint"]');
     const t = { none: "#fbfaf7", cream: "#f7f0dc", yellow: "#fbf3cc", blue: "#e3eef6", green: "#e6f1e6", grey: "#eceae6", dark: "#181a1d", peach: "#faeee6", rose: "#f7e9ee", custom: profile.customTint }[profile.overlay];
     dot.style.background = t || "#fbfaf7";
+    const rulerLines = normalizeRulerLines(profile.rulerLines);
+    const rulerBtn = root.querySelector('[data-a="ruler"]');
+    root.querySelector('[data-l="ruler"]').textContent = rulerSpanLabel(rulerLines, { compact: true });
     root.querySelector('[data-a="bionic"]').classList.toggle("on", !!profile.bionic);
-    root.querySelector('[data-a="ruler"]').classList.toggle("on", profile.focus === "ruler");
+    rulerBtn.classList.toggle("on", profile.focus === "ruler");
+    rulerBtn.title = `Reading ruler · ${rulerSpanLabel(rulerLines)}`;
+    rulerBtn.setAttribute(
+      "aria-label",
+      profile.focus === "ruler" ? `Reading ruler on, ${rulerSpanLabel(rulerLines)}` : `Turn on reading ruler, ${rulerSpanLabel(rulerLines)}`
+    );
   }
 
   root.querySelector(".bar").addEventListener("click", async (e) => {
@@ -191,7 +209,20 @@
     else if (a === "lead") patch.lineHeight = leadCycle[(leadCycle.findIndex((v) => v >= profile.lineHeight) + 1) % leadCycle.length];
     else if (a === "tint") patch.overlay = TINT_ORDER[(TINT_ORDER.indexOf(profile.overlay) + 1) % TINT_ORDER.length];
     else if (a === "bionic") patch.bionic = profile.bionic ? 0 : 40;
-    else if (a === "ruler") patch.focus = profile.focus === "ruler" ? "off" : "ruler";
+    else if (a === "ruler") {
+      const rulerLines = normalizeRulerLines(profile.rulerLines);
+      if (profile.focus !== "ruler") {
+        patch.focus = "ruler";
+        patch.rulerLines = rulerLines;
+      } else if (rulerLines === 1) {
+        patch.rulerLines = 3;
+      } else if (rulerLines === 3) {
+        patch.rulerLines = 5;
+      } else {
+        patch.focus = "off";
+        patch.rulerLines = 1;
+      }
+    }
     else if (a === "reader") {
       chrome.runtime.sendMessage({ type: "readtune-open-reader" });
       return;
@@ -234,6 +265,8 @@
     if (ruler) ruler.remove();
     document.documentElement.classList.remove("rt-inpage");
     delete window.__readtuneInpage;
+    delete window.__readtuneInpageBoot;
+    delete window.__readtuneInpageBootStatus;
   }
 
   window.__readtuneInpage = { toggleOff };
@@ -244,3 +277,16 @@
   applyRuler(profile.focus === "ruler");
   paintBar();
 })();
+
+// File injection itself is synchronous; expose the async boot so callers can
+// wait for imports, fonts, and the first paint before reporting success.
+if (!__readtuneToggleOff && !__readtuneExistingBoot) {
+  window.__readtuneInpageBoot = __readtuneBoot;
+  window.__readtuneInpageBootStatus = "pending";
+}
+__readtuneBoot.then(() => {
+  if (window.__readtuneInpageBoot === __readtuneBoot) window.__readtuneInpageBootStatus = "ready";
+}, (err) => {
+  if (window.__readtuneInpageBoot === __readtuneBoot) window.__readtuneInpageBootStatus = "failed";
+  console.warn("[ReadTune] in-page restyle failed to initialize:", err);
+});

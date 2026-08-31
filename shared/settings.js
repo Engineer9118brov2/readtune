@@ -8,6 +8,7 @@
  */
 
 import { RESEARCH_STARTER_PROFILE } from "./research.js";
+import { DEFAULT_RULER_LINES, inferLegacyRulerLines, normalizeRulerLines, rulerSpanLabel } from "./ruler.js";
 
 export const PROFILE_KEY = "readtune_profile";
 export const HISTORY_KEY = "readtune_calibrations";
@@ -79,11 +80,15 @@ export function normalizeProfile(raw) {
   // migrate legacy fields
   if (src.chunked === true && !src.pacing) p.pacing = "sentence";
   if (src.font === "opendyslexic") p.font = "dyslexic";
+  if (!("rulerLines" in src) && "rulerHeight" in src) {
+    p.rulerLines = inferLegacyRulerLines(src.rulerHeight, DEFAULT_PROFILE.rulerLines || DEFAULT_RULER_LINES);
+  }
 
   p.font = FONTS[p.font] ? p.font : "sans";
   p.overlay = OVERLAYS[p.overlay] ? p.overlay : "none";
   p.pacing = PACING[p.pacing] ? p.pacing : "flow";
   p.focus = ["off", "paragraph", "ruler"].includes(p.focus) ? p.focus : "off";
+  p.rulerLines = normalizeRulerLines(p.rulerLines, DEFAULT_PROFILE.rulerLines || DEFAULT_RULER_LINES);
   p.hyphenate = !!p.hyphenate;
   p.syllables = !!p.syllables;
   p.deItalic = !!p.deItalic;
@@ -405,7 +410,8 @@ export function describeProfile(p) {
   if (p.bionic) bits.push(`bionic ${p.bionic}%`);
   if (p.hyphenate) bits.push("hyphenated");
   if (p.pacing && p.pacing !== "flow") bits.push(PACING[p.pacing].toLowerCase());
-  if (p.focus !== "off") bits.push(`${p.focus} focus`);
+  if (p.focus === "ruler") bits.push(`${rulerSpanLabel(p.rulerLines)} focus`);
+  else if (p.focus !== "off") bits.push(`${p.focus} focus`);
   if (p.overlay !== "none") bits.push(`${(OVERLAYS[p.overlay] || {}).label || ""} tint`.trim());
   return bits.filter(Boolean).join(" · ");
 }

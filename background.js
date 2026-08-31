@@ -41,6 +41,13 @@ async function toggleInpage(tab) {
   if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
   try {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inpage.js"] });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        if (window.__readtuneInpageBoot) await window.__readtuneInpageBoot;
+        return true;
+      },
+    });
   } catch (err) {
     console.warn("[ReadTune] toggle-inpage failed:", err);
   }

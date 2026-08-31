@@ -20,6 +20,7 @@ export function modePatch(mode, profile) {
       return {
         pacing: "flow",
         focus: "ruler",
+        rulerLines: 1,
         hideImages: true,
         freezeMotion: true,
         columnWidth: Math.min(56, Number(p.columnWidth) || 58),
@@ -40,6 +41,7 @@ export function modePatch(mode, profile) {
       return {
         pacing: "aloud",
         focus: "ruler",
+        rulerLines: 3,
         freezeMotion: true,
         columnWidth: Math.min(58, Number(p.columnWidth) || 58),
       };

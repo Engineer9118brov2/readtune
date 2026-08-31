@@ -68,11 +68,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(
     S.FONTS.sans.label === "System Sans" &&
       S.DEFAULT_PROFILE.lineHeight === RS.RESEARCH_STARTER_PROFILE.lineHeight &&
-      S.DEFAULT_PROFILE.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth,
+      S.DEFAULT_PROFILE.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth &&
+      S.DEFAULT_PROFILE.rulerLines === 1,
     "research-backed starter seeds defaults"
   );
   const mig = S.normalizeProfile({ chunked: true, font: "opendyslexic" });
   assert(mig.pacing === "sentence" && mig.font === "dyslexic", "legacy migration");
+  const legacyRuler = S.normalizeProfile({ focus: "ruler", rulerHeight: 76 });
+  assert(legacyRuler.rulerLines === 5, "legacy ruler height migrates into a multi-line focus span");
   const cl = S.normalizeProfile({ fontSize: 999, wpm: 5000, bionic: -3, overlay: "??", pacing: "??" });
   assert(cl.fontSize <= 34 && cl.wpm <= 900 && cl.bionic === 0 && cl.overlay === "none" && cl.pacing === "flow", "clamps");
   await S.writeProfile({ ...S.DEFAULT_PROFILE, font: "atkinson", bionic: 40, syllables: true });
@@ -111,7 +114,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(!shell.quality.ok && shellView.isEmpty(), "app shell rejected");
 
   let starterPatch = null;
-  const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsVoice: "Samantha", ttsRate: 1.2 }, (p) => {
+  const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsVoice: "Samantha", ttsRate: 1.2, rulerLines: 5, rulerHeight: 76 }, (p) => {
     starterPatch = p;
   });
   assert(/Research-backed starter/.test(starterControls.panel.textContent), "controls surface research-backed starter");
@@ -120,6 +123,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     starterPatch &&
       starterPatch.lineHeight === RS.RESEARCH_STARTER_PROFILE.lineHeight &&
       starterPatch.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth &&
+      starterPatch.rulerLines === 5 &&
+      starterPatch.rulerHeight === 76 &&
       starterPatch.ttsVoice === "Samantha" &&
       starterPatch.ttsRate === 1.2,
     "starter button emits starter profile"
@@ -184,6 +189,12 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/strong free local pick/i.test(TTS.describeBrowserVoice({ name: "Samantha Enhanced", localService: true, lang: "en-US" })), "browser voice copy explains strong local picks");
   assert(RU.measuredLineHeight({ lineHeight: "normal", fontSize: "20px" }, 30) === 27, "normal line-height expands from font size");
   assert(RU.adaptiveRulerHeight({ lineHeightPx: 34, fontSizePx: 22, baseHeight: 40 }) > RU.adaptiveRulerHeight({ lineHeightPx: 20, fontSizePx: 14, baseHeight: 40 }), "ruler height tracks text metrics");
+  assert(
+    RU.adaptiveRulerHeight({ lineHeightPx: 28, fontSizePx: 18, baseHeight: 40, lines: 3 }) >
+      RU.adaptiveRulerHeight({ lineHeightPx: 28, fontSizePx: 18, baseHeight: 40, lines: 1 }),
+    "ruler height expands with multi-line focus spans"
+  );
+  assert(RU.inferLegacyRulerLines(52) === 3 && RU.rulerSpanLabel(5) === "5 lines", "ruler helpers map legacy sizes and labels");
 
   /* ---- calibration scoring (single-change design + practice de-trend) ---- */
   assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");
@@ -300,7 +311,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   cp.panel.remove();
 
   const listenMode = RM.modePatch("listen", S.DEFAULT_PROFILE);
-  assert(listenMode.pacing === "aloud" && listenMode.focus === "ruler", "listen mode follows spoken sentence");
+  assert(listenMode.pacing === "aloud" && listenMode.focus === "ruler" && listenMode.rulerLines === 3, "listen mode follows spoken sentence with more context");
 
   /* controls */
   let patch = null;
@@ -313,6 +324,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(patch.overlay === "blue", "tint swatch");
   controls.panel.querySelector('.rt-seg[aria-label="Reading mode"] button[data-val="word"]').click();
   assert(patch.pacing === "word", "pacing segment");
+  controls.sync({ ...S.DEFAULT_PROFILE, focus: "ruler", rulerLines: 1 });
+  patch = null;
+  controls.panel.querySelector('.rt-seg[aria-label="Reading ruler span"] button[data-val="3"]').click();
+  assert(patch.rulerLines === 3, "ruler span segment");
   patch = null;
   controls.panel.querySelector('.rt-mode[data-mode="skim"]').click();
   assert(patch && patch.__mode === "skim", "quick mode emits bundle patch");

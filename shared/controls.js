@@ -8,6 +8,7 @@
 
 import { RANGES, OVERLAYS, FONTS, PACING } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
+import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
 import { formatBrowserVoiceLabel, recommendedBrowserVoices } from "./tts.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
 
@@ -17,6 +18,7 @@ const FOCUS_OPTS = [
   { val: "paragraph", label: "Dim other paragraphs" },
   { val: "ruler", label: "Reading ruler" },
 ];
+const RULER_SPAN_OPTS = RULER_LINE_OPTIONS.map((val) => ({ val, label: rulerSpanLabel(val) }));
 const PACING_OPTS = Object.entries(PACING).map(([val, label]) => ({ val, label }));
 
 const SLIDERS = {
@@ -243,9 +245,14 @@ export function buildControls(profile, onChange) {
   const secFocus = section(sectionTitle("Focus", "personal"), false);
   secFocus.append(hint("Focus aids shine when attention drifts, even if your base profile stays simple."));
   secFocus.append(field("Keep my place", segment("focus", FOCUS_OPTS, "Focus mode")));
-  const rulerRow = slider("rulerHeight", SLIDERS.rulerHeight);
-  secFocus.append(rulerRow);
-  reg.rulerRow = rulerRow;
+  const rulerLinesRow = field("Guide span", segment("rulerLines", RULER_SPAN_OPTS, "Reading ruler span"));
+  const rulerLinesHint = hint(
+    "Use one line for tight tracking. Use three or five lines when you want more context without losing your place.",
+    "rt-panel-hint-tight"
+  );
+  secFocus.append(rulerLinesRow, rulerLinesHint);
+  reg.rulerLinesRow = rulerLinesRow;
+  reg.rulerLinesHint = rulerLinesHint;
 
   /* ---- Movement ---- */
   const secMove = section(sectionTitle("Move through the text", "strong", "Read along"), false);
@@ -405,7 +412,7 @@ export function buildControls(profile, onChange) {
 
   function paint() {
     for (const [key, btns] of Object.entries(reg.seg)) {
-      for (const b of btns) b.setAttribute("aria-pressed", b.dataset.val === state[key] ? "true" : "false");
+      for (const b of btns) b.setAttribute("aria-pressed", b.dataset.val === String(state[key]) ? "true" : "false");
     }
     for (const b of reg.swatch) b.setAttribute("aria-pressed", b.dataset.val === state.overlay ? "true" : "false");
     reg.customInput.value = state.customTint || "#eef3f8";
@@ -422,7 +429,8 @@ export function buildControls(profile, onChange) {
       }
     }
     // contextual rows
-    reg.rulerRow.hidden = state.focus !== "ruler";
+    reg.rulerLinesRow.hidden = state.focus !== "ruler";
+    reg.rulerLinesHint.hidden = state.focus !== "ruler";
     const isPaced = state.pacing === "word" || state.pacing === "scroll";
     reg.wpmRow.hidden = !isPaced;
     paintTTS();

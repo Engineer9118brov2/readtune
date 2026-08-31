@@ -31,6 +31,7 @@ accessible-reading guidance:
 - give text more breathing room
 - avoid harsh black-on-white when possible
 - keep lines shorter and steadier
+- keep focus aids adjustable, with 1 / 3 / 5-line guidance instead of one fixed ruler height
 - treat fonts, tints, and bionic as optional experiments, not promises
 
 ---
@@ -138,7 +139,8 @@ These are product lessons, not scientific sources:
   treats premium voices as optional bring-your-own extras.
 - **Microsoft Immersive Reader** taught us that line focus, text spacing, and
   synchronized read-aloud feel trustworthy when the experience is simple and
-  calm.
+  calm. ReadTune now mirrors that lesson with adaptive 1 / 3 / 5-line focus
+  instead of a blunt fixed-height ruler.
 - **Helperbird** taught us that breadth is useful, but a wall of tools can feel
   like work. ReadTune now leads with a starter and explains what usually helps
   before it asks the user to tune anything.

@@ -6,7 +6,7 @@
  * position, and persistent highlights. Attaches to the flow reading view.
  */
 
-import { measuredLineHeight, adaptiveRulerHeight } from "./ruler.js";
+import { measuredLineHeight, adaptiveRulerHeight, normalizeRulerLines } from "./ruler.js";
 
 export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
   const progress = document.createElement("div");
@@ -81,11 +81,12 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     if (!ruler.hidden) positionRuler();
   }
   function positionRuler() {
-    const { target, lineHeightPx, height } = currentRulerMetrics();
+    const { target, lineHeightPx, height, lineCount } = currentRulerMetrics();
     ruler.style.height = `${height}px`;
     if (rulerTarget && target === rulerTarget && target.getBoundingClientRect) {
       const rect = target.getBoundingClientRect();
-      const top = rect.top - Math.max(0, (height - Math.min(lineHeightPx, rect.height || lineHeightPx)) / 2);
+      const anchorHeight = Math.min(lineHeightPx * lineCount, Math.max(lineHeightPx, rect.height || lineHeightPx));
+      const top = rect.top - Math.max(0, (height - anchorHeight) / 2);
       ruler.style.top = `${Math.max(0, Math.min(window.innerHeight - height, top))}px`;
       return;
     }
@@ -112,13 +113,16 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     }
     const style = target ? getComputedStyle(target) : null;
     const lineHeightPx = measuredLineHeight(style, fallback);
+    const lineCount = normalizeRulerLines(profile.rulerLines);
     return {
       target,
       lineHeightPx,
+      lineCount,
       height: adaptiveRulerHeight({
         lineHeightPx,
         fontSizePx: style ? parseFloat(style.fontSize) || Number(profile.fontSize) || 19 : Number(profile.fontSize) || 19,
         baseHeight: Number(profile.rulerHeight) || 40,
+        lines: lineCount,
       }),
     };
   }
