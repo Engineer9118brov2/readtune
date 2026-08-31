@@ -25,11 +25,11 @@ import {
   writeProfile,
   appendCalibration,
   loadCalibrations,
-  describeProfile,
   extUrl,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { analyse, buildProfile, effectText, HELP_THRESHOLD } from "./shared/calibration-score.js";
+import { summarizeCalibrations } from "./shared/calibration-insights.js";
 
 /* Everything not listed here is DEFAULT_PROFILE. Font size is held constant so it
  * can't confound the comparison — it's the one knob everyone adjusts by hand. */
@@ -286,34 +286,36 @@ async function finish() {
     dims: dims.map((d) => ({ key: d.key, help: Number(d.help.toFixed(3)), speedDelta: Number(d.speedDelta.toFixed(3)) })),
   });
 
-  $("result-desc").textContent = describeProfile(saved);
+  const history = await loadCalibrations();
+  const insights = summarizeCalibrations(history, saved);
+  $("result-title").textContent = insights.profileTitle || "Your reading profile";
+  $("result-desc").textContent = insights.profileSummary;
 
   // headline
-  const top = dims[0];
+  const top = insights.top || dims[0];
   const headline = $("result-headline");
-  if (kept.length && top.help >= HELP_THRESHOLD) {
-    const pct = Math.round(top.speedDelta * 100);
-    const speedPart = speedInformative && pct >= 4 ? ` — about ${pct}% faster` : "";
-    headline.textContent = `${top.label} helped you most${speedPart}.`;
-    headline.hidden = false;
-  } else {
-    headline.textContent = "Standard settings worked as well as anything for you — that's a good result, not a dull one.";
-    headline.hidden = false;
-  }
+  headline.textContent = insights.signalTitle;
+  headline.hidden = false;
+  $("result-confidence-label").textContent = insights.confidenceLabel;
+  $("result-confidence-body").textContent = insights.confidenceBody;
+  $("result-stability-label").textContent = insights.stabilityLabel;
+  $("result-stability-body").textContent = insights.stabilityBody;
+  $("result-next-title").textContent = insights.nextStepTitle;
+  $("result-next-body").textContent = insights.nextStepBody;
 
-  // margin / confidence line
-  const conf = $("result-confidence");
-  if (kept.length) {
-    const margin = dims.length > 1 ? top.help - dims[1].help : top.help;
-    conf.textContent =
-      margin < 0.06
-        ? "It was close between the top two — worth retaking on another day to check."
-        : !speedInformative
-        ? "You read the passages at about the same speed, so this is based mostly on how each one felt."
-        : "The result was fairly clear.";
-    conf.hidden = false;
-  } else {
-    conf.hidden = true;
+  const useCases = $("result-use-cases");
+  useCases.replaceChildren();
+  for (const card of insights.useCases) {
+    const item = document.createElement("article");
+    item.className = "cal-use-case";
+    const tag = document.createElement("span");
+    tag.textContent = card.tag;
+    const title = document.createElement("strong");
+    title.textContent = card.title;
+    const body = document.createElement("p");
+    body.textContent = card.body;
+    item.append(tag, title, body);
+    useCases.appendChild(item);
   }
 
   // per-dimension breakdown
@@ -322,13 +324,26 @@ async function finish() {
   for (const d of dims) {
     const row = document.createElement("div");
     row.className = "cal-dim" + (kept.includes(d.key) ? " cal-dim-on" : "");
+    const main = document.createElement("div");
+    main.className = "cal-dim-main";
+    const title = document.createElement("div");
+    title.className = "cal-dim-title";
     const name = document.createElement("b");
     name.textContent = d.label;
     const eff = document.createElement("span");
     eff.textContent = effectText(d, speedInformative);
     const tag = document.createElement("i");
     tag.textContent = kept.includes(d.key) ? "kept" : "";
-    row.append(name, eff, tag);
+    title.append(name, tag);
+    main.append(title, eff);
+    const track = document.createElement("div");
+    track.className = "cal-dim-track";
+    const fill = document.createElement("div");
+    fill.className = "cal-dim-fill";
+    if (d.help <= 0) fill.classList.add("cal-dim-fill-muted");
+    fill.style.width = `${Math.max(18, Math.min(100, 22 + Math.max(0, d.help) * 260))}%`;
+    track.appendChild(fill);
+    row.append(main, track);
     bd.appendChild(row);
   }
 
@@ -356,12 +371,11 @@ async function finish() {
   previewView.applyProfile({ ...saved, pacing: "flow" });
   paintPage(saved);
 
-  const prior = await loadCalibrations();
-  if (prior.length > 1) {
-    const last = prior[prior.length - 2];
+  if (history.length > 1) {
+    const last = history[history.length - 2];
     if (last && last.profile) {
       $("result-compare").hidden = false;
-      $("result-compare").textContent = `Last time the test chose: ${describeProfile(last.profile)}.`;
+      $("result-compare").textContent = `Previous run: ${summarizeCalibrations(history.slice(0, -1), last.profile).profileTitle}.`;
     }
   }
 
@@ -384,6 +398,9 @@ $("scale").addEventListener("click", (e) => {
 $("retake").addEventListener("click", () => location.reload());
 $("try-pdf").addEventListener("click", () => {
   location.href = extUrl("pdf.html");
+});
+$("btn-lab").addEventListener("click", () => {
+  location.href = extUrl("lab.html");
 });
 $("finish").addEventListener("click", () => window.close());
 

@@ -28,12 +28,12 @@ async function init() {
     return;
   }
 
-  const { extracted, meta } = view.setArticleHtml(article.html, article.url);
-  if (!extracted || view.isEmpty()) {
+  const { extracted, meta, quality } = view.setArticleHtml(article.html, article.url);
+  if (!extracted || !quality.ok || view.isEmpty()) {
     showMessage(messageHost, {
-      title: "Couldn't find an article here",
+      title: "This page is better in Restyle mode",
       body:
-        "ReadTune couldn't pick out the main text on that page. It works best on articles, blog posts, and documentation — not home pages, feeds, or web apps.",
+        "Reader View needs a continuous article or document. This page looks more like a home page, feed, or web app, so use \"Restyle this page\" from the popup instead.",
       actions: [
         { label: "Open the original page", href: article.url },
         { label: "Close this tab", onClick: () => window.close() },
@@ -52,9 +52,11 @@ async function init() {
   }
   document.title = `${title} — ReadTune`;
   const stats = view.getStats();
+  const parts = [site, meta.byline || "", `${stats.minutes} min read`];
+  if (stats.gradeReliable) parts.push(`Grade ${stats.grade} reading level`);
   view.setMeta({
     title,
-    parts: [site, meta.byline || "", `${stats.minutes} min read`, `Grade ${stats.grade} reading level`],
+    parts,
   });
 
   await createReadingScreen({ surface, view, pageUrl: article.url || "" });

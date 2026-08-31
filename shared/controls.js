@@ -7,6 +7,7 @@
  */
 
 import { RANGES, OVERLAYS, FONTS, PACING } from "./settings.js";
+import { READING_MODES, modePatch } from "./reading-modes.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
 const FOCUS_OPTS = [
@@ -127,8 +128,29 @@ export function buildControls(profile, onChange) {
     ]);
   }
 
+  function modeButtons() {
+    const wrap = el("div", { class: "rt-mode-grid", role: "group", "aria-label": "Quick reading modes" });
+    reg.modeButtons = READING_MODES.map((mode) => {
+      const b = el("button", { class: "rt-mode", type: "button", "data-mode": mode.key }, [
+        el("strong", {}, mode.label),
+        el("span", {}, mode.blurb),
+      ]);
+      b.addEventListener("click", () => onChange({ __mode: mode.key }));
+      wrap.appendChild(b);
+      return b;
+    });
+    return wrap;
+  }
+
+  /* ---- Quick modes ---- */
+  const secQuick = section("Quick modes", true);
+  secQuick.append(
+    el("p", { class: "rt-panel-hint rt-panel-hint-tight" }, "One click for the job you are doing right now. Your calibrated profile stays underneath."),
+    modeButtons()
+  );
+
   /* ---- Text ---- */
-  const secText = section("Text", true);
+  const secText = section("Text");
   secText.append(field("Font", segment("font", FONT_OPTS, "Font")));
   for (const k of ["fontSize", "lineHeight", "letterSpacing", "wordSpacing", "paragraphSpacing", "columnWidth"]) {
     secText.append(slider(k, SLIDERS[k]));
@@ -312,6 +334,13 @@ export function buildControls(profile, onChange) {
     for (const [key, { input, valEl }] of Object.entries(reg.slider)) {
       input.value = String(state[key]);
       valEl.textContent = fmt(key, state[key]);
+    }
+    if (reg.modeButtons) {
+      for (const b of reg.modeButtons) {
+        const patch = modePatch(b.dataset.mode, state);
+        const active = Object.entries(patch).every(([key, value]) => state[key] === value);
+        b.setAttribute("aria-pressed", active ? "true" : "false");
+      }
     }
     // contextual rows
     reg.rulerRow.hidden = state.focus !== "ruler";

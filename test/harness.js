@@ -39,6 +39,15 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
 <ul><li>Spring tides: the biggest swing.</li><li>Neap tides: a gentler one, a week later.</li></ul>
 </article><footer>c</footer></body></html>`;
 
+const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
+<header><button>Search</button><button>New Chat</button><button>Library</button></header>
+<main>
+  <section><h1>Grok</h1><p>More ideas</p></section>
+  <section><button>Platformer</button><button>World map</button><button>Landing page</button></section>
+  <section><p>Build beta</p><p>New Chat</p></section>
+</main>
+</body></html>`;
+
 (async () => {
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
@@ -49,6 +58,7 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   const EL = await import("../shared/elevenlabs.js");
   const IP = await import("../shared/inpage-style.js");
   const CS = await import("../shared/calibration-score.js");
+  const CI = await import("../shared/calibration-insights.js");
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -67,16 +77,20 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
 
   /* stats */
   const st = R.computeStats("The cat sat. The dog ran fast across the wide green field yesterday afternoon.");
-  assert(st.words > 10 && st.grade >= 1 && st.minutes >= 1, "computeStats");
+  assert(st.words > 10 && st.grade >= 1 && st.minutes >= 1 && st.gradeReliable === false, "computeStats");
 
   /* article render + sanitising */
   const host = document.getElementById("reading");
   const view = R.createReadingView(host);
-  const { extracted, meta } = view.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
-  assert(extracted && /Tide pools/.test(meta.title), "article extracted");
+  const { extracted, meta, quality } = view.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+  assert(extracted && quality.ok && /Tide pools/.test(meta.title), "article extracted");
   assert(!/<script|javascript:|SALE/i.test(host.innerHTML), "sanitised (script / js: / ad gone)");
   assert(host.querySelectorAll(".rt-s").length >= 4, "sentences wrapped");
   assert(host.querySelectorAll("li").length === 2, "list kept");
+
+  const shellView = R.createReadingView(document.createElement("div"));
+  const shell = shellView.setArticleHtml(APP_SHELL, "https://grok.test");
+  assert(!shell.quality.ok && shellView.isEmpty(), "app shell rejected");
 
   view.applyProfile({ ...S.DEFAULT_PROFILE, bionic: 45 });
   assert(host.querySelectorAll("b.rt-b").length > 8, "bionic");
@@ -152,6 +166,42 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   );
   assert(flat.dims.every((d) => Math.abs(d.help) < 0.05), "no signal in → no dimension kept");
 
+  const history = [
+    {
+      at: 1,
+      kept: ["spacing"],
+      profile: { ...S.DEFAULT_PROFILE, lineHeight: 1.95, letterSpacing: 0.04, wordSpacing: 0.16 },
+      speedInformative: true,
+      dims: [
+        { key: "spacing", help: 0.19, speedDelta: 0.14 },
+        { key: "dyslexic", help: -0.05, speedDelta: -0.02 },
+      ],
+    },
+    {
+      at: 2,
+      kept: ["spacing"],
+      profile: { ...S.DEFAULT_PROFILE, lineHeight: 1.95, letterSpacing: 0.04, wordSpacing: 0.16 },
+      speedInformative: true,
+      dims: [
+        { key: "spacing", help: 0.16, speedDelta: 0.11 },
+        { key: "bionic", help: 0.03, speedDelta: 0.01 },
+      ],
+    },
+    {
+      at: 3,
+      kept: ["spacing", "atkinson"],
+      profile: { ...S.DEFAULT_PROFILE, font: "atkinson", lineHeight: 1.95, letterSpacing: 0.04, wordSpacing: 0.16 },
+      speedInformative: true,
+      dims: [
+        { key: "spacing", help: 0.18, speedDelta: 0.12 },
+        { key: "atkinson", help: 0.12, speedDelta: 0.06 },
+      ],
+    },
+  ];
+  const summary = CI.summarizeCalibrations(history, history[2].profile);
+  assert(summary.runs === 3 && summary.stabilityLabel === "Stable", "insights: stable pattern surfaces");
+  assert(/spacing/i.test(summary.profileTitle) && summary.useCases.length === 3, "insights: title + use cases");
+
   /* ---- ElevenLabs read-aloud ---- */
   const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };
   assert(EL.charIndexAt(align, 0) === 0 && EL.charIndexAt(align, 0.7) === 1 && EL.charIndexAt(align, 2.0) === 3 && EL.charIndexAt(align, 99) === 4, "charIndexAt binary search");
@@ -203,6 +253,11 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
   assert(patch.overlay === "blue", "tint swatch");
   controls.panel.querySelector('.rt-seg[aria-label="Reading mode"] button[data-val="word"]').click();
   assert(patch.pacing === "word", "pacing segment");
+  patch = null;
+  controls.panel.querySelector('.rt-mode[data-mode="skim"]').click();
+  assert(patch && patch.__mode === "skim", "quick mode emits bundle patch");
+  controls.sync({ ...S.DEFAULT_PROFILE, pacing: "sentence", focus: "off", hideImages: true, freezeMotion: true, columnWidth: 54 });
+  assert(controls.panel.querySelector('.rt-mode[data-mode="skim"]').getAttribute("aria-pressed") === "true", "quick mode reflects matching profile");
   controls.setVoices([{ name: "Test", localService: true }]);
   assert(controls.panel.querySelector(".rt-select").options.length === 2, "setVoices");
 

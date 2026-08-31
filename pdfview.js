@@ -69,9 +69,11 @@ async function handleFile(file) {
     const view = createReadingView(viewHost);
     view.setText(text);
     const stats = computeStats(text);
+    const parts = ["PDF · text extracted locally", `${stats.minutes} min read`];
+    if (stats.gradeReliable) parts.push(`Grade ${stats.grade} reading level`);
     view.setMeta({
       title: name,
-      parts: ["PDF · text extracted locally", `${stats.minutes} min read`, `Grade ${stats.grade} reading level`],
+      parts,
     });
 
     await createReadingScreen({ surface, view, pageUrl: "" });

@@ -17,27 +17,58 @@
           <rect x="11" y="30" width="21" height="4.2" rx="2.1" fill="#bfe3d3" />
           <circle cx="35.5" cy="16.1" r="3.4" fill="#fbf6e9" />
         </svg>
-        <div>
+        <div class="pop-head-copy">
+          <span class="pop-kicker">Personal reading lab</span>
           <h1>ReadTune</h1>
-          <p class="pop-tag">Calm, personalized reading</p>
+          <p class="pop-tag" id="tagline">Measure what actually helps you read, then use it everywhere.</p>
+        </div>
+        <div class="pop-signal" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
       </header>
 
       <div id="status" class="pop-status" hidden></div>
 
       <div class="pop-onboard" id="onboard" hidden>
-        <strong>Start here.</strong> A 2-minute test finds the font, spacing and
-        bolding that work best for you, then applies them everywhere.
+        <div class="pop-onboard-copy">
+          <strong>Stop guessing your reading settings.</strong>
+          <p>
+            Read six short passages. ReadTune changes one variable at a time,
+            keeps the helpful ones, and starts building a profile you can trust.
+          </p>
+        </div>
+        <div class="pop-steps">
+          <article class="pop-step"><b>1</b><span>Read six short passages</span></article>
+          <article class="pop-step"><b>2</b><span>See what actually helped</span></article>
+          <article class="pop-step"><b>3</b><span>Use it on articles and PDFs</span></article>
+        </div>
       </div>
 
-      <div class="pop-actions">
+      <div class="pop-profile" id="profile-box" hidden>
+        <div class="pop-profile-top">
+          <div>
+            <span class="rt-chip">Your current profile</span>
+            <h2 id="profile-title">Standard</h2>
+          </div>
+          <span class="pop-pill" id="confidence-pill">Provisional</span>
+        </div>
+        <p id="profile-desc"></p>
+        <div class="pop-metrics" id="profile-metrics"></div>
+        <div class="pop-insight">
+          <strong id="profile-signal-title"></strong>
+          <p id="profile-signal-body"></p>
+        </div>
+        <button class="rt-link" id="btn-retake" type="button">Retake the calibration</button>
+      </div>
+
+      <div class="pop-actions" id="actions">
         <button class="rt-btn rt-primary" id="btn-calibrate" type="button">
-          <span class="rt-btn-title" id="calibrate-title">Find my reading settings</span>
-          <span class="rt-btn-sub" id="calibrate-sub">A 5-passage test — about 2 minutes</span>
+          <span class="rt-btn-title" id="calibrate-title">Run the reading calibration</span>
+          <span class="rt-btn-sub" id="calibrate-sub">6 short passages · about 4 minutes</span>
         </button>
         <button class="rt-btn" id="btn-reader" type="button">
           <span class="rt-btn-title">Open Reader View</span>
-          <span class="rt-btn-sub">Pull the article into a clean page · Alt+R</span>
+          <span class="rt-btn-sub">Pull the current article into a calmer page · Alt+R</span>
         </button>
         <button class="rt-btn" id="btn-restyle" type="button">
           <span class="rt-btn-title">Restyle this page</span>
@@ -47,12 +78,10 @@
           <span class="rt-btn-title">Open a PDF</span>
           <span class="rt-btn-sub">Worksheets &amp; handouts, same reading view</span>
         </button>
-      </div>
-
-      <div class="pop-profile" id="profile-box" hidden>
-        <span class="rt-chip">Your profile</span>
-        <p id="profile-desc"></p>
-        <button class="rt-link" id="btn-retake" type="button">Retake the test</button>
+        <button class="rt-btn" id="btn-lab" type="button">
+          <span class="rt-btn-title">Open Reading Lab</span>
+          <span class="rt-btn-sub">See confidence, stability, and retake history</span>
+        </button>
       </div>
 
       <label class="pop-auto" id="auto-row" hidden>

@@ -159,7 +159,8 @@ export function buildArticleFragment(rawHtml, baseUrl) {
       if (c) fragment.appendChild(c);
     }
   }
-  return { fragment, meta, extracted: extracted && fragment.textContent.trim().length > 0 };
+  const quality = assessArticleQuality(fragment, meta);
+  return { fragment, meta, extracted: extracted && fragment.textContent.trim().length > 0, quality };
 }
 
 /* ---------- plain text → fragment (PDF, calibration) ---------- */
@@ -203,6 +204,51 @@ export function splitSentences(text) {
     else out.push(piece);
   }
   return out;
+}
+
+function normalizeText(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function wordsIn(text) {
+  const clean = normalizeText(text);
+  return clean ? clean.split(/\s+/) : [];
+}
+
+export function assessArticleQuality(fragment, meta = {}) {
+  const words = wordsIn(fragment.textContent);
+  const blocks = Array.from(fragment.querySelectorAll("p, li, blockquote, dd, dt, figcaption, pre"));
+  let meaningfulBlocks = 0;
+  let denseBlocks = 0;
+  let longestBlockWords = 0;
+
+  for (const block of blocks) {
+    const text = normalizeText(block.textContent);
+    if (!text) continue;
+    const blockWords = wordsIn(text).length;
+    longestBlockWords = Math.max(longestBlockWords, blockWords);
+    if (blockWords >= 8 || text.length >= 48) meaningfulBlocks++;
+    if (blockWords >= 16 || text.length >= 96) denseBlocks++;
+  }
+
+  const readLength = Math.max(0, Number(meta.length) || 0);
+  const ok =
+    words.length >= 30 &&
+    (
+      words.length >= 140 ||
+      denseBlocks >= 2 ||
+      meaningfulBlocks >= 3 ||
+      longestBlockWords >= 32 ||
+      (readLength >= 900 && meaningfulBlocks >= 2)
+    );
+
+  let reason = "ok";
+  if (!words.length) reason = "empty";
+  else if (words.length < 30) reason = "too-short";
+  else if (!meaningfulBlocks && !denseBlocks && longestBlockWords < 16) reason = "ui-shell";
+  else if (!ok) reason = "thin";
+
+  return { ok, reason, words: words.length, meaningfulBlocks, denseBlocks, longestBlockWords, readLength };
 }
 
 function buildChunks(fragment) {
@@ -374,7 +420,7 @@ function wrapSentences(root) {
 /* ---------- reading stats (Flesch–Kincaid grade) ---------- */
 
 export function computeStats(text) {
-  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  const clean = normalizeText(text);
   const words = clean ? clean.split(/\s+/) : [];
   const sentenceCount = Math.max(1, (clean.match(/[.!?…]+/g) || []).length);
   let syllables = 0;
@@ -389,6 +435,8 @@ export function computeStats(text) {
     words: words.length,
     minutes: Math.max(1, Math.round(words.length / 230)),
     grade: Math.max(1, Math.round(grade)),
+    gradeReliable: words.length >= 60 && sentenceCount >= 3,
+    sentences: sentenceCount,
   };
 }
 
@@ -637,11 +685,11 @@ export function createReadingView(host) {
   return {
     setArticleHtml(rawHtml, baseUrl) {
       const built = buildArticleFragment(rawHtml, baseUrl);
-      pristine = built.fragment;
+      pristine = built.quality.ok ? built.fragment : document.createDocumentFragment();
       chunks = buildChunks(pristine);
       idx = rsvpIdx = 0;
       render();
-      return { extracted: built.extracted, meta: built.meta };
+      return { extracted: built.extracted, meta: built.meta, quality: built.quality };
     },
     setText(text) {
       pristine = textToFragment(text);

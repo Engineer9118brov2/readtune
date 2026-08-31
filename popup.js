@@ -1,19 +1,21 @@
 /*
  * ReadTune — popup
  *
- * Calibration first (that's the point of the product), then Reader View and PDF
- * mode, a one-line profile summary, and an opt-in "auto-open on this site".
+ * First-run users start with calibration; returning users are pushed straight
+ * into Reader View and can inspect their confidence in the Reading Lab.
  */
 
 import {
   loadProfile,
   hasProfile,
   describeProfile,
+  loadCalibrations,
   stashArticle,
   loadSites,
   setSiteAutoOpen,
   extUrl,
 } from "./shared/settings.js";
+import { summarizeCalibrations } from "./shared/calibration-insights.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -31,6 +33,69 @@ function setStatus(msg, kind = "warn") {
 function openPage(page) {
   chrome.tabs.create({ url: extUrl(page) });
   window.close();
+}
+
+function setActionOrder(ids) {
+  const box = $("actions");
+  for (const id of ids) {
+    const node = $("btn-" + id);
+    if (node) box.appendChild(node);
+  }
+}
+
+function renderMetrics(items) {
+  const host = $("profile-metrics");
+  host.replaceChildren();
+  for (const item of items) {
+    const card = document.createElement("div");
+    card.className = "pop-metric";
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    const value = document.createElement("strong");
+    value.textContent = item.value;
+    card.append(label, value);
+    host.appendChild(card);
+  }
+}
+
+function configureFirstRun() {
+  $("tagline").textContent = "Measure what actually helps you read, then use it everywhere.";
+  $("onboard").hidden = false;
+  $("profile-box").hidden = true;
+  $("btn-lab").hidden = true;
+  $("btn-calibrate").classList.add("rt-primary");
+  $("btn-reader").classList.remove("rt-primary");
+  $("calibrate-title").textContent = "Run the reading calibration";
+  $("calibrate-sub").textContent = "6 short passages · about 4 minutes";
+  $("btn-reader").querySelector(".rt-btn-title").textContent = "Open Reader View";
+  $("btn-reader").querySelector(".rt-btn-sub").textContent = "Pull the current article into a calmer page · Alt+R";
+  setActionOrder(["calibrate", "reader", "pdf", "restyle"]);
+}
+
+function configureReturningUser(profile, insights) {
+  $("tagline").textContent = "Your profile is ready. Use it on this page, in PDFs, or keep tuning it over time.";
+  $("onboard").hidden = true;
+  $("profile-box").hidden = false;
+  $("btn-lab").hidden = false;
+
+  $("profile-title").textContent = insights.profileTitle || "Your reading profile";
+  $("profile-desc").textContent = insights.profileSummary || describeProfile(profile);
+  $("confidence-pill").textContent = insights.confidenceLabel;
+  $("profile-signal-title").textContent = insights.signalTitle;
+  $("profile-signal-body").textContent = insights.signalBody;
+  renderMetrics([
+    { label: "Runs", value: String(insights.runs || 1) },
+    { label: "Stability", value: insights.stabilityLabel },
+    { label: "Last test", value: insights.lastDateLabel || "Recent" },
+  ]);
+
+  $("btn-calibrate").classList.remove("rt-primary");
+  $("btn-reader").classList.add("rt-primary");
+  $("btn-reader").querySelector(".rt-btn-title").textContent = "Read this page now";
+  $("btn-reader").querySelector(".rt-btn-sub").textContent = "Open the current article in your saved profile · Alt+R";
+  $("calibrate-title").textContent = "Retake the calibration";
+  $("calibrate-sub").textContent = "See whether the result stays consistent";
+  setActionOrder(["reader", "restyle", "pdf", "lab", "calibrate"]);
 }
 
 async function openReader() {
@@ -100,6 +165,7 @@ $("btn-restyle").addEventListener("click", restylePage);
 $("btn-pdf").addEventListener("click", () => openPage("pdf.html"));
 $("btn-calibrate").addEventListener("click", () => openPage("calibration.html"));
 $("btn-retake").addEventListener("click", () => openPage("calibration.html"));
+$("btn-lab").addEventListener("click", () => openPage("lab.html"));
 
 async function initAutoOpenRow() {
   try {
@@ -138,16 +204,14 @@ async function initAutoOpenRow() {
 (async function init() {
   try {
     const has = await hasProfile();
-    $("onboard").hidden = has;
     if (has) {
       const profile = await loadProfile();
-      $("calibrate-title").textContent = "Retake the calibration test";
-      $("calibrate-sub").textContent = "Re-check your settings any time";
-      $("profile-desc").textContent = describeProfile(profile);
-      $("profile-box").hidden = false;
-    }
+      const history = await loadCalibrations();
+      configureReturningUser(profile, summarizeCalibrations(history, profile));
+    } else configureFirstRun();
   } catch (err) {
     console.warn("[ReadTune] popup init failed:", err);
+    configureFirstRun();
   }
   initAutoOpenRow();
 })();

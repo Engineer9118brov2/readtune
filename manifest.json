@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ReadTune",
-  "version": "0.4.0",
-  "description": "Finds your ideal reading settings with a short calibration test, then applies them to any article, PDF, or web page. Free, private, no login.",
+  "version": "0.5.0",
+  "description": "Measures which reading settings help you, tracks what stays consistent, and applies them to any article, PDF, or web page. Free, private, no login.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "ReadTune — calm, personalized reading",

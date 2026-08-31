@@ -24,6 +24,7 @@ import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
+import { modePatch } from "./reading-modes.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
@@ -283,6 +284,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     }
     if (patch.__tts) {
       handleTTSPatch(patch.__tts);
+      return;
+    }
+    if (patch.__mode) {
+      change(modePatch(patch.__mode, profile));
       return;
     }
     const prevPacing = profile.pacing;

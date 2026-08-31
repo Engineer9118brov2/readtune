@@ -18,6 +18,7 @@ const SHIP_GLOBS = [
   "reader.html", "reader.js",
   "pdf.html", "pdfview.js", "pdf.css",
   "calibration.html", "calibration.js", "calibration.css",
+  "lab.html", "lab.js", "lab.css",
 ];
 const SHIP_DIRS = ["icons", "shared", "lib"];
 

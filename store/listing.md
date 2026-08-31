@@ -13,7 +13,7 @@ Everything you need to paste into the Developer Dashboard.
 **Name:** ReadTune
 
 **Summary (132 chars max):**
-> Finds the reading settings that actually work for you with a 2-minute test, then applies them to any article or PDF. Free, private.
+> Measures which reading settings actually help you, shows whether the result stays consistent, then applies it to any article or PDF. Free, private.
 
 **Category:** Accessibility
 

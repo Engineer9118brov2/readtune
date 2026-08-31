@@ -119,7 +119,8 @@ Design choices, each with its reason:
 | The result screen says **"a rough estimate from six short readings, not a formal assessment"** and offers *retake* | Because that's true. Judges reward saying so; they punish overclaiming. |
 
 The scoring is pure functions in `shared/calibration-score.js` with unit tests,
-so "show me the model" has an answer.
+and `shared/calibration-insights.js` turns the raw history into the Reading Lab
+view: confidence, stability, repeated wins, and "worth retaking?" signals.
 
 **What it does that no competitor does:** it tells you *which dimension* mattered
 for you — "Roomier spacing helped you most, +22%. OpenDyslexic didn't help you."
@@ -167,6 +168,7 @@ background.js          Service worker — Alt+R / Alt+Shift+R commands, per-site
 content.js             One-shot page capture for Reader View
 inpage.js / .css       "Restyle this page" — content script + shadow-DOM bar
 popup.*                Three entry points + profile summary + per-site toggle
+lab.*                  Reading Lab — confidence, stability, repeated wins
 reader.* / pdf.*       Thin — hand content to shared/screen.js
 calibration.*          The test UI; scoring is in shared/calibration-score.js
 shared/

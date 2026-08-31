@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune — Reading Lab</title>
+    <link rel="stylesheet" href="shared/theme.css" />
+    <link rel="stylesheet" href="lab.css" />
+  </head>
+  <body class="rt-ui rt-reading-page rt-lab-page">
+    <div class="lab-wrap">
+      <header class="lab-hero">
+        <section class="lab-hero-copy">
+          <span class="rt-chip">Reading Lab</span>
+          <h1 id="lab-hero-title">Build a reading profile you can trust</h1>
+          <p id="lab-hero-body">
+            ReadTune keeps the parts that help and watches whether the same
+            pattern repeats over time.
+          </p>
+        </section>
+        <section class="lab-hero-stats">
+          <article class="lab-stat">
+            <span>Confidence</span>
+            <strong id="lab-confidence-label">Provisional</strong>
+            <p id="lab-confidence-body"></p>
+          </article>
+          <article class="lab-stat">
+            <span>Stability</span>
+            <strong id="lab-stability-label">New</strong>
+            <p id="lab-stability-body"></p>
+          </article>
+          <article class="lab-stat">
+            <span>Runs</span>
+            <strong id="lab-runs-label">0</strong>
+            <p id="lab-runs-body"></p>
+          </article>
+        </section>
+      </header>
+
+      <section class="lab-empty lab-panel" id="lab-empty" hidden>
+        <h2>Run the calibration once</h2>
+        <p>
+          The lab gets interesting after your first run. That is when ReadTune
+          starts building a profile and tracking what keeps helping.
+        </p>
+      </section>
+
+      <section class="lab-grid" id="lab-main">
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Current profile</span>
+              <h2 id="lab-profile-title">Standard</h2>
+            </div>
+            <span class="lab-badge" id="lab-last-tested">Recent</span>
+          </div>
+          <p id="lab-profile-desc"></p>
+          <div class="lab-tags" id="lab-profile-tags"></div>
+          <div class="rt-surface lab-preview" id="lab-preview-surface"><div id="lab-preview-view"></div></div>
+        </article>
+
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Current signal</span>
+              <h2 id="lab-signal-title">Build a reading profile you can trust</h2>
+            </div>
+          </div>
+          <p id="lab-signal-body"></p>
+          <div class="lab-next">
+            <span>Next move</span>
+            <strong id="lab-next-title">Retake once more</strong>
+            <p id="lab-next-body"></p>
+          </div>
+        </article>
+      </section>
+
+      <section class="lab-grid" id="lab-detail-grid">
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Patterns</span>
+              <h2>What keeps helping</h2>
+            </div>
+          </div>
+          <div class="lab-leaderboard" id="lab-leaderboard"></div>
+        </article>
+
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Use it well</span>
+              <h2>Where this profile should shine</h2>
+            </div>
+          </div>
+          <div class="lab-use-cases" id="lab-use-cases"></div>
+        </article>
+      </section>
+
+      <section class="lab-panel" id="lab-history-panel">
+        <div class="lab-panel-head">
+          <div>
+            <span class="lab-overline">Retake history</span>
+            <h2>What repeated, and what did not</h2>
+          </div>
+          <p>The point is not a flashy one-off. The point is what repeats.</p>
+        </div>
+        <div class="lab-timeline" id="lab-timeline"></div>
+      </section>
+
+      <section class="lab-panel" id="lab-trust-panel">
+        <div class="lab-panel-head">
+          <div>
+            <span class="lab-overline">Trust cues</span>
+            <h2>What this result can and cannot say</h2>
+          </div>
+        </div>
+        <ul class="lab-trust-list" id="lab-trust-list"></ul>
+      </section>
+
+      <div class="lab-actions">
+        <button class="rt-btn rt-primary" id="lab-retake" type="button">Retake the calibration</button>
+        <button class="rt-btn" id="lab-pdf" type="button">Open a PDF</button>
+        <button class="rt-btn" id="lab-close" type="button">Done</button>
+      </div>
+    </div>
+
+    <script type="module" src="lab.js"></script>
+  </body>
+</html>

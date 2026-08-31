@@ -13,7 +13,7 @@
 
       <section class="cal-card" id="screen-intro">
         <span class="rt-chip">Calibration</span>
-        <h1>Find your reading settings</h1>
+        <h1>Build a reading profile you can trust</h1>
         <p>
           You'll read a short warm-up, then six passages. Each passage changes
           <b>one</b> thing from plain text — the font, the spacing, the bolding,
@@ -21,11 +21,25 @@
           actually helps <i>you</i>, not just which combination you happened to get.
         </p>
         <p>After each passage: one quick question, then rate how it felt. About four minutes.</p>
+        <div class="cal-hero-grid">
+          <article class="cal-hero-note">
+            <b>One variable at a time</b>
+            <span>So a win means something, not just a lucky bundle.</span>
+          </article>
+          <article class="cal-hero-note">
+            <b>Speed + comprehension + ease</b>
+            <span>It measures more than raw speed.</span>
+          </article>
+          <article class="cal-hero-note">
+            <b>Saved only in this browser</b>
+            <span>No login, no upload, no account.</span>
+          </article>
+        </div>
         <p class="cal-fine">
           It's a rough estimate from six short readings, not a formal assessment.
           Nothing is uploaded — results are saved only in this browser.
         </p>
-        <button class="rt-btn rt-primary" id="start" type="button">Start</button>
+        <button class="rt-btn rt-primary" id="start" type="button">Start calibration</button>
       </section>
 
       <section id="screen-passage" hidden>
@@ -62,10 +76,30 @@
         <span class="rt-chip">Your reading profile</span>
         <h1 id="result-title">Here's what worked best for you</h1>
         <p id="result-headline" class="cal-headline" hidden></p>
-        <p id="result-confidence" class="cal-fine" hidden></p>
         <p id="result-desc" class="cal-desc"></p>
 
+        <div class="cal-insights">
+          <article class="cal-insight-card">
+            <span>Confidence</span>
+            <strong id="result-confidence-label">Provisional</strong>
+            <p id="result-confidence-body"></p>
+          </article>
+          <article class="cal-insight-card">
+            <span>Stability</span>
+            <strong id="result-stability-label">New</strong>
+            <p id="result-stability-body"></p>
+          </article>
+          <article class="cal-insight-card">
+            <span>Next move</span>
+            <strong id="result-next-title">Retake once more</strong>
+            <p id="result-next-body"></p>
+          </article>
+        </div>
+
         <div class="rt-surface cal-preview" id="preview-surface"><div id="preview-view"></div></div>
+
+        <p class="cal-breakdown-label">Where this profile is likely to help most</p>
+        <div class="cal-use-cases" id="result-use-cases"></div>
 
         <p class="cal-breakdown-label">What each change did for you</p>
         <div class="cal-breakdown" id="result-breakdown"></div>
@@ -89,6 +123,7 @@
         <p class="cal-fine">These settings now apply in Reader View and PDF mode automatically.</p>
         <div class="cal-result-actions">
           <button class="rt-btn rt-primary" id="try-pdf" type="button">Try it on a PDF</button>
+          <button class="rt-btn" id="btn-lab" type="button">Open Reading Lab</button>
           <button class="rt-btn" id="retake" type="button">Retake the test</button>
           <button class="rt-btn" id="finish" type="button">Done</button>
         </div>

@@ -43,18 +43,20 @@
 }
 
 :root {
-  --rt-ui-bg: #fbfaf7;
-  --rt-ui-panel: #ffffff;
-  --rt-ui-ink: #23231f;
-  --rt-ui-ink-soft: #6b6a62;
-  --rt-ui-line: #e4e1d8;
-  --rt-ui-accent: #1f7a5c;
-  --rt-ui-accent-ink: #0e3a2a;
-  --rt-ui-accent-soft: #e6f1ec;
+  --rt-ui-bg: #f4efe4;
+  --rt-ui-panel: rgba(255, 255, 255, 0.9);
+  --rt-ui-ink: #1f211c;
+  --rt-ui-ink-soft: #5f6258;
+  --rt-ui-line: #ddd4c1;
+  --rt-ui-accent: #0f6c5c;
+  --rt-ui-accent-ink: #0b4338;
+  --rt-ui-accent-soft: #e4f1ed;
+  --rt-ui-accent-warm: #ef8d64;
   --rt-ui-warn: #b25b1e;
-  --rt-ui-radius: 12px;
-  --rt-ui-shadow: 0 1px 2px rgba(20, 20, 15, 0.06), 0 8px 24px rgba(20, 20, 15, 0.05);
-  --rt-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rt-ui-radius: 14px;
+  --rt-ui-shadow: 0 2px 3px rgba(20, 20, 15, 0.04), 0 18px 48px rgba(20, 20, 15, 0.08);
+  --rt-ui-font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --rt-ui-display: "Lexend", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
@@ -72,7 +74,10 @@ html {
 
 body.rt-ui {
   margin: 0;
-  background: var(--rt-ui-bg);
+  background:
+    radial-gradient(circle at top right, rgba(15, 108, 92, 0.09), transparent 28%),
+    radial-gradient(circle at left 18%, rgba(239, 141, 100, 0.08), transparent 24%),
+    var(--rt-ui-bg);
   color: var(--rt-ui-ink);
   font-family: var(--rt-ui-font);
   line-height: 1.5;
@@ -84,6 +89,7 @@ body.rt-ui {
 .rt-ui h3 {
   margin: 0;
   font-weight: 650;
+  font-family: var(--rt-ui-display);
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
@@ -96,19 +102,20 @@ body.rt-ui {
 .rt-btn {
   appearance: none;
   border: 1px solid var(--rt-ui-line);
-  background: var(--rt-ui-panel);
+  background: color-mix(in srgb, var(--rt-ui-panel) 94%, var(--rt-ui-bg));
   color: var(--rt-ui-ink);
   font: inherit;
   font-weight: 550;
-  padding: 11px 14px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: border-color 0.12s ease, background 0.12s ease, transform 0.04s ease;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease;
 }
 .rt-btn:hover {
-  border-color: #cfccc0;
+  border-color: rgba(15, 108, 92, 0.36);
+  box-shadow: 0 10px 24px rgba(21, 25, 18, 0.06);
 }
 .rt-btn:active {
   transform: translateY(1px);
@@ -119,7 +126,7 @@ body.rt-ui {
   color: #fff;
 }
 .rt-btn.rt-primary:hover {
-  background: #1b6b51;
+  background: #0c5c4f;
 }
 .rt-btn[disabled] {
   opacity: 0.5;
@@ -128,6 +135,7 @@ body.rt-ui {
 .rt-btn .rt-btn-title {
   display: block;
   font-weight: 600;
+  font-family: var(--rt-ui-display);
 }
 .rt-btn .rt-btn-sub {
   display: block;
@@ -154,12 +162,12 @@ body.rt-ui {
 .rt-chip {
   display: inline-block;
   font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--rt-ui-accent-ink);
-  background: var(--rt-ui-accent-soft);
-  padding: 3px 8px;
+  background: color-mix(in srgb, var(--rt-ui-accent-soft) 88%, white);
+  padding: 4px 9px;
   border-radius: 999px;
 }
 

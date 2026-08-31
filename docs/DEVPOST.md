@@ -7,8 +7,8 @@ and the honesty paragraph.
 
 ## Tagline
 
-The reading tool that measures what actually helps *you* — then applies it
-everywhere. Free, private, no account.
+The reading tool that measures what actually helps *you*, checks whether the
+result stays consistent, then applies it everywhere. Free, private, no account.
 
 ## The problem
 
@@ -40,10 +40,14 @@ tells you which ones helped:
 > you. We turned spacing up and left the font standard."*
 
 That last part — telling you *which dimension mattered* — is something no other
-reading tool does. It's a piece of self-knowledge, not just a settings blob.
+reading tool does. And now the **Reading Lab** keeps a local history of your
+retakes so you can see whether spacing, a font, or sentence chunking keeps
+winning or whether today's result was just a close call. It's a piece of
+self-knowledge, not just a settings blob.
 
 From then on, **Reader View**, **PDF mode**, and **"Restyle this page"** all use
-that profile automatically.
+that profile automatically, and the Reading Lab explains how confident ReadTune
+is in the current result.
 
 ## How it compares
 

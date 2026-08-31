@@ -1,6 +1,6 @@
 # ReadTune
 
-A free Chrome extension that **measures which reading settings actually work for you** — a short calibration test that times you, checks comprehension, and asks how it felt — then applies the winning combination to any article or PDF.
+A free Chrome extension that **measures which reading settings actually work for you** — a short calibration test that times you, checks comprehension, and asks how it felt — then applies the winning combination to any article or PDF and keeps track of what stays consistent over time.
 
 No login, no paywall, nothing leaves your device. Built for **GatewayHacks 2026** — Accessibility & Health track.
 
@@ -10,13 +10,14 @@ No login, no paywall, nothing leaves your device. Built for **GatewayHacks 2026*
 
 Every other reading tool — Bionic Reading, BeeLine, Helperbird, Speechify, Immersive Reader — gives you manual toggles and leaves you to guess. The ones behind a paywall or a school login gate the useful parts. **None of them test what actually helps you read.**
 
-ReadTune opens with a **~2-minute calibration test**: five short passages, each shown a different way (font, spacing, bolding, one-sentence-at-a-time). For each it records reading time, a one-question comprehension check, and a 1–5 ease rating, then scores every style against *your own* results — so a naturally slower reader isn't penalised — and saves the winner. Reader View and PDF mode use that profile automatically, and the results screen shows the proof ("you read ~20% faster with this style").
+ReadTune opens with a **~4-minute calibration test**: one warm-up plus six short passages, each changing exactly one thing (font, spacing, bolding, or one-sentence-at-a-time). For each it records reading time, a one-question comprehension check, and a 1–5 ease rating, then scores every style against *your own* results — so a naturally slower reader isn't penalised — and saves the winner. Reader View and PDF mode use that profile automatically, and the new **Reading Lab** shows whether the same result keeps repeating or if it's still provisional.
 
 ## What it does
 
 | | |
 | --- | --- |
-| **Calibration test** | 5 passages, timed + comprehension-checked + rated, scored to pick your profile |
+| **Calibration test** | 1 warm-up + 6 passages, timed + comprehension-checked + rated, scored to pick your profile |
+| **Reading Lab** | Shows confidence, retake history, and which reading changes keep repeating |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
 | **Restyle this page** | Applies your font / spacing / tint / bionic / ruler to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
 | **PDF mode** | Extracts text from a PDF worksheet/handout (pdf.js) and renders it through the *same* engine |
@@ -45,6 +46,7 @@ ReadTune opens with a **~2-minute calibration test**: five short passages, each 
 ### Memory
 
 - Your profile is saved with `chrome.storage.local` — no account
+- The Reading Lab keeps your last 10 calibration runs locally so you can see what is stable vs. noisy
 - Reader View **remembers where you left off** and **keeps your highlights** per page
 - Optional **auto-open on a site** you choose (asks for that site's permission only when you turn it on)
 
@@ -70,6 +72,7 @@ background.js           Service worker: Alt+R / Alt+Shift+R commands + per-site 
 content.js              Injected on demand to capture the current page for Reader View
 inpage.js / inpage.css  "Restyle this page" — content script + its shadow-DOM control bar
 popup.*                 Entry points, profile summary, per-site auto-open toggle
+lab.*                   Reading Lab — confidence, stability, retake history
 reader.* / pdf.*        Reader View / PDF mode (thin — most logic is shared/)
 calibration.*           The calibration test + scoring
 shared/
