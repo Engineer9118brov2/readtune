@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560">
+  <rect width="1400" height="560" fill="#10201f"/>
+  <circle cx="1165" cy="75" r="300" fill="none" stroke="#a9d0ba" stroke-opacity=".13" stroke-width="2"/>
+  <circle cx="1165" cy="75" r="220" fill="none" stroke="#a9d0ba" stroke-opacity=".09" stroke-width="2"/>
+  <circle cx="1165" cy="75" r="140" fill="none" stroke="#a9d0ba" stroke-opacity=".06" stroke-width="2"/>
+  <g fill="none" stroke="#f5f0e5" stroke-width="5" transform="translate(78 65) rotate(-28 28 28)">
+    <circle cx="28" cy="28" r="24"/>
+    <path d="M48 24h28M12 45l25-7"/>
+  </g>
+  <text x="147" y="103" fill="#f5f0e5" font-family="Arial,sans-serif" font-size="29" font-weight="700">ReadTune</text>
+  <text x="80" y="247" fill="#f5f0e5" font-family="Arial,sans-serif" font-size="93" font-weight="700" letter-spacing="-5">Stop guessing.</text>
+  <text x="80" y="346" fill="#a9d0ba" font-family="Arial,sans-serif" font-size="93" font-weight="700" letter-spacing="-5">Read what fits.</text>
+  <text x="84" y="416" fill="#f5f0e5" fill-opacity=".74" font-family="Arial,sans-serif" font-size="22">Calibrates your reading setup, then carries it into the web, PDFs, and read-aloud.</text>
+  <rect x="84" y="482" width="360" height="4" fill="#df765e"/>
+  <text x="466" y="489" fill="#a9d0ba" font-family="monospace" font-size="15" letter-spacing="2">FREE / PRIVATE / OPEN SOURCE</text>
+  <g transform="translate(1000 270)">
+    <rect width="270" height="170" fill="#f5f0e5"/>
+    <text x="21" y="32" fill="#6ea28d" font-family="monospace" font-size="10" letter-spacing="1">READING LAB</text>
+    <text x="21" y="70" fill="#10201f" font-family="Arial,sans-serif" font-size="26" font-weight="700">Calm focus</text>
+    <text x="204" y="70" fill="#df765e" font-family="Arial,sans-serif" font-size="28" font-weight="700">94%</text>
+    <rect x="21" y="91" width="215" height="8" fill="#a9d0ba"/>
+    <rect x="21" y="115" width="171" height="8" fill="#e6aa60"/>
+    <rect x="21" y="139" width="195" height="8" fill="#df765e"/>
+  </g>
+</svg>

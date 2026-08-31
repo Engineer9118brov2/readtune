@@ -6,14 +6,14 @@ Everything you need to paste into the Developer Dashboard.
 
 1. **Register** at https://chromewebstore.google.com/devconsole — one-time **$5** fee, any Google account. Do this first; it can take a few minutes to activate.
 2. **Build the package**: `npm run build` → produces `readtune-<version>.zip` at the repo root, with dev files and licenses' source stripped out. Upload that zip.
-3. **Host the privacy policy**: point the dashboard's "Privacy policy URL" at the raw `PRIVACY.md` in your repo (e.g. `https://github.com/<you>/readtune/blob/main/PRIVACY.md`) or a GitHub Pages copy.
+3. **Use the hosted pages**: the public homepage is `https://readtune.vercel.app/` and the privacy policy is `https://readtune.vercel.app/privacy.html`.
 
 ## Store listing fields
 
 **Name:** ReadTune
 
 **Summary (132 chars max):**
-> Measures which reading settings actually help you, shows whether the result stays consistent, then applies it to any article or PDF. Free, private.
+> Finds the reading settings that help you, then applies them to articles, PDFs, and web pages. Free, private, and login-free.
 
 **Category:** Accessibility
 
@@ -43,6 +43,31 @@ Everything you need to paste into the Developer Dashboard.
 3. Read-aloud running (sentence + word highlighted, transport bar)
 4. The reading ruler over an article
 5. PDF mode showing an extracted worksheet
+
+## Exact dashboard map
+
+**Product details**
+- Description: paste the Description above.
+- Category: `Accessibility`
+- Language: `English`
+- Distribution: `All regions` / worldwide.
+
+**Graphic assets**
+- Store icon: upload the packaged `icons/icon128.png`.
+
+**Global assets**
+- Screenshots: upload `store/assets/01-reader-view.png`, `02-focus-ruler.png`, `03-read-along.png`, and `04-restyle-page.png`.
+- Small promo tile: upload `store/assets/promo-small.png` (440×280).
+- Marquee promo tile: upload `store/assets/promo-marquee.png` (1400×560).
+- Global promo video: leave blank until the demo video is published.
+
+**Additional fields**
+- Official URL: `https://readtune.vercel.app/` if Google Search Console verification is complete; otherwise leave `None`.
+- Homepage URL: `https://readtune.vercel.app/`
+- Support URL: `https://github.com/Engineer9118brov2/readtune/issues`
+- Privacy policy URL: `https://readtune.vercel.app/privacy.html`
+
+The Vercel homepage is the public product page. It is intentionally separate from the extension upload and does not expose the extension's local test profile or package build files.
 
 ## Permission justifications (paste into the dashboard)
 

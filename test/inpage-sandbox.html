@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadTune — in-page restyle sandbox</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: #293348; background: #e9edf3; font: 16px/1.35 Georgia, serif; }
+      .site-shell { max-width: 1080px; margin: 0 auto; padding: 40px 48px 100px; background: #fff; }
+      nav { display: flex; justify-content: space-between; margin-bottom: 76px; font: 700 13px/1 Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+      nav a { color: #52647e; text-decoration: none; }
+      main { max-width: 720px; margin: 0 auto; }
+      .eyebrow { color: #3f8b71; font: 700 12px/1 Arial, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { max-width: 680px; margin: 18px 0 19px; color: #1e2d48; font: 700 54px/.99 Georgia, serif; letter-spacing: -.04em; }
+      .dek { margin-bottom: 40px; color: #61708a; font: 20px/1.4 Arial, sans-serif; }
+      .byline { border-block: 1px solid #d5dce6; padding: 16px 0; color: #6c7890; font: 13px/1 Arial, sans-serif; }
+      article { padding-top: 42px; }
+      article p { margin: 0 0 27px; font-size: 21px; line-height: 1.55; }
+      article h2 { margin: 48px 0 17px; color: #253754; font: 700 29px/1.05 Georgia, serif; }
+      article blockquote { margin: 42px 0; padding: 18px 22px; border-left: 4px solid #e2a55a; background: #f5f7fa; color: #3a4a66; font-size: 24px; line-height: 1.35; }
+      footer { margin-top: 72px; padding-top: 19px; border-top: 1px solid #d5dce6; color: #778399; font: 12px/1.4 Arial, sans-serif; }
+    </style>
+    <script>
+      (function () {
+        const profile = {
+          font: "atkinson",
+          fontSize: 21,
+          lineHeight: 1.75,
+          letterSpacing: 0.02,
+          wordSpacing: 0.08,
+          paragraphSpacing: 1.1,
+          contrast: 94,
+          overlay: "cream",
+          customTint: "#eef3f8",
+          bionic: 40,
+          focus: "ruler",
+          rulerLines: 3,
+          rulerHeight: 40,
+          deItalic: false,
+          hideImages: false,
+          freezeMotion: false,
+        };
+        const listeners = [];
+        window.chrome = {
+          runtime: {
+            getURL(path) { return new URL("../" + path.replace(/^\.?\//, ""), location.href).href; },
+            sendMessage() {},
+          },
+          storage: {
+            local: {
+              async get() { return { readtune_profile: profile }; },
+              async set() {},
+            },
+            onChanged: {
+              addListener(fn) { listeners.push(fn); },
+              removeListener(fn) { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); },
+            },
+          },
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <nav><a href="#">Longform Journal</a><span>Design / Attention</span></nav>
+      <main>
+        <div class="eyebrow">Field note 04 · ReadTune demo</div>
+        <h1>Designing a quieter place for attention to land</h1>
+        <p class="dek">The best reading interface does not ask the reader to adapt first. It adapts just enough to make the next sentence feel possible.</p>
+        <div class="byline">By Mira Chen &nbsp; · &nbsp; 7 min read &nbsp; · &nbsp; October 14, 2026</div>
+        <article>
+          <p>Reading is not a single task. Some days call for a quick scan; other days ask for patience, memory, and a little more room around every line. A page that respects that difference gives attention somewhere steady to return.</p>
+          <p>That is why the strongest tools feel less like a collection of effects and more like a small instrument. They make the text clearer without making the reader wonder what changed.</p>
+          <blockquote>Good accessibility is not a special mode. It is a better starting point.</blockquote>
+          <h2>The page should do less work</h2>
+          <p>Shorter lines can make the eye's next jump easier to predict. Extra space can reduce the feeling that neighboring letters are crowding together. A sentence that stays visible while it is heard can give working memory a hand.</p>
+          <p>None of these choices is a promise for every reader. The useful question is smaller and more honest: did this change help this person stay with the idea?</p>
+          <h2>Measure the moment, keep the choice</h2>
+          <p>ReadTune treats the answer as something worth finding out. It tries a few arrangements, checks comprehension, asks how the reading felt, and carries the strongest combination forward.</p>
+        </article>
+        <footer>ReadTune restyle sandbox · The floating controls are the product, not a mockup.</footer>
+      </main>
+    </div>
+    <script src="../inpage.js"></script>
+  </body>
+</html>

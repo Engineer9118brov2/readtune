@@ -49,6 +49,62 @@
             "</article></body></html>",
         };
       })();
+
+      // Give the screenshot fixture a deterministic local voice without making
+      // a network request or requiring the host browser to expose speech APIs.
+      (function () {
+        let activeTimer = 0;
+        let activeUtterance = null;
+        const LocalUtterance = function (text) {
+          this.text = text;
+          this.rate = 1;
+          this.voice = null;
+          this.onboundary = null;
+          this.onend = null;
+          this.onerror = null;
+        };
+        const localSpeech = {
+          getVoices() {
+            return [{ name: "ReadTune Local", lang: "en-US", localService: true, default: true }];
+          },
+          addEventListener() {},
+          removeEventListener() {},
+          speak(utterance) {
+            this.cancel();
+            activeUtterance = utterance;
+            const words = utterance.text.split(/\s+/).filter(Boolean);
+            let index = 0;
+            utterance.onstart?.();
+            const tick = () => {
+              if (activeUtterance !== utterance) return;
+              const charIndex = words.slice(0, index).join(" ").length;
+              utterance.onboundary?.({ name: "word", charIndex });
+              index += 1;
+              if (index > words.length) {
+                activeUtterance = null;
+                activeTimer = 0;
+                utterance.onend?.();
+                return;
+              }
+              activeTimer = setTimeout(tick, Math.max(180, 430 / (utterance.rate || 1)));
+            };
+            tick();
+          },
+          cancel() {
+            if (activeTimer) clearTimeout(activeTimer);
+            activeTimer = 0;
+            activeUtterance = null;
+          },
+        };
+        Object.defineProperty(window, "SpeechSynthesisUtterance", {
+          configurable: true,
+          value: LocalUtterance,
+        });
+        Object.defineProperty(window, "speechSynthesis", {
+          configurable: true,
+          value: localSpeech,
+        });
+      })();
     </script>
     <script src="../lib/readability.js"></script>
   </head>

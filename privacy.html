@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10201f" />
+    <title>Privacy — ReadTune</title>
+    <link rel="stylesheet" href="site.css" />
+    <style>
+      .privacy-page { max-width: 760px; padding-block: 90px 120px; }
+      .privacy-page h1 { margin-bottom: 25px; font-size: clamp(3rem, 7vw, 5.8rem); }
+      .privacy-page h2 { margin-top: 52px; margin-bottom: 15px; font-size: 1.75rem; }
+      .privacy-page p, .privacy-page li { color: var(--ink-soft); }
+      .privacy-page li { margin-bottom: 9px; }
+      .privacy-back { display: inline-block; margin-bottom: 60px; font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+      .privacy-back:hover { color: var(--mint-deep); }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header shell"><a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><span></span></span><span>ReadTune</span></a><a class="nav-cta" href="/">Back to home</a></header>
+    <main id="main" class="privacy-page shell">
+      <a class="privacy-back" href="/">← ReadTune home</a>
+      <p class="eyebrow"><span class="eyebrow-dot"></span> Plain-language privacy</p>
+      <h1>Your reading profile<br /><em>stays yours.</em></h1>
+      <p>ReadTune is designed to work without an account, a server, or analytics. This page explains what the extension stores and when anything can leave your device.</p>
+      <h2>What stays on your device</h2>
+      <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, and the sites where you explicitly enable automatic behavior. These are saved in Chrome's local extension storage.</p>
+      <h2>Read-aloud</h2>
+      <p>The default browser voice uses your device's speech engine. Nothing is sent to ReadTune. If you choose the optional ElevenLabs voice, the passage you ask to hear and your own API key are sent directly to <a href="https://elevenlabs.io/privacy" target="_blank" rel="noreferrer">ElevenLabs</a> to generate audio. ReadTune does not receive or store that request on a server.</p>
+      <h2>Permissions</h2>
+      <ul>
+        <li><strong>Active tab and scripting:</strong> used after you ask to open Reader View or restyle the current page.</li>
+        <li><strong>Local storage:</strong> keeps your settings and progress on your device.</li>
+        <li><strong>Optional site access:</strong> requested only if you turn on automatic behavior for a specific site.</li>
+      </ul>
+      <h2>What ReadTune does not do</h2>
+      <p>ReadTune does not sell data, run analytics, create an account, or send browsing history to its creator. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>
+      <h2>Contact</h2>
+      <p>For questions or bug reports, use the project's <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub Issues</a>.</p>
+      <p class="mono-label">Last updated: August 2026</p>
+    </main>
+    <footer class="site-footer shell"><div class="brand"><span class="brand-mark" aria-hidden="true"><span></span></span><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+  </body>
+</html>

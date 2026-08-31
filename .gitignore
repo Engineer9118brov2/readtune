@@ -24,3 +24,5 @@ dist/
 
 # CI harness scratch
 .chrome-ci/
+.vercel
+.env*
