@@ -57,6 +57,7 @@
   --rt-ui-shadow: 0 2px 3px rgba(20, 20, 15, 0.04), 0 18px 48px rgba(20, 20, 15, 0.08);
   --rt-ui-font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --rt-ui-display: "Lexend", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rt-reading-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -197,7 +198,7 @@ body.rt-ui {
   --rt-word-spacing: 0em;
   --rt-para-space: 1em;
   --rt-measure: 62ch;
-  --rt-family: var(--rt-ui-font);
+  --rt-family: var(--rt-reading-font);
   --rt-contrast: 1;
 
   background: var(--rt-surface);

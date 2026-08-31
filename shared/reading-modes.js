@@ -22,23 +22,26 @@ export function modePatch(mode, profile) {
         focus: "ruler",
         hideImages: true,
         freezeMotion: true,
-        contrast: Math.min(100, Math.max(86, Number(p.contrast) || 100)),
+        columnWidth: Math.min(56, Number(p.columnWidth) || 58),
+        contrast: Math.min(96, Math.max(90, Number(p.contrast) || 94)),
       };
     case "study":
       return {
         pacing: "flow",
         focus: "paragraph",
         freezeMotion: true,
-        lineHeight: Math.max(1.85, Number(p.lineHeight) || 1.6),
-        wordSpacing: Math.max(0.08, Number(p.wordSpacing) || 0),
-        paragraphSpacing: Math.max(1.25, Number(p.paragraphSpacing) || 1),
-        columnWidth: Math.min(58, Number(p.columnWidth) || 62),
+        lineHeight: Math.max(1.9, Number(p.lineHeight) || 1.75),
+        letterSpacing: Math.max(0.02, Number(p.letterSpacing) || 0.02),
+        wordSpacing: Math.max(0.12, Number(p.wordSpacing) || 0.08),
+        paragraphSpacing: Math.max(1.6, Number(p.paragraphSpacing) || 1.5),
+        columnWidth: Math.min(56, Number(p.columnWidth) || 58),
       };
     case "listen":
       return {
         pacing: "aloud",
         focus: "ruler",
         freezeMotion: true,
+        columnWidth: Math.min(58, Number(p.columnWidth) || 58),
       };
     case "skim":
       return {
@@ -46,7 +49,7 @@ export function modePatch(mode, profile) {
         focus: "off",
         hideImages: true,
         freezeMotion: true,
-        columnWidth: Math.min(54, Number(p.columnWidth) || 62),
+        columnWidth: Math.min(52, Number(p.columnWidth) || 58),
       };
     default:
       return {};

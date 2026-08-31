@@ -21,7 +21,7 @@
   const { measuredLineHeight, adaptiveRulerHeight } = await import(chrome.runtime.getURL("shared/ruler.js"));
 
   const FONT_ORDER = ["sans", "dyslexic", "atkinson", "lexend"];
-  const FONT_LABEL = { sans: "Standard", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
+  const FONT_LABEL = { sans: "System Sans", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
   const TINT_ORDER = ["none", "cream", "yellow", "blue", "green", "grey", "dark"];
 
   const fontFace = `
@@ -169,7 +169,7 @@
      </div>`;
   document.documentElement.appendChild(barHost);
 
-  const leadCycle = [1.4, 1.6, 1.9, 2.2];
+  const leadCycle = [1.55, 1.75, 1.95, 2.2];
   function paintBar() {
     root.querySelector('[data-l="font"]').textContent = FONT_LABEL[profile.font] || "";
     root.querySelector('[data-l="lead"]').textContent = "↕" + (profile.lineHeight || 1.6).toFixed(1);

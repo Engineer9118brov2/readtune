@@ -61,9 +61,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const CS = await import("../shared/calibration-score.js");
   const CI = await import("../shared/calibration-insights.js");
   const RM = await import("../shared/reading-modes.js");
+  const RS = await import("../shared/research.js");
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
+  assert(
+    S.FONTS.sans.label === "System Sans" &&
+      S.DEFAULT_PROFILE.lineHeight === RS.RESEARCH_STARTER_PROFILE.lineHeight &&
+      S.DEFAULT_PROFILE.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth,
+    "research-backed starter seeds defaults"
+  );
   const mig = S.normalizeProfile({ chunked: true, font: "opendyslexic" });
   assert(mig.pacing === "sentence" && mig.font === "dyslexic", "legacy migration");
   const cl = S.normalizeProfile({ fontSize: 999, wpm: 5000, bionic: -3, overlay: "??", pacing: "??" });
@@ -102,6 +109,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const shellView = R.createReadingView(document.createElement("div"));
   const shell = shellView.setArticleHtml(APP_SHELL, "https://grok.test");
   assert(!shell.quality.ok && shellView.isEmpty(), "app shell rejected");
+
+  let starterPatch = null;
+  const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsVoice: "Samantha", ttsRate: 1.2 }, (p) => {
+    starterPatch = p;
+  });
+  assert(/Research-backed starter/.test(starterControls.panel.textContent), "controls surface research-backed starter");
+  starterControls.panel.querySelector(".rt-research-btn").click();
+  assert(
+    starterPatch &&
+      starterPatch.lineHeight === RS.RESEARCH_STARTER_PROFILE.lineHeight &&
+      starterPatch.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth &&
+      starterPatch.ttsVoice === "Samantha" &&
+      starterPatch.ttsRate === 1.2,
+    "starter button emits starter profile"
+  );
 
   view.applyProfile({ ...S.DEFAULT_PROFILE, bionic: 45 });
   assert(host.querySelectorAll("b.rt-b").length > 8, "bionic");
@@ -230,6 +252,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const summary = CI.summarizeCalibrations(history, history[2].profile);
   assert(summary.runs === 3 && summary.stabilityLabel === "Stable", "insights: stable pattern surfaces");
   assert(/spacing/i.test(summary.profileTitle) && summary.useCases.length === 3, "insights: title + use cases");
+  const manualSummary = CI.summarizeCalibrations(history, { ...history[2].profile, font: "lexend" });
+  assert(manualSummary.profile.font === "lexend" && /Lexend/.test(manualSummary.profileTitle), "insights: current saved profile beats stale history snapshot");
   assert(CI.buildProfileTitle({ font: "atkinson" }, ["spacing", "chunk"]) === "Atkinson Hyperlegible + roomier spacing", "guided pacing stays out of default profile title");
 
   /* ---- ElevenLabs read-aloud ---- */
@@ -292,7 +316,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   patch = null;
   controls.panel.querySelector('.rt-mode[data-mode="skim"]').click();
   assert(patch && patch.__mode === "skim", "quick mode emits bundle patch");
-  controls.sync({ ...S.DEFAULT_PROFILE, pacing: "sentence", focus: "off", hideImages: true, freezeMotion: true, columnWidth: 54 });
+  controls.sync({ ...S.DEFAULT_PROFILE, pacing: "sentence", focus: "off", hideImages: true, freezeMotion: true, columnWidth: 52 });
   assert(controls.panel.querySelector('.rt-mode[data-mode="skim"]').getAttribute("aria-pressed") === "true", "quick mode reflects matching profile");
   controls.setVoices([
     { name: "Compact Voice", localService: true, lang: "en-US" },

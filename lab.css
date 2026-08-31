@@ -194,6 +194,61 @@
   background: linear-gradient(180deg, rgba(230, 241, 236, 0.92), rgba(255, 255, 255, 0.96));
 }
 
+.lab-inline-btn {
+  width: auto;
+}
+
+.lab-evidence-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lab-evidence-card {
+  border-radius: 18px;
+  border: 1px solid rgba(214, 206, 190, 0.88);
+  background: rgba(248, 244, 235, 0.78);
+  padding: 16px;
+}
+
+.lab-evidence-card strong {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--rt-ui-display);
+  font-size: 1rem;
+}
+
+.lab-evidence-card p {
+  margin-top: 6px;
+}
+
+.lab-evidence-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lab-evidence-chip[data-tone="strong"] {
+  background: rgba(15, 108, 92, 0.12);
+  color: var(--rt-ui-accent-ink);
+}
+
+.lab-evidence-chip[data-tone="supported"] {
+  background: rgba(239, 141, 100, 0.12);
+  color: #7b4420;
+}
+
+.lab-evidence-chip[data-tone="mixed"],
+.lab-evidence-chip[data-tone="personal"] {
+  background: rgba(95, 98, 88, 0.1);
+  color: var(--rt-ui-ink-soft);
+}
+
 .lab-leaderboard,
 .lab-use-cases,
 .lab-timeline {
@@ -408,6 +463,10 @@
 
   .lab-hero-copy h1 {
     max-width: none;
+  }
+
+  .lab-inline-btn {
+    width: 100%;
   }
 }
 

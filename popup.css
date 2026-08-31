@@ -69,6 +69,7 @@
 .pop-onboard,
 .pop-profile,
 .pop-setup,
+.pop-proof,
 .pop-auto {
   border: 1px solid rgba(211, 203, 187, 0.92);
   border-radius: 18px;
@@ -177,6 +178,11 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+.pop-pill-soft {
+  background: rgba(95, 98, 88, 0.1);
+  color: var(--rt-ui-ink-soft);
+}
 .pop-metrics {
   width: 100%;
   display: grid;
@@ -226,6 +232,56 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.pop-proof {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background:
+    radial-gradient(circle at top right, rgba(15, 108, 92, 0.1), transparent 42%),
+    linear-gradient(180deg, rgba(230, 241, 236, 0.7), rgba(255, 255, 255, 0.92));
+}
+
+.pop-proof-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.pop-proof h2 {
+  margin: 8px 0 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  font-family: var(--rt-ui-display);
+}
+
+.pop-proof p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--rt-ui-ink-soft);
+}
+
+.pop-proof-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pop-proof-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(201, 227, 216, 0.92);
+  color: var(--rt-ui-accent-ink);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .pop-setup-top {

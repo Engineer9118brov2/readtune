@@ -111,7 +111,7 @@ function configureSetupBox(show) {
 }
 
 function configureFirstRun() {
-  $("tagline").textContent = "Measure what actually helps you read, then use it everywhere.";
+  $("tagline").textContent = "Start with research-backed reading defaults, then measure what actually helps you.";
   $("onboard").hidden = false;
   $("profile-box").hidden = true;
   $("setup-box").hidden = true;
@@ -126,7 +126,7 @@ function configureFirstRun() {
 }
 
 function configureReturningUser(profile, insights) {
-  $("tagline").textContent = "Your profile is ready. Use it on this page, in PDFs, or keep tuning text and voice over time.";
+  $("tagline").textContent = "Your profile is ready. ReadTune starts from the strongest supports, then keeps tuning text and voice to you over time.";
   $("onboard").hidden = true;
   $("profile-box").hidden = false;
   $("btn-lab").hidden = false;

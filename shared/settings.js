@@ -7,6 +7,8 @@
  * tabs and restarts, with no login.
  */
 
+import { RESEARCH_STARTER_PROFILE } from "./research.js";
+
 export const PROFILE_KEY = "readtune_profile";
 export const HISTORY_KEY = "readtune_calibrations";
 export const ARTICLE_KEY = "readtune_article";
@@ -16,7 +18,7 @@ export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the us
 export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
 
 export const FONTS = {
-  sans: { label: "Standard", stack: 'var(--rt-ui-font)' },
+  sans: { label: "System Sans", stack: 'var(--rt-reading-font)' },
   dyslexic: { label: "OpenDyslexic", stack: '"OpenDyslexic", var(--rt-ui-font)' },
   atkinson: { label: "Atkinson Hyperlegible", stack: '"Atkinson Hyperlegible", var(--rt-ui-font)' },
   lexend: { label: "Lexend", stack: '"Lexend", var(--rt-ui-font)' },
@@ -44,41 +46,7 @@ export const PACING = {
   aloud: "Read aloud to me",
 };
 
-export const DEFAULT_PROFILE = {
-  // typography
-  font: "sans", // sans | dyslexic | atkinson | lexend
-  fontSize: 19, // px       (15 – 30)
-  lineHeight: 1.6, //        (1.3 – 2.6)
-  letterSpacing: 0, // em    (0 – 0.22)
-  wordSpacing: 0, // em      (0 – 0.7)
-  paragraphSpacing: 1, // em (0.6 – 2.6)
-  columnWidth: 62, // ch     (40 – 92)
-
-  // legibility aids
-  bionic: 0, // % of each word bolded; 0 = off   (0, or 20 – 70)
-  hyphenate: false, // soft-wrap hyphenation, no big gaps at the right edge
-  syllables: false, // visible middle dots: in·for·ma·tion
-  deItalic: false, // render italics upright
-
-  // visual environment
-  overlay: "none",
-  customTint: "#eef3f8",
-  contrast: 100, // %  (78 – 100) — below 100 softens black-on-white
-  hideImages: false,
-  freezeMotion: false, // freeze GIFs / autoplay
-
-  // focus
-  focus: "off", // off | paragraph | ruler
-  rulerHeight: 40, // px
-
-  // movement through the text
-  pacing: "flow", // flow | sentence | word | scroll | aloud
-  wpm: 300, // words/min for word + scroll modes  (120 – 700)
-
-  // read-aloud
-  ttsVoice: "", // "" = browser default
-  ttsRate: 1, //  (0.6 – 1.8)
-};
+export const DEFAULT_PROFILE = { ...RESEARCH_STARTER_PROFILE };
 
 // Pacing is a mode, not a durable trait. New reading surfaces should always
 // open in normal flow unless the user switches mode for that session.

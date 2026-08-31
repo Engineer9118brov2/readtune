@@ -9,6 +9,7 @@
 import { RANGES, OVERLAYS, FONTS, PACING } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { formatBrowserVoiceLabel, recommendedBrowserVoices } from "./tts.js";
+import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
 const FOCUS_OPTS = [
@@ -84,6 +85,25 @@ export function buildControls(profile, onChange) {
   const field = (labelNode, control) =>
     el("div", { class: "rt-field" }, [el("span", { class: "rt-field-label" }, labelNode), control]);
 
+  const hint = (text, extraClass = "") => el("p", { class: `rt-panel-hint${extraClass ? " " + extraClass : ""}` }, text);
+
+  function evidenceChip(level, label = "") {
+    const meta = evidenceLevel(level);
+    return el("span", { class: `rt-evidence-chip rt-evidence-chip-${meta.tone}` }, label || meta.label);
+  }
+
+  function sectionTitle(title, level, label = "") {
+    return el("span", { class: "rt-sec-title" }, [el("span", {}, title), evidenceChip(level, label)]);
+  }
+
+  function researchCard(item) {
+    return el("article", { class: "rt-research-card" }, [
+      evidenceChip(item.level),
+      el("strong", {}, item.title),
+      el("p", {}, item.body),
+    ]);
+  }
+
   function segment(key, opts, aria) {
     const group = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": aria });
     reg.seg[key] = opts.map((o) => {
@@ -143,29 +163,59 @@ export function buildControls(profile, onChange) {
     return wrap;
   }
 
+  const researchButton = el("button", { class: "rt-btn rt-primary rt-research-btn", type: "button" }, "Use this starter");
+  researchButton.addEventListener("click", () => emit(researchStarterPatch(state)));
+  body.append(
+    el("section", { class: "rt-research-box" }, [
+      el("div", { class: "rt-research-top" }, [
+        el("div", {}, [
+          evidenceChip("strong", "Research-backed starter"),
+          el("strong", { class: "rt-research-title" }, "Start with the changes that tend to help most"),
+        ]),
+        researchButton,
+      ]),
+      hint(
+        "ReadTune leans on spacing, calmer contrast, shorter lines, and follow-along listening first. Fonts, tints, and bionic stay optional because the evidence there is mixed.",
+        "rt-panel-hint-tight"
+      ),
+      el("div", { class: "rt-research-grid" }, RESEARCH_FOUNDATIONS.map(researchCard)),
+      el("div", { class: "rt-research-subtle" }, [
+        el("strong", {}, "Still worth testing"),
+        el(
+          "p",
+          {},
+          "Fonts, tints, bionic, and focus tools can still matter a lot for comfort. We just label them honestly instead of pretending they are universal wins."
+        ),
+      ]),
+    ])
+  );
+
   /* ---- Quick modes ---- */
-  const secQuick = section("Quick modes", true);
+  const secQuick = section(sectionTitle("Quick modes", "supported", "Task presets"), true);
   secQuick.append(
-    el("p", { class: "rt-panel-hint rt-panel-hint-tight" }, "One click for the job you are doing right now. Your calibrated profile stays underneath."),
+    hint("One click for the job you are doing right now. Your calibrated profile stays underneath.", "rt-panel-hint-tight"),
     modeButtons()
   );
 
   /* ---- Text ---- */
-  const secText = section("Text");
+  const secText = section(sectionTitle("Text", "strong"), false);
+  secText.append(hint("Spacing and line width are some of the safest levers to reach for first."));
   secText.append(field("Font", segment("font", FONT_OPTS, "Font")));
   for (const k of ["fontSize", "lineHeight", "letterSpacing", "wordSpacing", "paragraphSpacing", "columnWidth"]) {
     secText.append(slider(k, SLIDERS[k]));
   }
 
   /* ---- Legibility ---- */
-  const secLeg = section("Legibility");
+  const secLeg = section(sectionTitle("Legibility", "mixed"), false);
+  secLeg.append(hint("Helpful for some readers, but these are better treated as experiments than defaults."));
   secLeg.append(slider("bionic", SLIDERS.bionic));
   secLeg.append(toggle("hyphenate", "Hyphenate long words"));
   secLeg.append(toggle("syllables", "Show syllable breaks"));
   secLeg.append(toggle("deItalic", "Remove italics"));
 
   /* ---- Colour ---- */
-  const secColour = section("Colour & distractions");
+  const secColour = section(sectionTitle("Colour & distractions", "supported", "Comfort first"), false);
+  secColour.append(hint("Softer contrast is widely useful. Specific tints are more personal, so keep them optional."));
   const swatchGrid = el("div", { class: "rt-swatches", role: "group", "aria-label": "Reading tint" });
   reg.swatch = Object.entries(OVERLAYS).map(([val, o]) => {
     const b = el("button", {
@@ -190,14 +240,16 @@ export function buildControls(profile, onChange) {
   secColour.append(toggle("freezeMotion", "Freeze animations & GIFs"));
 
   /* ---- Focus ---- */
-  const secFocus = section("Focus");
+  const secFocus = section(sectionTitle("Focus", "personal"), false);
+  secFocus.append(hint("Focus aids shine when attention drifts, even if your base profile stays simple."));
   secFocus.append(field("Keep my place", segment("focus", FOCUS_OPTS, "Focus mode")));
   const rulerRow = slider("rulerHeight", SLIDERS.rulerHeight);
   secFocus.append(rulerRow);
   reg.rulerRow = rulerRow;
 
   /* ---- Movement ---- */
-  const secMove = section("Move through the text");
+  const secMove = section(sectionTitle("Move through the text", "strong", "Read along"), false);
+  secMove.append(hint("Read aloud with highlighting is the strongest fallback when the page still feels tiring."));
   secMove.append(field("Mode", segment("pacing", PACING_OPTS, "Reading mode")));
   const wpmRow = slider("wpm", SLIDERS.wpm);
   secMove.append(wpmRow);
@@ -320,7 +372,10 @@ export function buildControls(profile, onChange) {
     ttsState,
   });
 
-  body.append(el("p", { class: "rt-panel-hint" }, "Everything saves automatically and applies across ReadTune."));
+  body.append(
+    hint("Everything saves automatically and applies across ReadTune."),
+    el("div", { class: "rt-research-mini" }, RESEARCH_EXPERIMENTS.map(researchCard))
+  );
   const resetBtn = el("button", { class: "rt-link rt-reset", type: "button" }, "Reset to defaults");
   resetBtn.addEventListener("click", () => onChange({ __reset: true }));
   body.append(resetBtn);

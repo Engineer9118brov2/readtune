@@ -117,7 +117,8 @@ export function buildProfileTitle(profile, keptKeys = []) {
 export function summarizeCalibrations(history = [], fallbackProfile = null) {
   const runs = asArray(history).filter(Boolean).slice(-10);
   const last = runs[runs.length - 1] || null;
-  const profile = (last && last.profile) || fallbackProfile || null;
+  const historyProfile = (last && last.profile) || null;
+  const profile = fallbackProfile || historyProfile || null;
   const kept = getKept(last);
   const dims = sortDims(last);
   const top = dims[0] || null;

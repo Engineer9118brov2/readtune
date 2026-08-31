@@ -9,6 +9,30 @@ This page is an honest summary of the evidence behind each option, including
 where it's weak. If you're presenting ReadTune, **read the primary sources
 before citing numbers** — this is a starting map, not a substitute for them.
 
+## How this maps into ReadTune now
+
+The quality pass shipped on **Monday, August 31, 2026** leans the product
+toward a moderate research-backed starter before calibration takes over:
+
+- **System Sans**
+- **20px text**
+- **1.75 line height**
+- **0.02em letter spacing**
+- **0.08em word spacing**
+- **1.5em paragraph spacing**
+- **58ch line width**
+- **warm off-white with 94% contrast**
+
+That is **not** presented as "the proven best setup." It is the lowest-risk
+starter we could justify from the better-supported parts of the literature and
+accessible-reading guidance:
+
+- lead with read-aloud + follow-along
+- give text more breathing room
+- avoid harsh black-on-white when possible
+- keep lines shorter and steadier
+- treat fonts, tints, and bionic as optional experiments, not promises
+
 ---
 
 ## Well supported
@@ -104,3 +128,39 @@ the calibration test rather than asserted. The honest version of ReadTune's
 pitch is: *"most reading tools pick a side in these debates and make you live
 with it; ReadTune runs the experiment on you and tells you what your own eyes
 did."*
+
+## Competitor lessons we kept
+
+These are product lessons, not scientific sources:
+
+- **Speechify** taught us that voice quality matters, but its own pricing page
+  makes the free tier look intentionally weak. ReadTune stays free-first and
+  treats premium voices as optional bring-your-own extras.
+- **Microsoft Immersive Reader** taught us that line focus, text spacing, and
+  synchronized read-aloud feel trustworthy when the experience is simple and
+  calm.
+- **Helperbird** taught us that breadth is useful, but a wall of tools can feel
+  like work. ReadTune now leads with a starter and explains what usually helps
+  before it asks the user to tune anything.
+- **BeeLine** and **Bionic Reading** taught us the value of a sharp story, but
+  we intentionally refuse to present one branded visual trick as a universal
+  answer.
+
+## Primary sources and product references
+
+Primary sources behind this page:
+
+- [W3C WCAG 2.1: Understanding Success Criterion 1.4.12 Text Spacing](https://www.w3.org/WAI/WCAG21/Understanding/text-spacing)
+- [Zorzi et al. (2012), *Extra-large letter spacing improves reading in dyslexia*](https://www.pnas.org/doi/10.1073/pnas.1205566109)
+- [Wood et al. (2018), meta-analysis of text-to-speech and read-aloud tools](https://pmc.ncbi.nlm.nih.gov/articles/PMC5494021/)
+- [Wery & Diliberto (2017), OpenDyslexic study](https://pmc.ncbi.nlm.nih.gov/articles/PMC5629233/)
+- [Kuster et al. (2018), *Dyslexie font does not benefit reading in children with or without dyslexia*](https://pmc.ncbi.nlm.nih.gov/articles/PMC5934461/)
+- [Joint statement from the American Academy of Pediatrics and American Academy of Ophthalmology on learning disabilities, dyslexia, and vision](https://www.aao.org/education/clinical-statement/joint-statement-learning-disabilities-dyslexia-vis)
+- [International Dyslexia Association: Do special fonts help people with dyslexia?](https://dyslexiaida.org/do-special-fonts-help-people-with-dyslexia/)
+
+Official product pages reviewed for positioning:
+
+- [Speechify pricing](https://speechify.com/pricing/)
+- [Microsoft Immersive Reader in Edge](https://support.microsoft.com/en-us/education/learning-accelerators/use-immersive-reader-in-microsoft-edge)
+- [Helperbird for Chrome](https://www.helperbird.com/products/chrome/)
+- [BeeLine Reader](https://www.beelinereader.com/)

@@ -15,10 +15,13 @@ import {
   saveTTSConfig,
   markSetupStep,
   extUrl,
+  describeProfile,
+  FONTS,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
-import { summarizeCalibrations, labelForDimension } from "./shared/calibration-insights.js";
+import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
 import { onVoicesReady, recommendedBrowserVoices, browserVoiceSource, describeBrowserVoice } from "./shared/tts.js";
+import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
 
 const PREVIEW_TEXT =
   "This is the profile ReadTune is carrying into articles and PDFs for you right now. The Reading Lab shows whether this signal looks new, emerging, or steady enough to trust as your default.";
@@ -36,6 +39,12 @@ let browserVoices = [];
 let previewingVoice = "";
 let voiceNotice = "";
 let previewRun = 0;
+let latestInsights = null;
+let profilePreviewSurface = null;
+let profilePreviewView = null;
+let voicePreviewSurface = null;
+let voicePreviewView = null;
+let starterResetTimer = 0;
 
 function makeTag(text) {
   const node = document.createElement("span");
@@ -49,6 +58,50 @@ function makeVoiceChip(text) {
   node.className = "lab-voice-chip";
   node.textContent = text;
   return node;
+}
+
+function makeEvidenceCard(item) {
+  const meta = evidenceLevel(item.level);
+  const node = document.createElement("article");
+  node.className = "lab-evidence-card";
+  node.dataset.tone = meta.tone;
+
+  const chip = document.createElement("span");
+  chip.className = "lab-evidence-chip";
+  chip.dataset.tone = meta.tone;
+  chip.textContent = meta.label;
+
+  const title = document.createElement("strong");
+  title.textContent = item.title;
+
+  const body = document.createElement("p");
+  body.textContent = item.body;
+
+  node.append(chip, title, body);
+  return node;
+}
+
+function renderEvidence(hostId, items) {
+  const host = $(hostId);
+  host.replaceChildren(...items.map(makeEvidenceCard));
+}
+
+function syncProfileCard() {
+  $("lab-profile-title").textContent = buildProfileTitle(profile || {}, (latestInsights && latestInsights.kept) || []);
+  $("lab-profile-desc").textContent = profile ? describeProfile(profile) : "";
+  renderProfileTags(latestInsights || { kept: [] }, profile);
+}
+
+function syncPreviewSurfaces() {
+  if (profilePreviewSurface && profilePreviewView) {
+    applyTypography(profilePreviewSurface, profile);
+    profilePreviewView.applyProfile({ ...profile, pacing: "flow" });
+  }
+  if (voicePreviewSurface && voicePreviewView) {
+    applyTypography(voicePreviewSurface, profile);
+    voicePreviewView.applyProfile({ ...profile, pacing: "flow" });
+  }
+  paintPage(profile);
 }
 
 function renderLeaderboard(insights) {
@@ -147,15 +200,17 @@ function renderTrustPoints(insights) {
 function renderProfileTags(insights, nextProfile) {
   const host = $("lab-profile-tags");
   host.replaceChildren();
-  host.appendChild(makeTag((nextProfile && nextProfile.font && labelForDimension(nextProfile.font)) || "Standard"));
+  const fontLabel = nextProfile && nextProfile.font && FONTS[nextProfile.font] ? FONTS[nextProfile.font].label : FONTS.sans.label;
+  host.appendChild(makeTag(fontLabel));
   if (insights.kept.length) {
     for (const key of insights.kept) host.appendChild(makeTag(labelForDimension(key)));
-  } else host.appendChild(makeTag("Standard held up best"));
+  } else host.appendChild(makeTag("Plain baseline held up best"));
 }
 
 function setEmptyState() {
   $("lab-empty").hidden = false;
   $("lab-main").hidden = true;
+  $("lab-evidence-grid").hidden = true;
   $("lab-detail-grid").hidden = true;
   $("lab-voice-panel").hidden = true;
   $("lab-history-panel").hidden = true;
@@ -207,6 +262,21 @@ function renderVoiceSummary() {
       : "Browser default";
   $("lab-voice-title").textContent = activeVoice ? activeVoice.name : "Browser default";
   $("lab-voice-copy").textContent = voiceNotice || currentVoiceBody(activeVoice);
+}
+
+async function applyResearchStarter() {
+  const button = $("lab-apply-starter");
+  button.disabled = true;
+  clearTimeout(starterResetTimer);
+  const starter = researchStarterPatch(profile);
+  profile = (await saveProfile(starter)) || { ...profile, ...starter };
+  syncProfileCard();
+  syncPreviewSurfaces();
+  button.textContent = "Starter saved";
+  starterResetTimer = setTimeout(() => {
+    button.textContent = "Use this starter";
+    button.disabled = false;
+  }, 1800);
 }
 
 async function saveFreeVoice(name) {
@@ -350,11 +420,11 @@ function renderVoiceCards() {
 }
 
 function initVoiceFit() {
-  const voiceSurface = $("lab-voice-surface");
-  const previewView = createReadingView($("lab-voice-preview-view"));
-  applyTypography(voiceSurface, profile);
-  previewView.setText(VOICE_SAMPLE);
-  previewView.applyProfile({ ...profile, pacing: "flow" });
+  voicePreviewSurface = $("lab-voice-surface");
+  voicePreviewView = createReadingView($("lab-voice-preview-view"));
+  applyTypography(voicePreviewSurface, profile);
+  voicePreviewView.setText(VOICE_SAMPLE);
+  voicePreviewView.applyProfile({ ...profile, pacing: "flow" });
   renderVoiceCards();
   onVoicesReady((voices) => {
     browserVoices = Array.isArray(voices) ? voices : [];
@@ -400,6 +470,7 @@ async function init() {
   }
 
   const insights = summarizeCalibrations(history, profile);
+  latestInsights = insights;
   $("lab-hero-title").textContent = insights.signalTitle;
   $("lab-hero-body").textContent = insights.signalBody;
   $("lab-confidence-label").textContent = insights.confidenceLabel;
@@ -409,26 +480,27 @@ async function init() {
   $("lab-runs-label").textContent = String(insights.runs);
   $("lab-runs-body").textContent =
     insights.runs > 1 ? `Last run: ${insights.lastDateLabel}.` : "Retake once or twice to see what repeats.";
+  $("lab-evidence-grid").hidden = false;
 
-  $("lab-profile-title").textContent = insights.profileTitle;
-  $("lab-profile-desc").textContent = insights.profileSummary;
   $("lab-last-tested").textContent = insights.lastDateLabel || "Recent";
   $("lab-signal-title").textContent = insights.signalTitle;
   $("lab-signal-body").textContent = insights.signalBody;
   $("lab-next-title").textContent = insights.nextStepTitle;
   $("lab-next-body").textContent = insights.nextStepBody;
 
-  renderProfileTags(insights, profile);
+  syncProfileCard();
   renderLeaderboard(insights);
   renderUseCases(insights);
   renderTimeline(insights);
   renderTrustPoints(insights);
+  renderEvidence("lab-foundations", RESEARCH_FOUNDATIONS);
+  renderEvidence("lab-experiments", RESEARCH_EXPERIMENTS);
 
-  const previewSurface = $("lab-preview-surface");
-  const previewView = createReadingView($("lab-preview-view"));
-  applyTypography(previewSurface, profile);
-  previewView.setText(PREVIEW_TEXT);
-  previewView.applyProfile({ ...profile, pacing: "flow" });
+  profilePreviewSurface = $("lab-preview-surface");
+  profilePreviewView = createReadingView($("lab-preview-view"));
+  applyTypography(profilePreviewSurface, profile);
+  profilePreviewView.setText(PREVIEW_TEXT);
+  profilePreviewView.applyProfile({ ...profile, pacing: "flow" });
   paintPage(profile);
 
   initVoiceFit();
@@ -441,6 +513,7 @@ $("lab-retake").addEventListener("click", () => {
 $("lab-pdf").addEventListener("click", () => {
   location.href = extUrl("pdf.html");
 });
+$("lab-apply-starter").addEventListener("click", applyResearchStarter);
 $("lab-close").addEventListener("click", () => window.close());
 window.addEventListener("beforeunload", stopVoicePreview);
 

@@ -12,11 +12,14 @@ Every other reading tool — Bionic Reading, BeeLine, Helperbird, Speechify, Imm
 
 ReadTune opens with a **~4-minute calibration test**: one warm-up plus six short passages, each changing exactly one thing (font, spacing, bolding, or one-sentence-at-a-time). For each it records reading time, a one-question comprehension check, and a 1–5 ease rating, then scores every style against *your own* results — so a naturally slower reader isn't penalised — and saves the winner. Reader View and PDF mode use that profile automatically, and the new **Reading Lab** shows whether the same result keeps repeating or if it's still provisional.
 
+The product now also ships a **research-backed starter** before calibration finishes: calmer spacing, slightly softer contrast, shorter line width, and clear labels for which features are strongly supported versus mostly personal preference.
+
 ## What it does
 
 | | |
 | --- | --- |
 | **Calibration test** | 1 warm-up + 6 passages, timed + comprehension-checked + rated, scored to pick your profile |
+| **Research-backed starter** | Opens with calmer spacing, softer contrast, shorter lines, and honest evidence labels before you fine-tune anything |
 | **Reading Lab** | Shows confidence, retake history, Voice Fit, and which reading changes keep repeating |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
 | **Restyle this page** | Applies your font / spacing / tint / bionic / ruler to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
@@ -26,7 +29,7 @@ ReadTune opens with a **~4-minute calibration test**: one warm-up plus six short
 
 ### Reading aids
 
-- **Fonts** — Standard, [OpenDyslexic](https://opendyslexic.org/), [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), [Lexend](https://www.lexend.com/)
+- **Fonts** — System Sans, [OpenDyslexic](https://opendyslexic.org/), [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), [Lexend](https://www.lexend.com/)
 - **Typography** — text size, line / letter / word / paragraph spacing, line width, contrast
 - **Bionic bolding** — adjustable leading-letter emphasis
 - **Hyphenation** — no ragged right-edge gaps; optional visible syllable breaks (`in·for·ma·tion`)
