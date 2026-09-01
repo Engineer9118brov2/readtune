@@ -264,12 +264,12 @@ export function buildControls(profile, onChange) {
   reg.wpmRow = wpmRow;
 
   /* read-aloud: engine picker + browser voice + ElevenLabs key */
-  const ttsState = { provider: "browser", hasKey: false, voices: [], voiceId: "", status: "", error: "" };
+  const ttsState = { provider: "browser", hasKey: false, voices: [], voiceId: "", status: "", error: "", piperProgress: null };
 
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
     { val: "browser", label: "Free voice" },
-    { val: "piper", label: "Piper natural" },
+    { val: "piper", label: "Piper natural · beta" },
     { val: "elevenlabs", label: "Bring your own" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
@@ -287,7 +287,7 @@ export function buildControls(profile, onChange) {
   const piperHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Piper is a natural-sounding voice that runs on your device. The first use downloads a one-time ~60 MB voice model from Hugging Face; the text you read is never uploaded."
+    "Piper is an optional natural-sounding voice that runs on your device. First use downloads Amy once from Hugging Face (about 60 MB); the text you read is never uploaded."
   );
 
   const previewBtn = (aria, patchFactory = () => ({ preview: true })) => {
@@ -372,7 +372,8 @@ export function buildControls(profile, onChange) {
   const forgetBtn = el("button", { class: "rt-link", type: "button" }, "Remove key");
   forgetBtn.addEventListener("click", () => onChange({ __tts: { forget: true } }));
   const statusLine = el("p", { class: "rt-tts-status", role: "status" });
-  const connectedRow = el("div", { class: "rt-field rt-tts-connected" }, [statusLine, forgetBtn]);
+  const piperProgress = el("progress", { class: "rt-tts-progress", max: "100", value: "0", hidden: true, "aria-label": "Amy natural voice download progress" });
+  const connectedRow = el("div", { class: "rt-field rt-tts-connected" }, [statusLine, piperProgress, forgetBtn]);
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
@@ -391,6 +392,8 @@ export function buildControls(profile, onChange) {
     connectedRow,
     rateRow,
     statusLine,
+    piperProgress,
+    forgetBtn,
     ttsState,
     voiceUpgradeRelevant: false,
   });
@@ -470,7 +473,8 @@ export function buildControls(profile, onChange) {
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
     reg.manualVoiceRow.hidden = !aloud || !eleven || !t.hasKey || canList;
-    reg.connectedRow.hidden = !aloud || !eleven || !t.hasKey;
+    reg.connectedRow.hidden = !aloud || (!piper && (!eleven || !t.hasKey));
+    reg.forgetBtn.hidden = !eleven;
     for (const b of reg.engineBtns) b.setAttribute("aria-pressed", b.dataset.val === t.provider ? "true" : "false");
     if (t.error) {
       reg.statusLine.textContent = t.error;
@@ -478,6 +482,9 @@ export function buildControls(profile, onChange) {
     } else if (t.status === "checking") {
       reg.statusLine.textContent = "Checking your key…";
       reg.statusLine.dataset.kind = "info";
+    } else if (t.status) {
+      reg.statusLine.textContent = t.status;
+      reg.statusLine.dataset.kind = t.piperProgress === null ? "info" : "loading";
     } else if (t.note) {
       reg.statusLine.textContent = t.note;
       reg.statusLine.dataset.kind = "info";
@@ -490,6 +497,9 @@ export function buildControls(profile, onChange) {
     } else {
       reg.statusLine.textContent = "";
     }
+    const showProgress = piper && Number.isFinite(t.piperProgress);
+    reg.piperProgress.hidden = !showProgress;
+    if (showProgress) reg.piperProgress.value = t.piperProgress;
     if (canList) {
       const cur = t.voiceId || reg.elVoice.value;
       reg.elVoice.replaceChildren(...t.voices.map((v) => el("option", { value: v.id }, v.name)));

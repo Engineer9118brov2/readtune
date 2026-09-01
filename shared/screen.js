@@ -39,6 +39,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let autoScrolling = false;
   let pendingAloudIndex = 0;
   let preserveScrollOnPacingChange = false;
+  let piperStatus = { kind: "", message: "", percent: null };
 
   const toast = makeToast();
 
@@ -60,6 +61,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     getFlow: () => view.getFlowEl(),
     getConfig: () => ttsConfig,
     onError: (msg) => toast(msg),
+    onStatus: (status) => {
+      piperStatus = status && status.provider === "piper" ? status : piperStatus;
+      if (ttsConfig.provider === "piper") pushTTS();
+    },
     onState: (st) => {
       if (profile.pacing !== "aloud") return;
       syncReadAlong(st.index);
@@ -219,7 +224,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       voiceId: ttsConfig.voiceId || "",
       note,
       error: extra.error || "",
-      status: extra.status || "",
+      status: extra.status || (ttsConfig.provider === "piper" ? piperStatus.message : ""),
+      piperProgress: ttsConfig.provider === "piper" ? piperStatus.percent : null,
     });
   }
   pushTTS();
@@ -329,6 +335,9 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         }
       }
       ttsConfig = await saveTTSConfig({ provider: t.provider });
+      piperStatus = t.provider === "piper"
+        ? { kind: "info", message: "Amy is selected. Press Listen to prepare the one-time download.", percent: null }
+        : { kind: "", message: "", percent: null };
       pushTTS();
       tts.reload();
     }

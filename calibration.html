@@ -13,22 +13,22 @@
 
       <section class="cal-card" id="screen-intro">
         <span class="rt-chip">Calibration</span>
-        <h1>Build a reading profile you can trust</h1>
+        <h1>Try a few reading settings</h1>
         <p>
           You'll read a short warm-up, then six passages. Each passage changes
           <b>one</b> thing from plain text — the font, the spacing, the bolding,
-          or showing one sentence at a time — so the test can tell which of them
-          actually helps <i>you</i>, not just which combination you happened to get.
+          or showing one sentence at a time — so you can see which settings feel
+          worth trying, rather than getting a random bundle.
         </p>
         <p>After each passage: one quick question, then rate how it felt. About four minutes.</p>
         <div class="cal-hero-grid">
           <article class="cal-hero-note">
-            <b>One variable at a time</b>
-            <span>So a win means something, not just a lucky bundle.</span>
+            <b>One change at a time</b>
+            <span>So you can notice what feels different.</span>
           </article>
           <article class="cal-hero-note">
-            <b>Speed + comprehension + ease</b>
-            <span>It measures more than raw speed.</span>
+            <b>Speed + meaning + ease</b>
+            <span>A starting clue, not a score about you.</span>
           </article>
           <article class="cal-hero-note">
             <b>Saved only in this browser</b>
@@ -73,14 +73,14 @@
       </section>
 
       <section class="cal-card" id="screen-results" hidden>
-        <span class="rt-chip">Your reading profile</span>
-        <h1 id="result-title">Here's what worked best for you</h1>
+        <span class="rt-chip">Settings to try</span>
+        <h1 id="result-title">Your starting setup</h1>
         <p id="result-headline" class="cal-headline" hidden></p>
         <p id="result-desc" class="cal-desc"></p>
 
         <div class="cal-insights">
           <article class="cal-insight-card">
-            <span>Confidence</span>
+            <span>How repeatable?</span>
             <strong id="result-confidence-label">Provisional</strong>
             <p id="result-confidence-body"></p>
           </article>
@@ -98,14 +98,15 @@
 
         <div class="rt-surface cal-preview" id="preview-surface"><div id="preview-view"></div></div>
 
-        <p class="cal-breakdown-label">Where this profile is likely to help most</p>
+        <p class="cal-breakdown-label">Where these settings may be useful</p>
         <div class="cal-use-cases" id="result-use-cases"></div>
 
-        <p class="cal-breakdown-label">What each change did for you</p>
+        <p class="cal-breakdown-label">What this quick check tried</p>
         <div class="cal-breakdown" id="result-breakdown"></div>
 
         <details class="cal-details">
-          <summary>Show the numbers</summary>
+          <summary>See what this did and did not test</summary>
+          <p class="cal-fine">Tested: two typefaces, roomier spacing, bionic bolding, and one-sentence reading. Not tested: your ideal text size, tint, ruler, voice, or the layout of a real website.</p>
           <div class="cal-tablewrap">
             <table class="cal-table" id="result-table">
               <thead>
@@ -115,7 +116,7 @@
             </table>
           </div>
           <p class="cal-fine">
-            Words/min is adjusted for practice effect (you speed up as you go, regardless of settings).
+            Words/min is adjusted for practice effect (you can speed up as you go, regardless of the setting). This is a quick preference check, not an assessment.
           </p>
         </details>
 
@@ -145,7 +146,7 @@
           </div>
           <button class="rt-btn rt-primary" id="fit-voice" type="button">Fit my free voice</button>
         </section>
-        <p class="cal-fine">These settings now apply in Reader View and PDF mode automatically.</p>
+        <p class="cal-fine">These are saved as a starting setup for Reader View and PDF mode. You can adjust or ignore any of them later.</p>
         <div class="cal-result-actions">
           <button class="rt-btn" id="try-pdf" type="button">Try it on a PDF</button>
           <button class="rt-btn" id="btn-lab" type="button">Open Reading Lab</button>

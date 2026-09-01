@@ -74,6 +74,12 @@
   padding: 6px 16px 30px;
 }
 
+.rt-tts-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--rt-ui-accent);
+}
+
 .rt-research-box {
   margin: 12px 0 18px;
   padding: 16px;

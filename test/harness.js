@@ -59,6 +59,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const EL = await import("../shared/elevenlabs.js");
   const IP = await import("../shared/inpage-style.js");
   const RU = await import("../shared/ruler.js");
+  const PI = await import("../shared/piper.js");
   const CS = await import("../shared/calibration-score.js");
   const CI = await import("../shared/calibration-insights.js");
   const RM = await import("../shared/reading-modes.js");
@@ -234,6 +235,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     "ruler height expands with multi-line focus spans"
   );
   assert(RU.inferLegacyRulerLines(52) === 3 && RU.rulerSpanLabel(5) === "5 lines", "ruler helpers map legacy sizes and labels");
+  const piperProgress = PI.describePiperProgress({ loaded: 30 * 1024 * 1024, total: 60 * 1024 * 1024, phase: "voice.onnx" });
+  assert(piperProgress.percent === 50 && /50%/.test(piperProgress.message), "Piper progress gives a clear percent");
+  assert(/Preparing Amy/.test(PI.describePiperProgress({}).message), "Piper progress explains preparation before byte totals arrive");
 
   /* ---- calibration scoring (single-change design + practice de-trend) ---- */
   assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");

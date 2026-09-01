@@ -24,7 +24,21 @@ export async function requestPiperPermission() {
   }
 }
 
-export function createPiperEngine({ voiceId = PIPER_VOICE.id, onProgress = () => {} } = {}) {
+export function describePiperProgress({ loaded = 0, total = 0, phase = "" } = {}) {
+  const loadedBytes = Number(loaded) || 0;
+  const totalBytes = Number(total) || 0;
+  if (totalBytes > 0) {
+    const percent = Math.min(100, Math.max(0, Math.round((loadedBytes / totalBytes) * 100)));
+    const totalMB = Math.max(1, Math.round(totalBytes / 1024 / 1024));
+    return { message: `Downloading Amy natural voice: ${percent}% of ${totalMB} MB`, percent };
+  }
+  if (/huggingface|\.onnx|\.json/i.test(String(phase))) {
+    return { message: "Downloading Amy natural voice…", percent: null };
+  }
+  return { message: "Preparing Amy natural voice…", percent: null };
+}
+
+export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {} } = {}) {
   let worker = null;
   let ready = null;
   let serial = 0;
@@ -34,7 +48,15 @@ export function createPiperEngine({ voiceId = PIPER_VOICE.id, onProgress = () =>
     if (worker) return worker;
     worker = new Worker(new URL("./piper/worker.js", import.meta.url), { type: "module" });
     worker.onmessage = ({ data }) => {
-      if (data.type === "progress") return onProgress(data);
+      if (data.type === "progress") {
+        const progress = describePiperProgress(data);
+        onStatus({ kind: "loading", ...progress });
+        return;
+      }
+      if (data.type === "status") {
+        onStatus({ kind: data.kind || "info", message: data.message || "Preparing Amy natural voice…", percent: null });
+        return;
+      }
       const job = pending.get(data.id);
       if (!job) return;
       pending.delete(data.id);

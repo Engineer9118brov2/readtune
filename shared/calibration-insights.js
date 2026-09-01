@@ -163,12 +163,12 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
         ? "This is a good starting point, but one more retake on another day will tell you whether it repeats."
         : "Standard text held up best today. That can be the right result, but a retake is still useful.";
     } else if (confidenceScore < 0.75) {
-      confidenceLabel = "Getting clearer";
+      confidenceLabel = "Starting to repeat";
       confidenceBody = top && topRepeatCount >= 2
         ? `${labelForDimension(top.key)} has started repeating, which is a stronger signal than one dramatic run.`
         : "The shape is emerging, but the top options are still fairly close.";
     } else {
-      confidenceLabel = "High confidence";
+      confidenceLabel = "Repeating";
       confidenceBody = kept.length
         ? kept.includes("chunk")
           ? "The same pattern is holding up across retakes. Keep the typography profile as your everyday default, and use one-sentence mode as an on-demand assist."
@@ -196,8 +196,8 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
     }
   }
 
-  let signalTitle = "Build a reading profile you can trust";
-  let signalBody = "The goal is not a flashy winner. The goal is finding what keeps helping you over time.";
+  let signalTitle = "A starting setup you can revisit";
+  let signalBody = "The goal is not a flashy winner. The goal is finding settings you want to keep using over time.";
   if (last) {
     if (top && topRepeatCount >= 2) {
       signalTitle = `${labelForDimension(top.key)} keeps showing up`;

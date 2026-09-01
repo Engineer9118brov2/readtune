@@ -13,6 +13,7 @@ function progress(event) {
 
 async function prepare(voiceId) {
   if (session && activeVoice === voiceId) return;
+  postMessage({ type: "status", kind: "loading", message: "Preparing Amy natural voice…" });
   session = await TtsSession.create({
     voiceId,
     progress,
@@ -23,6 +24,7 @@ async function prepare(voiceId) {
     },
   });
   activeVoice = voiceId;
+  postMessage({ type: "status", kind: "ready", message: "Amy is ready. Reading stays on this device." });
 }
 
 self.onmessage = async ({ data }) => {
@@ -33,6 +35,7 @@ self.onmessage = async ({ data }) => {
       return;
     }
     if (data.type === "synthesize") {
+      postMessage({ type: "status", kind: "speaking", message: "Amy is reading along." });
       const audio = await session.predict(data.text);
       postMessage({ id: data.id, type: "audio", audio });
     }

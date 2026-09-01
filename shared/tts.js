@@ -149,6 +149,7 @@ const CHUNK_CHARS = 550;
 export function createTTS({
   getFlow,
   onState = () => {},
+  onStatus = () => {},
   getConfig = () => ({ provider: "browser" }),
   onError = () => {},
 }) {
@@ -170,6 +171,7 @@ export function createTTS({
   let raf = 0;
   let piper = null;
   let piperUrl = "";
+  let piperSentence = null;
 
   /* ---------- collect sentences + chunk them ---------- */
   function collect() {
@@ -404,6 +406,22 @@ export function createTTS({
     }
     if (piperUrl) URL.revokeObjectURL(piperUrl);
     piperUrl = "";
+    piperSentence = null;
+  }
+
+  function drivePiper(mine, sentence = piperSentence) {
+    cancelAnimationFrame(raf);
+    const tick = () => {
+      if (!playing || mine !== run || !audio || !sentence) return;
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        const char = Math.floor((audio.currentTime / audio.duration) * sentence.text.length);
+        try {
+          highlightWord(sentence, char);
+        } catch {}
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
   }
 
   async function piperSpeak() {
@@ -413,12 +431,18 @@ export function createTTS({
     const sentence = sentences[i];
     markSentence(i);
     try {
-      if (!piper) piper = createPiperEngine({ voiceId: getConfig().piperVoice });
+      if (!piper) {
+        piper = createPiperEngine({
+          voiceId: getConfig().piperVoice,
+          onStatus: (status) => onStatus({ provider: "piper", ...status }),
+        });
+      }
       const blob = await piper.synthesize(sentence.text);
       if (!playing || mine !== run) return;
       stopPiperAudio();
       piperUrl = URL.createObjectURL(blob);
       audio = new Audio(piperUrl);
+      piperSentence = sentence;
       audio.playbackRate = rate;
       audio.onended = () => {
         if (!playing || mine !== run) return;
@@ -427,23 +451,19 @@ export function createTTS({
       };
       audio.onerror = () => {
         if (!playing || mine !== run) return;
-        onError("Natural voice playback failed. Using the browser voice.");
+        const message = "Amy couldn't play this sentence. Using the browser voice.";
+        onStatus({ provider: "piper", kind: "error", message, percent: null });
+        onError(message);
         provider = "browser";
         browserSpeak();
       };
       await audio.play();
-      const tick = () => {
-        if (!playing || mine !== run || !audio) return;
-        if (Number.isFinite(audio.duration) && audio.duration > 0) {
-          const char = Math.floor((audio.currentTime / audio.duration) * sentence.text.length);
-          try { highlightWord(sentence, char); } catch {}
-        }
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
+      drivePiper(mine, sentence);
     } catch (err) {
       if (!playing || mine !== run) return;
-      onError(err && err.message ? `${err.message} Using the browser voice.` : "Natural voice failed. Using the browser voice.");
+      const message = err && err.message ? `${err.message} Using the browser voice.` : "Natural voice failed. Using the browser voice.";
+      onStatus({ provider: "piper", kind: "error", message, percent: null });
+      onError(message);
       provider = "browser";
       browserSpeak();
     }
@@ -513,11 +533,19 @@ export function createTTS({
     },
     toggle() {
       if (playing) return this.pause();
-      if ((provider === "elevenlabs" || provider === "piper") && audio && el) {
+      if (provider === "elevenlabs" && audio && el) {
         playing = true;
         audio.playbackRate = rate;
         audio.play().catch(() => {});
         driveEleven(run);
+        onState({ playing: true, index: i, total: sentences.length });
+      } else if (provider === "piper" && audio && piperSentence) {
+        playing = true;
+        audio.playbackRate = rate;
+        audio.play().then(() => drivePiper(run, piperSentence)).catch(() => {
+          playing = false;
+          onError("Couldn't resume Amy. Press Play to try that sentence again.");
+        });
         onState({ playing: true, index: i, total: sentences.length });
       } else {
         this.start(i);

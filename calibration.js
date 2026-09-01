@@ -301,7 +301,7 @@ async function finish() {
 
   const history = await loadCalibrations();
   const insights = summarizeCalibrations(history, saved);
-  $("result-title").textContent = insights.profileTitle || "Your reading profile";
+  $("result-title").textContent = insights.profileTitle ? `Try: ${insights.profileTitle}` : "Your starting setup";
   $("result-desc").textContent = insights.profileSummary;
 
   // headline

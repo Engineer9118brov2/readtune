@@ -113,7 +113,7 @@ function configureSetupBox(show) {
 }
 
 function configureFirstRun() {
-  $("tagline").textContent = "Start with research-backed reading defaults, then measure what actually helps you.";
+  $("tagline").textContent = "Start with research-backed reading defaults, then try a quick preference check for settings to explore.";
   $("onboard").hidden = false;
   $("profile-box").hidden = true;
   $("setup-box").hidden = true;
