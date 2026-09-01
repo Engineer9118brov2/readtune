@@ -68,7 +68,13 @@
   --rt-ui-display: "OpenDyslexic", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root.rt-ui-dyslexic body.rt-ui { line-height: 1.62; }
-:root.rt-ui-dyslexic .rt-chip { letter-spacing: 0.05em; }
+/* ALL-CAPS + wide tracking hurts word-shape recognition and, once the font gets
+   wider, overflows the little pills. Soften both wherever the chrome uses them. */
+:root.rt-ui-dyslexic .rt-chip,
+:root.rt-ui-dyslexic .rt-evidence-chip {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
 
 * {
   box-sizing: border-box;

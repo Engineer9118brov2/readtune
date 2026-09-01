@@ -527,6 +527,19 @@
   transform: translateX(17px);
 }
 
+/* Dyslexic UI mode: OpenDyslexic is wider, so drop the ALL-CAPS tracking on the
+   micro-labels (also easier to read) and stack the little grids. */
+:root.rt-ui-dyslexic .pop-kicker,
+:root.rt-ui-dyslexic .pop-pill,
+:root.rt-ui-dyslexic .pop-pill-soft {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+:root.rt-ui-dyslexic .pop-steps,
+:root.rt-ui-dyslexic .pop-metrics {
+  grid-template-columns: 1fr;
+}
+
 .pop-foot {
   text-align: center;
   font-size: 0.74rem;

@@ -109,6 +109,19 @@
   border-bottom: 1px solid var(--rt-ui-line);
   padding: 4px 0;
 }
+:root.rt-ui-dyslexic .rt-sec > summary,
+:root.rt-ui-dyslexic .rt-evidence-chip {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+/* OpenDyslexic is wide: the "Use this starter" button no longer fits beside the
+   heading in a 348px panel, so stack the callout the way the narrow layout does. */
+:root.rt-ui-dyslexic .rt-research-top {
+  flex-direction: column;
+}
+:root.rt-ui-dyslexic .rt-research-btn {
+  width: 100%;
+}
 .rt-sec > summary {
   cursor: pointer;
   font-size: 0.82rem;

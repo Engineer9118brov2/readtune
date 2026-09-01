@@ -483,3 +483,20 @@
     width: 100%;
   }
 }
+
+/* Dyslexic UI mode: un-caps the lab's micro-labels (easier to read, and
+   OpenDyslexic is too wide for the tracked caps) and relaxes the hero title. */
+:root.rt-ui-dyslexic .lab-stat span,
+:root.rt-ui-dyslexic .lab-next span,
+:root.rt-ui-dyslexic .lab-use-case span,
+:root.rt-ui-dyslexic .lab-timeline-date,
+:root.rt-ui-dyslexic .lab-badge,
+:root.rt-ui-dyslexic .lab-evidence-chip,
+:root.rt-ui-dyslexic .lab-panel-focus::after {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+:root.rt-ui-dyslexic .lab-hero-copy h1 {
+  font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+  line-height: 1.16;
+}
