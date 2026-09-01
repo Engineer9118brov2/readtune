@@ -106,6 +106,7 @@ test/                   Browser test harness (not shipped)
 - [`docs/DEVPOST.md`](docs/DEVPOST.md) / [`docs/VIDEO.md`](docs/VIDEO.md) / [`docs/VIDEO_PLAN.md`](docs/VIDEO_PLAN.md) — submission writeup, demo script, and participant-video production plan
 - [`docs/JUDGE_PROMPT.md`](docs/JUDGE_PROMPT.md) — reviewer prompts to paste into a fresh session
 - [`docs/LAUNCH.md`](docs/LAUNCH.md) — post-launch growth plan and community list
+- [`docs/PIPER.md`](docs/PIPER.md) — plan for on-device neural read-aloud (spike passed)
 - [`docs/SCHOOL-DISTRICTS.md`](docs/SCHOOL-DISTRICTS.md) — getting unblocked in a managed school environment
 - [`store/listing.md`](store/listing.md) — Chrome Web Store submission pack (checklist, long description, permission justifications)
 
