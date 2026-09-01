@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10201f" />
+    <meta name="description" content="ReadTune for school IT: no student data collected, minimal permissions, no cost, and how to allow-list it in the Google Admin console." />
+    <title>For school IT — ReadTune</title>
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
+    <link rel="apple-touch-icon" href="/icons/icon128.png" />
+    <link rel="stylesheet" href="site.css" />
+    <script>
+      try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
+    </script>
+    <style>
+      .doc-page { max-width: 820px; padding-block: 80px 120px; }
+      .doc-page h1 { margin-bottom: 20px; font-size: clamp(2.6rem, 6vw, 4.6rem); }
+      .doc-page h2 { margin-top: 54px; margin-bottom: 14px; font-size: 1.7rem; }
+      .doc-page p, .doc-page li { color: var(--ink-soft); }
+      .doc-page li { margin-bottom: 8px; }
+      .doc-lede { font-size: 1.15rem; color: var(--ink) !important; }
+      .doc-back { display: inline-block; margin-bottom: 52px; font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+      .doc-back:hover { color: var(--mint-deep); }
+      .doc-key { margin: 28px 0; padding: 22px 24px; border: 1px solid var(--line); border-left: 4px solid var(--mint-deep); background: rgba(169, 208, 186, 0.12); }
+      .doc-key strong { color: var(--ink); }
+      .doc-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .96rem; }
+      .doc-table th, .doc-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      .doc-table th { color: var(--ink); font-family: var(--display); }
+      .doc-steps { margin: 16px 0; padding: 20px 22px; background: var(--paper-deep); font-family: var(--mono); font-size: .9rem; line-height: 1.7; overflow-x: auto; }
+      .doc-note { font-size: .9rem; }
+      code { font-family: var(--mono); background: var(--paper-deep); padding: 1px 5px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header shell"><a class="brand" href="/"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></a><nav class="nav" aria-label="Primary navigation"><button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false" aria-label="Use a dyslexia-friendly view of this site"><span class="a11y-toggle-mark" aria-hidden="true">Aa</span><span class="a11y-toggle-text">Dyslexia-friendly</span></button><a class="nav-cta" href="/">Back to home</a></nav></header>
+
+    <main id="main" class="doc-page shell">
+      <a class="doc-back" href="/">← ReadTune home</a>
+      <p class="eyebrow"><span class="eyebrow-dot"></span> For school technology administrators</p>
+      <h1>ReadTune in a managed environment</h1>
+      <p class="doc-lede">ReadTune is a free reading-accessibility extension. It collects no student information, transmits nothing to a server, and stores its settings locally on the device. This page is for the person deciding whether to add it to an allow-list.</p>
+
+      <div class="doc-key">
+        <p style="margin:0"><strong>The short version.</strong> No accounts. No analytics. No telemetry. No server that receives student data — there is nothing to receive. Installs with <code>activeTab</code>, <code>scripting</code>, and <code>storage</code> only. No cost, no licence, no renewal. Works offline.</p>
+      </div>
+
+      <h2>Student data</h2>
+      <p>ReadTune does not collect, store, or transmit any personally identifiable information. It requires no login, no email, and no account of any kind. A student's reading profile, calibration history, reading position, and highlights are written to the browser's local extension storage (<code>chrome.storage.local</code>) on that device and are never sent anywhere.</p>
+      <p>Because no student data is collected or shared, COPPA and FERPA have nothing to attach to. If your review process needs that stated in writing on letterhead, contact us and we will provide it.</p>
+
+      <h2>Permissions, and why each is needed</h2>
+      <table class="doc-table">
+        <tr><th>Permission</th><th>Why</th></tr>
+        <tr><td><code>activeTab</code></td><td>Read the current tab's article text — but only the moment the student clicks the ReadTune button or presses the keyboard shortcut. No standing access to any site.</td></tr>
+        <tr><td><code>scripting</code></td><td>Inject the one-off script that reads the article for Reader View, or the "restyle this page" script, on that same user action.</td></tr>
+        <tr><td><code>storage</code></td><td>Save the reading profile and progress locally on the device.</td></tr>
+        <tr><td>Optional, per-site<br />(not requested at install)</td><td>Only if a student turns on "automatically open Reader View" or "automatically restyle" for one specific site, Chrome asks them to grant that one site. Revoked when they turn it off.</td></tr>
+      </table>
+
+      <h2>Network behaviour</h2>
+      <p>The default text-to-speech voice is your device's built-in speech engine. Nothing is sent anywhere. Page reformatting, PDF text extraction, and the calibration test all run entirely in the browser using code bundled in the extension (no CDN, no remote scripts — Manifest V3 forbids them and ReadTune loads none).</p>
+      <p><strong>One opt-in exception:</strong> a student can paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key to use higher-quality read-aloud voices. If they do, the passage being read and their key are sent to <code>api.elevenlabs.io</code> to generate audio. This requires a personal ElevenLabs account and API key, which students on a school account will not have, and it can be disregarded for your evaluation. The feature is off by default and there is no ElevenLabs integration unless a key is entered.</p>
+
+      <h2>Support burden</h2>
+      <ul>
+        <li>~0.8 MB. No account to provision or reset.</li>
+        <li>Nothing to configure centrally. A student runs the 4-minute calibration once; everything else is a preference.</li>
+        <li>Open source — the full code is on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a> for your security team to inspect before approval.</li>
+        <li>The extension is inert on <code>chrome://</code> pages and the Chrome Web Store, like all extensions.</li>
+      </ul>
+
+      <h2>How to allow ReadTune (Google Admin console)</h2>
+      <div class="doc-steps">Devices → Chrome → Apps &amp; extensions → Users &amp; browsers<br />→ select the organizational unit<br />→ "＋" → Add Chrome app or extension by ID<br />→ paste the ReadTune extension ID<br />→ set to "Allow install" (or "Force install" for a class set)</div>
+      <p class="doc-note">Extension ID and Web Store link: <strong>published soon — check back, or email us for the ID.</strong> Until then, ReadTune can be evaluated by loading it unpacked from the GitHub source on a non-managed device.</p>
+
+      <h2>Cost</h2>
+      <p>Free. There is no paid tier, no per-seat pricing, no quote, and no upsell inside the product. Every feature — including the text-to-speech and the calibration test — is available to every student at no cost to the district.</p>
+
+      <h2>Contact</h2>
+      <p>For a compliance statement, the extension ID, a pilot, or a security question, open an issue on <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub</a> or reach the project through the <a href="/">homepage</a>.</p>
+      <p class="mono-label">Last updated: August 2026</p>
+    </main>
+
+    <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="/privacy.html">Privacy</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+    <script src="site.js"></script>
+  </body>
+</html>

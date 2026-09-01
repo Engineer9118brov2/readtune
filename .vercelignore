@@ -1,5 +1,8 @@
 # Vercel hosts the public microsite, not the unpacked extension payload.
-lib/
+# Keep lib/fonts/ — site.css loads the woff2 files from there.
+lib/*.js
+lib/*.txt
+lib/*.md
 test/
 store/
 scripts/
