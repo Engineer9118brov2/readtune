@@ -1,10 +1,16 @@
 /* ReadTune's opt-in, on-device Piper voice client. */
 
-export const PIPER_VOICE = {
-  id: "en_US-amy-low",
-  label: "Amy — natural, on this device",
-  downloadMB: 60,
-};
+export const PIPER_VOICES = [
+  { id: "en_US-lessac-medium", label: "Lessac", detail: "Clear and balanced", downloadMB: 60 },
+  { id: "en_US-amy-medium", label: "Amy", detail: "Softer and measured", downloadMB: 60 },
+  { id: "en_US-ryan-medium", label: "Ryan", detail: "Lower and steady", downloadMB: 60 },
+];
+
+export const PIPER_VOICE = PIPER_VOICES[0];
+
+export function piperVoiceById(id) {
+  return PIPER_VOICES.find((voice) => voice.id === id) || PIPER_VOICE;
+}
 
 const PIPER_ORIGINS = ["https://huggingface.co/*", "https://*.hf.co/*"];
 
@@ -30,12 +36,12 @@ export function describePiperProgress({ loaded = 0, total = 0, phase = "" } = {}
   if (totalBytes > 0) {
     const percent = Math.min(100, Math.max(0, Math.round((loadedBytes / totalBytes) * 100)));
     const totalMB = Math.max(1, Math.round(totalBytes / 1024 / 1024));
-    return { message: `Downloading Amy natural voice: ${percent}% of ${totalMB} MB`, percent };
+    return { message: `Downloading your local voice: ${percent}% of ${totalMB} MB`, percent };
   }
   if (/huggingface|\.onnx|\.json/i.test(String(phase))) {
-    return { message: "Downloading Amy natural voice…", percent: null };
+    return { message: "Downloading your local voice…", percent: null };
   }
-  return { message: "Preparing Amy natural voice…", percent: null };
+  return { message: "Preparing your local voice…", percent: null };
 }
 
 export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {} } = {}) {
@@ -54,7 +60,7 @@ export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {
         return;
       }
       if (data.type === "status") {
-        onStatus({ kind: data.kind || "info", message: data.message || "Preparing Amy natural voice…", percent: null });
+        onStatus({ kind: data.kind || "info", message: data.message || "Preparing your local voice…", percent: null });
         return;
       }
       const job = pending.get(data.id);

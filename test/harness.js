@@ -237,7 +237,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(RU.inferLegacyRulerLines(52) === 3 && RU.rulerSpanLabel(5) === "5 lines", "ruler helpers map legacy sizes and labels");
   const piperProgress = PI.describePiperProgress({ loaded: 30 * 1024 * 1024, total: 60 * 1024 * 1024, phase: "voice.onnx" });
   assert(piperProgress.percent === 50 && /50%/.test(piperProgress.message), "Piper progress gives a clear percent");
-  assert(/Preparing Amy/.test(PI.describePiperProgress({}).message), "Piper progress explains preparation before byte totals arrive");
+  assert(/Preparing your local voice/.test(PI.describePiperProgress({}).message), "Piper progress explains preparation before byte totals arrive");
 
   /* ---- calibration scoring (single-change design + practice de-trend) ---- */
   assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");
@@ -319,8 +319,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.saveTTSConfig({ provider: "elevenlabs", apiKey: "sk-test-123", voiceId: "v1", voiceName: "Aria" });
   let tc = await S.loadTTSConfig();
   assert(tc.provider === "elevenlabs" && tc.apiKey === "sk-test-123" && tc.voiceId === "v1", "TTS config round-trip");
-  tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-amy-low" });
-  assert(tc.provider === "piper" && tc.piperVoice === "en_US-amy-low", "Piper TTS config round-trip");
+  tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-lessac-medium" });
+  assert(tc.provider === "piper" && tc.piperVoice === "en_US-lessac-medium", "Piper TTS config round-trip");
   await S.forgetTTSKey();
   tc = await S.loadTTSConfig();
   assert(tc.provider === "browser" && !tc.apiKey, "forgetTTSKey clears key + reverts to browser");

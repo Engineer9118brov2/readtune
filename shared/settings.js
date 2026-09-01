@@ -292,13 +292,17 @@ export const DEFAULT_TTS = {
   voiceName: "",
   model: "eleven_flash_v2_5",
   voices: [], // cached [{id,name}] for the picker
-  piperVoice: "en_US-amy-low",
+  piperVoice: "en_US-lessac-medium",
 };
 
 export async function loadTTSConfig() {
   try {
     const got = await chrome.storage.local.get(TTS_KEY);
-    return { ...DEFAULT_TTS, ...(got && got[TTS_KEY] ? got[TTS_KEY] : {}) };
+    const config = { ...DEFAULT_TTS, ...(got && got[TTS_KEY] ? got[TTS_KEY] : {}) };
+    // Version 0.7 used Amy low. Move existing readers to the curated medium
+    // voice instead of silently keeping the lower-quality model.
+    if (config.piperVoice === "en_US-amy-low") config.piperVoice = DEFAULT_TTS.piperVoice;
+    return config;
   } catch (err) {
     console.warn("[ReadTune] loadTTSConfig failed:", err);
     return { ...DEFAULT_TTS };

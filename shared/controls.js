@@ -287,7 +287,7 @@ export function buildControls(profile, onChange) {
   const piperHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Piper is an optional natural-sounding voice that runs on your device. First use downloads Amy once from Hugging Face (about 60 MB); the text you read is never uploaded."
+    "Piper is an optional natural-sounding voice that runs on your device. First use downloads your selected voice once from Hugging Face (about 60 MB); the text you read is never uploaded."
   );
 
   const previewBtn = (aria, patchFactory = () => ({ preview: true })) => {
@@ -372,7 +372,7 @@ export function buildControls(profile, onChange) {
   const forgetBtn = el("button", { class: "rt-link", type: "button" }, "Remove key");
   forgetBtn.addEventListener("click", () => onChange({ __tts: { forget: true } }));
   const statusLine = el("p", { class: "rt-tts-status", role: "status" });
-  const piperProgress = el("progress", { class: "rt-tts-progress", max: "100", value: "0", hidden: true, "aria-label": "Amy natural voice download progress" });
+  const piperProgress = el("progress", { class: "rt-tts-progress", max: "100", value: "0", hidden: true, "aria-label": "Local natural voice download progress" });
   const connectedRow = el("div", { class: "rt-field rt-tts-connected" }, [statusLine, piperProgress, forgetBtn]);
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
@@ -489,7 +489,7 @@ export function buildControls(profile, onChange) {
       reg.statusLine.textContent = t.note;
       reg.statusLine.dataset.kind = "info";
     } else if (piper) {
-      reg.statusLine.textContent = "Natural voice selected. The first Listen downloads Amy once, then it stays on this device.";
+      reg.statusLine.textContent = "Natural voice selected. The first Listen downloads it once, then it stays on this device.";
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
       reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";

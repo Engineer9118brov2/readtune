@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReadTune",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Finds the reading settings that help you, then applies them to articles, PDFs, and web pages. Free, private, and login-free.",
   "action": {
     "default_popup": "popup.html",

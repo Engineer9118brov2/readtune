@@ -451,7 +451,7 @@ export function createTTS({
       };
       audio.onerror = () => {
         if (!playing || mine !== run) return;
-        const message = "Amy couldn't play this sentence. Using the browser voice.";
+        const message = "The local voice couldn't play this sentence. Using the browser voice.";
         onStatus({ provider: "piper", kind: "error", message, percent: null });
         onError(message);
         provider = "browser";
@@ -544,7 +544,7 @@ export function createTTS({
         audio.playbackRate = rate;
         audio.play().then(() => drivePiper(run, piperSentence)).catch(() => {
           playing = false;
-          onError("Couldn't resume Amy. Press Play to try that sentence again.");
+          onError("Couldn't resume the local voice. Press Play to try that sentence again.");
         });
         onState({ playing: true, index: i, total: sentences.length });
       } else {

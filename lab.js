@@ -21,15 +21,7 @@ import {
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
-import {
-  onVoicesReady,
-  recommendedBrowserVoices,
-  browserVoiceSource,
-  describeBrowserVoice,
-  hasNaturalVoice,
-  osVoiceTip,
-  listVoices,
-} from "./shared/tts.js";
+import { PIPER_VOICES, createPiperEngine, piperVoiceById, requestPiperPermission } from "./shared/piper.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
 
 const PREVIEW_TEXT =
@@ -44,10 +36,12 @@ const launchSource = launchParams.get("source");
 
 let profile = null;
 let ttsConfig = null;
-let browserVoices = [];
 let previewingVoice = "";
 let voiceNotice = "";
 let previewRun = 0;
+let piperPreview = null;
+let piperPreviewAudio = null;
+let piperPreviewUrl = "";
 let latestInsights = null;
 let profilePreviewSurface = null;
 let profilePreviewView = null;
@@ -227,49 +221,32 @@ function setEmptyState() {
   $("lab-retake").textContent = "Start the calibration";
 }
 
-function hasSpeechPreview() {
-  return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-}
-
-function previewKey(name) {
-  return name || "__default__";
-}
-
-function currentFreeVoice() {
-  return profile && profile.ttsVoice ? browserVoices.find((voice) => voice.name === profile.ttsVoice) || null : null;
-}
-
 function stopVoicePreview() {
   previewRun += 1;
   previewingVoice = "";
-  try {
-    window.speechSynthesis && window.speechSynthesis.cancel();
-  } catch {}
-}
-
-function voiceLead(voice) {
-  if (!voice) return "Free default";
-  return voice.localService === false ? "Online option" : "Best free pick";
-}
-
-function currentVoiceBody(activeVoice) {
-  const voiceName = activeVoice ? activeVoice.name : "Browser default";
-  const open = `${voiceName} will be used when you tap Listen in Reader View or PDF mode.`;
-  if (ttsConfig && ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey) {
-    return `${open} Read-aloud is currently set to your own ElevenLabs voice; choosing a free voice here switches you back to the free path.`;
+  if (piperPreviewAudio) {
+    piperPreviewAudio.onended = piperPreviewAudio.onerror = null;
+    piperPreviewAudio.pause();
+    piperPreviewAudio = null;
   }
-  return `${open} ${activeVoice ? describeBrowserVoice(activeVoice) : describeBrowserVoice(null)}`;
+  if (piperPreviewUrl) URL.revokeObjectURL(piperPreviewUrl);
+  piperPreviewUrl = "";
+  if (piperPreview) piperPreview.destroy();
+  piperPreview = null;
+}
+
+function currentPiperVoice() {
+  return piperVoiceById(ttsConfig && ttsConfig.piperVoice);
+}
+
+function currentVoiceBody(voice) {
+  return `${voice.label} is a ${voice.detail.toLowerCase()} medium-quality Piper voice. It will be used in Reader View and PDF mode after its one-time ${voice.downloadMB} MB model download.`;
 }
 
 function renderVoiceSummary() {
-  const activeVoice = currentFreeVoice();
-  $("lab-voice-badge").textContent =
-    ttsConfig && ttsConfig.provider === "elevenlabs" && ttsConfig.apiKey
-      ? "Premium active"
-      : activeVoice
-      ? browserVoiceSource(activeVoice)
-      : "Browser default";
-  $("lab-voice-title").textContent = activeVoice ? activeVoice.name : "Browser default";
+  const activeVoice = currentPiperVoice();
+  $("lab-voice-badge").textContent = ttsConfig && ttsConfig.provider === "piper" ? "Piper active" : "Choose Piper";
+  $("lab-voice-title").textContent = activeVoice.label;
   $("lab-voice-copy").textContent = voiceNotice || currentVoiceBody(activeVoice);
 }
 
@@ -288,14 +265,17 @@ async function applyResearchStarter() {
   }, 1800);
 }
 
-async function saveFreeVoice(name) {
+async function savePiperVoice(voice) {
   stopVoicePreview();
-  profile = (await saveProfile({ ttsVoice: name })) || { ...profile, ttsVoice: name };
-  ttsConfig = (await saveTTSConfig({ provider: "browser" })) || ttsConfig;
+  const granted = await requestPiperPermission();
+  if (!granted) {
+    voiceNotice = "Allow the one-time Hugging Face download to use this local voice.";
+    renderVoiceSummary();
+    return;
+  }
+  ttsConfig = (await saveTTSConfig({ provider: "piper", piperVoice: voice.id })) || ttsConfig;
   await markSetupStep("voiceFit");
-  voiceNotice = name
-    ? `${name} is now your free read-aloud voice. Reader View and PDFs will use it the next time you press Listen.`
-    : "ReadTune is back on your browser's default free voice. Reader View and PDFs will use your system default when you press Listen.";
+  voiceNotice = `${voice.label} is now your local read-aloud voice. Press Listen to download it once, then it stays on this device.`;
   if (launchFocus === "voice" && (launchSource === "calibration" || launchSource === "setup")) {
     voiceNotice += " Setup complete. Next, try Listen on a real page or PDF.";
   }
@@ -303,50 +283,66 @@ async function saveFreeVoice(name) {
   renderVoiceCards();
 }
 
-function speakVoicePreview(voice) {
-  if (!hasSpeechPreview()) return;
-  const key = previewKey(voice ? voice.name : "");
-  if (previewingVoice === key) {
+async function speakVoicePreview(voice) {
+  if (previewingVoice === voice.id) {
     stopVoicePreview();
     renderVoiceCards();
     return;
   }
-
-  const utterance = new SpeechSynthesisUtterance(VOICE_SAMPLE);
-  utterance.rate = Math.max(0.75, Math.min(1.3, (profile && profile.ttsRate) || 1));
-  if (voice) {
-    utterance.voice = voice;
-    utterance.lang = voice.lang;
+  const granted = await requestPiperPermission();
+  if (!granted) {
+    voiceNotice = "Allow the one-time Hugging Face download to preview a local Piper voice.";
+    renderVoiceSummary();
+    return;
   }
+  stopVoicePreview();
   previewRun += 1;
   const run = previewRun;
-  previewingVoice = key;
-  utterance.onend = utterance.onerror = () => {
-    if (run !== previewRun) return;
-    previewingVoice = "";
-    renderVoiceCards();
-  };
-  try {
-    window.speechSynthesis.cancel();
-  } catch {}
-  window.speechSynthesis.speak(utterance);
+  previewingVoice = voice.id;
+  voiceNotice = `Preparing ${voice.label}…`;
   renderVoiceCards();
+  try {
+    piperPreview = createPiperEngine({
+      voiceId: voice.id,
+      onStatus: (status) => {
+        if (run !== previewRun) return;
+        voiceNotice = status.message;
+        renderVoiceSummary();
+      },
+    });
+    const blob = await piperPreview.synthesize(VOICE_SAMPLE);
+    if (run !== previewRun) return;
+    piperPreviewUrl = URL.createObjectURL(blob);
+    piperPreviewAudio = new Audio(piperPreviewUrl);
+    piperPreviewAudio.playbackRate = Math.max(0.75, Math.min(1.3, (profile && profile.ttsRate) || 1));
+    piperPreviewAudio.onended = piperPreviewAudio.onerror = () => {
+      if (run !== previewRun) return;
+      stopVoicePreview();
+      renderVoiceCards();
+    };
+    await piperPreviewAudio.play();
+  } catch (error) {
+    if (run !== previewRun) return;
+    stopVoicePreview();
+    voiceNotice = error && error.message ? `Preview couldn't start: ${error.message}` : "Preview couldn't start. Try again or choose another voice.";
+    renderVoiceCards();
+  }
 }
 
-function voiceCard(voice, lead) {
+function voiceCard(voice) {
   const article = document.createElement("article");
   article.className = "lab-voice-card";
-  article.dataset.active = profile && profile.ttsVoice === (voice ? voice.name : "") ? "true" : "false";
-  article.dataset.playing = previewingVoice === previewKey(voice ? voice.name : "") ? "true" : "false";
+  article.dataset.active = ttsConfig && ttsConfig.provider === "piper" && ttsConfig.piperVoice === voice.id ? "true" : "false";
+  article.dataset.playing = previewingVoice === voice.id ? "true" : "false";
 
   const head = document.createElement("div");
   head.className = "lab-voice-card-head";
   const copy = document.createElement("div");
   const overline = document.createElement("span");
   overline.className = "lab-overline";
-  overline.textContent = lead;
+  overline.textContent = voice.detail;
   const title = document.createElement("strong");
-  title.textContent = voice ? voice.name : "Browser default";
+  title.textContent = voice.label;
   copy.append(overline, title);
   head.append(copy);
   if (article.dataset.active === "true") head.appendChild(makeVoiceChip("Saved"));
@@ -354,13 +350,13 @@ function voiceCard(voice, lead) {
   const meta = document.createElement("div");
   meta.className = "lab-voice-meta";
   meta.append(
-    makeVoiceChip(voice ? browserVoiceSource(voice) : "Uses device default"),
-    makeVoiceChip(voice ? "Free voice" : "Simple setup")
+    makeVoiceChip("Piper local"),
+    makeVoiceChip("Medium quality"),
+    makeVoiceChip(`${voice.downloadMB} MB once`)
   );
-  if (voice && voice.default) meta.appendChild(makeVoiceChip("System default"));
 
   const body = document.createElement("p");
-  body.textContent = voice ? describeBrowserVoice(voice) : describeBrowserVoice(null);
+  body.textContent = "Free, no account, and no reading text is uploaded. Downloaded once when you first preview or listen.";
 
   const actions = document.createElement("div");
   actions.className = "lab-voice-actions";
@@ -376,7 +372,7 @@ function voiceCard(voice, lead) {
   use.type = "button";
   use.textContent = article.dataset.active === "true" ? "Using this voice" : "Use this voice";
   use.disabled = article.dataset.active === "true";
-  use.addEventListener("click", () => saveFreeVoice(voice ? voice.name : ""));
+  use.addEventListener("click", () => savePiperVoice(voice));
 
   actions.append(preview, use);
   article.append(head, meta, body, actions);
@@ -387,69 +383,9 @@ function renderVoiceCards() {
   const host = $("lab-voice-list");
   host.replaceChildren();
 
-  if (!hasSpeechPreview()) {
-    const empty = document.createElement("div");
-    empty.className = "lab-voice-empty";
-    const title = document.createElement("strong");
-    title.textContent = "Voice Fit needs browser speech support";
-    const body = document.createElement("p");
-    body.textContent = "This browser did not expose read-aloud voices here, so ReadTune cannot preview free voices on this screen.";
-    empty.append(title, body);
-    host.appendChild(empty);
-    renderVoiceSummary();
-    return;
-  }
-
-  const recommended = recommendedBrowserVoices(browserVoices, 3);
-  const current = currentFreeVoice();
-  const cards = [voiceCard(null, "Free default")];
-  const seen = new Set();
-
-  for (const voice of recommended) {
-    if (!voice || seen.has(voice.name)) continue;
-    seen.add(voice.name);
-    cards.push(voiceCard(voice, voiceLead(voice)));
-  }
-  if (current && !seen.has(current.name)) cards.push(voiceCard(current, "Current saved voice"));
-
-  if (cards.length === 1 && !browserVoices.length) {
-    const empty = document.createElement("div");
-    empty.className = "lab-voice-empty";
-    const title = document.createElement("strong");
-    title.textContent = "No extra English voices showed up here";
-    const body = document.createElement("p");
-    body.textContent = "ReadTune will still use your browser default voice. If you install richer system voices later, they will appear here automatically.";
-    empty.append(title, body);
-    host.append(cards[0], empty);
-  } else {
-    host.append(...cards);
-  }
-
-  if (browserVoices.length && !hasNaturalVoice(browserVoices)) {
-    host.append(voiceUpgradeNote());
-  }
+  host.append(...PIPER_VOICES.map(voiceCard));
 
   renderVoiceSummary();
-}
-
-function voiceUpgradeNote() {
-  const box = document.createElement("div");
-  box.className = "lab-voice-upgrade";
-  const title = document.createElement("strong");
-  title.textContent = "Your device can do better — for free";
-  const body = document.createElement("p");
-  body.textContent = osVoiceTip().text;
-  const rescan = document.createElement("button");
-  rescan.type = "button";
-  rescan.className = "rt-link";
-  rescan.textContent = "Re-scan for new voices";
-  rescan.addEventListener("click", () => {
-    browserVoices = listVoices();
-    voiceNotice = "";
-    renderVoiceCards();
-  });
-  box.append(title, body, rescan);
-  return box;
 }
 
 function initVoiceFit() {
@@ -459,11 +395,6 @@ function initVoiceFit() {
   voicePreviewView.setText(VOICE_SAMPLE);
   voicePreviewView.applyProfile({ ...profile, pacing: "flow" });
   renderVoiceCards();
-  onVoicesReady((voices) => {
-    browserVoices = Array.isArray(voices) ? voices : [];
-    voiceNotice = "";
-    renderVoiceCards();
-  });
 }
 
 function applyLaunchState() {
@@ -473,17 +404,17 @@ function applyLaunchState() {
   $("lab-close").textContent = launchSource === "calibration" || launchSource === "setup" ? "Done with setup" : "Done";
 
   if (launchSource === "calibration") {
-    $("lab-hero-title").textContent = "Your reading profile is ready. Finish setup with Voice Fit.";
+    $("lab-hero-title").textContent = "Your reading profile is ready. Choose your local voice.";
     $("lab-hero-body").textContent =
-      "Preview a few free voices, keep the calmest one, and then use Listen while following along in your saved font and spacing.";
+      "Preview the local Piper voices, keep the clearest one, and then use Listen while following along in your saved font and spacing.";
     $("lab-voice-body").textContent =
-      "This is the fastest next step after calibration. Pick the voice that feels clearest so ReadTune personalizes listening as well as text.";
+      "This is the fastest next step after calibration. Pick the local voice that feels clearest so ReadTune personalizes listening as well as text.";
   } else if (launchSource === "setup") {
-    $("lab-hero-title").textContent = "One setup step left: fit your free voice.";
+    $("lab-hero-title").textContent = "One setup step left: choose your local voice.";
     $("lab-hero-body").textContent =
-      "Your reading profile is already doing the heavy lifting. Now choose the free voice that sounds calmest for read-aloud.";
+      "Your reading profile is already doing the heavy lifting. Now choose the local voice that sounds calmest for read-aloud.";
     $("lab-voice-body").textContent =
-      "Preview two or three strong free options, save the clearest one, and then try Listen on a real article or PDF.";
+      "Preview the three Piper voices, save the clearest one, and then try Listen on a real article or PDF.";
   }
 
   requestAnimationFrame(() => {

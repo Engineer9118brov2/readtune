@@ -336,7 +336,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       }
       ttsConfig = await saveTTSConfig({ provider: t.provider });
       piperStatus = t.provider === "piper"
-        ? { kind: "info", message: "Amy is selected. Press Listen to prepare the one-time download.", percent: null }
+        ? { kind: "info", message: "Your local voice is selected. Press Listen to prepare the one-time download.", percent: null }
         : { kind: "", message: "", percent: null };
       pushTTS();
       tts.reload();
