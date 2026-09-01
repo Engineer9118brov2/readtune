@@ -90,9 +90,9 @@ function configureSetupBox(show) {
   $("setup-box").hidden = !show;
   if (!show) return;
   $("setup-pill").textContent = "Step 2 of 3";
-  $("setup-title").textContent = "Fit your free voice";
+  $("setup-title").textContent = "Choose your local voice";
   $("setup-desc").textContent =
-    "Your reading profile is ready. One fast step is left: pick the calmest free voice on this device so Listen feels like yours too.";
+    "Your reading profile is ready. One fast step is left: choose a local Piper voice so Listen feels like yours too.";
   renderSetupList([
     {
       state: "done",
@@ -101,8 +101,8 @@ function configureSetupBox(show) {
     },
     {
       state: "active",
-      title: "Fit your free voice",
-      body: "Preview a few free voices and save the clearest one for read-aloud.",
+      title: "Choose your local voice",
+      body: "Preview local Piper voices and save the clearest one for read-aloud.",
     },
     {
       state: "next",
@@ -150,7 +150,7 @@ function configureReturningUser(profile, insights) {
   $("btn-reader").querySelector(".rt-btn-sub").textContent = "Open the current article in your saved profile · Alt+R";
   $("calibrate-title").textContent = "Retake the calibration";
   $("calibrate-sub").textContent = "See whether the result stays consistent";
-  $("btn-lab").querySelector(".rt-btn-sub").textContent = "See stability, repeated wins, and tune your free voice";
+  $("btn-lab").querySelector(".rt-btn-sub").textContent = "See stability, repeated patterns, and choose your local voice";
   setActionOrder(["reader", "restyle", "pdf", "lab", "calibrate"]);
 }
 

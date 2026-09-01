@@ -65,6 +65,57 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const RM = await import("../shared/reading-modes.js");
   const RS = await import("../shared/research.js");
 
+  /* ---- in-page restyle: run the actual injected script in its isolated sandbox ---- */
+  const inpageFrame = document.getElementById("inpage-frame");
+  await new Promise((resolve) => {
+    if (inpageFrame.contentDocument && inpageFrame.contentDocument.readyState === "complete") resolve();
+    else inpageFrame.addEventListener("load", resolve, { once: true });
+  });
+  const inpageWindow = inpageFrame.contentWindow;
+  for (let attempt = 0; attempt < 40 && inpageWindow.__readtuneInpageBootStatus !== "ready"; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const inpageDoc = inpageFrame.contentDocument;
+  assert(inpageDoc.documentElement.classList.contains("rt-inpage"), "in-page restyle boots in the sandbox");
+  assert(inpageDoc.querySelectorAll("rt-bionic").length > 10, "in-page restyle applies bionic anchors");
+  assert(!!inpageDoc.getElementById("readtune-ruler"), "in-page restyle creates the reading ruler");
+  const inpageBar = inpageDoc.getElementById("readtune-bar-host");
+  assert(inpageBar && inpageBar.shadowRoot && inpageBar.shadowRoot.querySelectorAll("button").length >= 8, "in-page restyle renders isolated controls");
+  inpageWindow.__readtuneInpage.toggleOff();
+  assert(!inpageDoc.documentElement.classList.contains("rt-inpage") && !inpageDoc.getElementById("readtune-bar-host"), "in-page restyle removes itself cleanly");
+
+  /* ---- Reader View: run the shipped page with a captured article and local speech stub ---- */
+  const readerFrame = document.getElementById("reader-frame");
+  await new Promise((resolve) => {
+    if (readerFrame.contentDocument && readerFrame.contentDocument.readyState === "complete") resolve();
+    else readerFrame.addEventListener("load", resolve, { once: true });
+  });
+  const readerDoc = readerFrame.contentDocument;
+  for (let attempt = 0; attempt < 40 && !readerDoc.querySelector(".rt-s"); attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert(readerDoc.querySelectorAll(".rt-s").length >= 6, "Reader View renders a captured article into readable sentences");
+  assert(/Tide pools/i.test(readerFrame.contentWindow.document.title), "Reader View keeps a clean article title");
+  assert(!!readerDoc.querySelector(".rt-panel-toggle") && !!readerDoc.querySelector(".rt-doc-action"), "Reader View creates settings and Listen controls");
+  readerDoc.querySelector(".rt-doc-action").click();
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert(!readerDoc.querySelector(".rt-transport").hidden && !!readerDoc.querySelector(".rt-speak-sentence"), "Reader View starts read-aloud and highlights the sentence");
+
+  /* ---- Voice Fit Lab: only curated Piper choices may be shown ---- */
+  const labFrame = document.getElementById("lab-frame");
+  await new Promise((resolve) => {
+    if (labFrame.contentDocument && labFrame.contentDocument.readyState === "complete") resolve();
+    else labFrame.addEventListener("load", resolve, { once: true });
+  });
+  const labDoc = labFrame.contentDocument;
+  for (let attempt = 0; attempt < 40 && labDoc.querySelectorAll(".lab-voice-card").length !== 3; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const labVoiceText = labDoc.getElementById("lab-voice-panel").textContent;
+  assert(labDoc.querySelectorAll(".lab-voice-card").length === 3, "Voice Fit Lab renders exactly three curated Piper voices");
+  assert(/Lessac/.test(labVoiceText) && /Amy/.test(labVoiceText) && /Ryan/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
+  assert(!/Browser default|Best free voices|Re-scan/i.test(labVoiceText), "Voice Fit Lab does not surface browser voice clutter");
+
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
   assert(
@@ -321,6 +372,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(tc.provider === "elevenlabs" && tc.apiKey === "sk-test-123" && tc.voiceId === "v1", "TTS config round-trip");
   tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-lessac-medium" });
   assert(tc.provider === "piper" && tc.piperVoice === "en_US-lessac-medium", "Piper TTS config round-trip");
+  await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-amy-low" });
+  tc = await S.loadTTSConfig();
+  assert(tc.piperVoice === "en_US-lessac-medium", "legacy Amy low selection upgrades to the medium Piper default");
   await S.forgetTTSKey();
   tc = await S.loadTTSConfig();
   assert(tc.provider === "browser" && !tc.apiKey, "forgetTTSKey clears key + reverts to browser");

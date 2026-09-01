@@ -400,14 +400,14 @@ async function finish() {
     guide.hidden = false;
     guideTitle.textContent = "Your voice fit is already part of setup";
     guideBody.textContent =
-      "ReadTune already has a saved free voice for Listen. Open Voice Fit if you want to review it or try a different one.";
+      "ReadTune already has a saved local voice for Listen. Open Voice Fit if you want to review it or try a different one.";
     fitVoice.textContent = "Review Voice Fit";
   } else {
     guide.hidden = false;
     guideTitle.textContent = "Finish setup with Voice Fit";
     guideBody.textContent =
-      "Pick the calmest free voice on this device so Listen follows along in your saved font and spacing.";
-    fitVoice.textContent = "Fit my free voice";
+      "Choose a local Piper voice so Listen follows along in your saved font and spacing.";
+    fitVoice.textContent = "Choose my local voice";
   }
 
   show("results");
