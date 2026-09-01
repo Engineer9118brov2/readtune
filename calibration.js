@@ -22,12 +22,14 @@
 
 import {
   DEFAULT_PROFILE,
+  loadProfile,
   writeProfile,
   appendCalibration,
   loadCalibrations,
   markSetupStep,
   loadSetup,
   extUrl,
+  applyStoredDyslexicUi,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { analyse, buildProfile, effectText, HELP_THRESHOLD } from "./shared/calibration-score.js";
@@ -279,6 +281,13 @@ async function finish() {
     fontKeys: FONT_KEYS,
     extra: { overlay: "none", columnWidth: 64 },
   });
+  // The calibration measures text formatting only. Carry forward the choices it
+  // never tested — the OpenDyslexic-menus preference and the read-aloud voice —
+  // so a retake doesn't silently wipe them.
+  const prior = await loadProfile();
+  profile.dyslexicUiMode = prior.dyslexicUiMode;
+  profile.ttsVoice = prior.ttsVoice;
+  profile.ttsRate = prior.ttsRate;
   const saved = (await writeProfile(profile)) || profile;
 
   await appendCalibration({
@@ -405,6 +414,8 @@ async function finish() {
 }
 
 /* ---------- wiring ---------- */
+
+applyStoredDyslexicUi();
 
 $("start").addEventListener("click", () => {
   step = 0;

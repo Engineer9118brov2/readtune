@@ -6,7 +6,7 @@
  * a reset is { __reset: true }.
  */
 
-import { RANGES, OVERLAYS, FONTS, PACING } from "./settings.js";
+import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
 import { formatBrowserVoiceLabel, recommendedBrowserVoices } from "./tts.js";
@@ -203,6 +203,7 @@ export function buildControls(profile, onChange) {
   const secText = section(sectionTitle("Text", "strong"), false);
   secText.append(hint("Spacing and line width are some of the safest levers to reach for first."));
   secText.append(field("Font", segment("font", FONT_OPTS, "Font")));
+  secText.append(toggle("dyslexicUiMode", "Also use OpenDyslexic for ReadTune's menus & buttons"));
   for (const k of ["fontSize", "lineHeight", "letterSpacing", "wordSpacing", "paragraphSpacing", "columnWidth"]) {
     secText.append(slider(k, SLIDERS[k]));
   }
@@ -406,6 +407,7 @@ export function buildControls(profile, onChange) {
 
   function emit(patch) {
     Object.assign(state, patch);
+    if ("dyslexicUiMode" in patch) applyDyslexicUi(patch.dyslexicUiMode);
     paint();
     onChange(patch);
   }

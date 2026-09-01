@@ -47,7 +47,14 @@ export const PACING = {
   aloud: "Read aloud to me",
 };
 
-export const DEFAULT_PROFILE = { ...RESEARCH_STARTER_PROFILE };
+export const DEFAULT_PROFILE = {
+  ...RESEARCH_STARTER_PROFILE,
+  // Render ReadTune's own chrome (menus, buttons, transport, toasts) in
+  // OpenDyslexic, so a reader who needs that font can operate the controls,
+  // not only the article text. Kept out of RESEARCH_STARTER_PROFILE so the
+  // "research starter" button never flips it.
+  dyslexicUiMode: false,
+};
 
 // Pacing is a mode, not a durable trait. New reading surfaces should always
 // open in normal flow unless the user switches mode for that session.
@@ -94,6 +101,7 @@ export function normalizeProfile(raw) {
   p.deItalic = !!p.deItalic;
   p.hideImages = !!p.hideImages;
   p.freezeMotion = !!p.freezeMotion;
+  p.dyslexicUiMode = !!p.dyslexicUiMode;
   if (!/^#[0-9a-fA-F]{6}$/.test(String(p.customTint || ""))) p.customTint = DEFAULT_PROFILE.customTint;
 
   p.fontSize = clampNum(p.fontSize, 13, 34, DEFAULT_PROFILE.fontSize);
@@ -408,6 +416,30 @@ export async function takeArticle() {
 }
 
 /* ---- helpers ---- */
+
+/**
+ * Toggle the OpenDyslexic UI-chrome class on <html>. theme.css keys the
+ * `--rt-ui-font` / `--rt-ui-display` swap off `:root.rt-ui-dyslexic`, so this
+ * one line reskins every menu, button, transport bar, and toast on the page.
+ */
+export function applyDyslexicUi(on) {
+  try {
+    document.documentElement.classList.toggle("rt-ui-dyslexic", !!on);
+  } catch {
+    /* no document (tests importing the module head-less) — nothing to do */
+  }
+}
+
+/** Read the saved preference and apply it. For entry points that don't already
+ *  hold a loaded profile (popup, lab, calibration, the reader/PDF landing pages). */
+export async function applyStoredDyslexicUi() {
+  try {
+    const p = await loadProfile();
+    applyDyslexicUi(p.dyslexicUiMode);
+  } catch {
+    /* storage blocked — leave the default (standard UI font) in place */
+  }
+}
 
 export function extUrl(path) {
   try {

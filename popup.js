@@ -7,7 +7,7 @@
 
 import {
   loadProfile,
-  hasProfile,
+  saveProfile,
   describeProfile,
   loadCalibrations,
   loadSetup,
@@ -15,6 +15,7 @@ import {
   loadSites,
   setSiteAutomation,
   siteAutomationMode,
+  applyDyslexicUi,
   extUrl,
 } from "./shared/settings.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
@@ -235,6 +236,19 @@ $("btn-retake").addEventListener("click", () => openPage("calibration.html"));
 $("btn-lab").addEventListener("click", () => openPage("lab.html"));
 $("btn-setup-voice").addEventListener("click", () => openPage("lab.html?focus=voice&source=setup"));
 
+function wireDyslexicToggle(initial) {
+  const btn = $("btn-dys");
+  if (!btn) return;
+  let on = !!initial;
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.addEventListener("click", async () => {
+    on = !on;
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    applyDyslexicUi(on);
+    await saveProfile({ dyslexicUiMode: on });
+  });
+}
+
 async function initSiteAutomationRows() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -329,14 +343,17 @@ async function initSiteAutomationRows() {
 
 (async function init() {
   try {
-    const has = await hasProfile();
-    if (has) {
-      const profile = await loadProfile();
-      const history = await loadCalibrations();
-      const setup = await loadSetup();
+    const [profile, history, setup] = await Promise.all([loadProfile(), loadCalibrations(), loadSetup()]);
+    applyDyslexicUi(profile.dyslexicUiMode);
+    wireDyslexicToggle(profile.dyslexicUiMode);
+    // "Returning" means they've actually calibrated — not merely that a profile
+    // blob exists (toggling a preference here would otherwise create one).
+    if (history.length > 0 || setup.calibratedAt) {
       configureReturningUser(profile, summarizeCalibrations(history, profile));
       configureSetupBox(!setup.voiceFitAt);
-    } else configureFirstRun();
+    } else {
+      configureFirstRun();
+    }
   } catch (err) {
     console.warn("[ReadTune] popup init failed:", err);
     configureFirstRun();

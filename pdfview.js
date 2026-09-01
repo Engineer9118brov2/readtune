@@ -6,11 +6,13 @@
  * pour it into the same reading engine + screen as articles.
  */
 
-import { extUrl } from "./shared/settings.js";
+import { extUrl, applyStoredDyslexicUi } from "./shared/settings.js";
 import { createReadingView, computeStats } from "./shared/render.js";
 import { extractPdfText } from "./shared/pdftext.js";
 import { createReadingScreen } from "./shared/screen.js";
 import { showMessage } from "./shared/ui.js";
+
+applyStoredDyslexicUi();
 
 const pdfjsLib = window.pdfjsLib;
 

@@ -16,6 +16,7 @@ import {
   markSetupStep,
   extUrl,
   describeProfile,
+  applyDyslexicUi,
   FONTS,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
@@ -461,6 +462,7 @@ function applyLaunchState() {
 async function init() {
   const has = await hasProfile();
   profile = await loadProfile();
+  applyDyslexicUi(profile.dyslexicUiMode);
   ttsConfig = await loadTTSConfig();
   const history = await loadCalibrations();
 

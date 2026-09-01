@@ -447,6 +447,86 @@
   outline-offset: 2px;
 }
 
+.pop-dys {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(211, 203, 187, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--rt-ui-ink);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.pop-dys:hover {
+  border-color: rgba(15, 108, 92, 0.36);
+  background: rgba(255, 255, 255, 0.9);
+}
+.pop-dys:focus-visible {
+  outline: 2px solid var(--rt-ui-accent);
+  outline-offset: 2px;
+}
+.pop-dys-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--rt-ui-accent-soft);
+  color: var(--rt-ui-accent-ink);
+  font-family: "OpenDyslexic", var(--rt-ui-font);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.pop-dys-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pop-dys-copy strong {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.pop-dys-copy span {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: var(--rt-ui-ink-soft);
+}
+.pop-dys-switch {
+  flex: none;
+  width: 40px;
+  height: 23px;
+  border-radius: 999px;
+  background: var(--rt-ui-line);
+  position: relative;
+  transition: background 0.14s ease;
+}
+.pop-dys-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.14s ease;
+}
+.pop-dys[aria-pressed="true"] .pop-dys-switch {
+  background: var(--rt-ui-accent);
+}
+.pop-dys[aria-pressed="true"] .pop-dys-switch::after {
+  transform: translateX(17px);
+}
+
 .pop-foot {
   text-align: center;
   font-size: 0.74rem;

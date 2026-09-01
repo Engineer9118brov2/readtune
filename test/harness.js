@@ -79,9 +79,19 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(legacyRuler.rulerLines === 5, "legacy ruler height migrates into a multi-line focus span");
   const cl = S.normalizeProfile({ fontSize: 999, wpm: 5000, bionic: -3, overlay: "??", pacing: "??" });
   assert(cl.fontSize <= 34 && cl.wpm <= 900 && cl.bionic === 0 && cl.overlay === "none" && cl.pacing === "flow", "clamps");
-  await S.writeProfile({ ...S.DEFAULT_PROFILE, font: "atkinson", bionic: 40, syllables: true });
+  assert(
+    S.DEFAULT_PROFILE.dyslexicUiMode === false &&
+      S.normalizeProfile({ dyslexicUiMode: "yes" }).dyslexicUiMode === true &&
+      S.normalizeProfile({}).dyslexicUiMode === false,
+    "dyslexicUiMode defaults off and coerces to boolean"
+  );
+  S.applyDyslexicUi(true);
+  assert(document.documentElement.classList.contains("rt-ui-dyslexic"), "applyDyslexicUi adds the chrome class");
+  S.applyDyslexicUi(false);
+  assert(!document.documentElement.classList.contains("rt-ui-dyslexic"), "applyDyslexicUi removes the chrome class");
+  await S.writeProfile({ ...S.DEFAULT_PROFILE, font: "atkinson", bionic: 40, syllables: true, dyslexicUiMode: true });
   const lp = await S.loadProfile();
-  assert(lp.font === "atkinson" && lp.bionic === 40 && lp.syllables, "profile round-trip");
+  assert(lp.font === "atkinson" && lp.bionic === 40 && lp.syllables && lp.dyslexicUiMode === true, "profile round-trip");
   const setup0 = await S.loadSetup();
   assert(setup0.calibratedAt === 0 && setup0.voiceFitAt === 0, "setup defaults");
   await S.saveSetup({ calibratedAt: 11 });
@@ -133,6 +143,25 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       starterPatch.ttsRate === 1.2,
     "starter button emits starter profile"
   );
+
+  let uiPatch = null;
+  const uiControls = buildControls({ ...S.DEFAULT_PROFILE, dyslexicUiMode: true }, (p) => (uiPatch = p));
+  const dysToggle = [...uiControls.panel.querySelectorAll(".rt-toggle")].find((n) =>
+    /OpenDyslexic for ReadTune's menus/.test(n.textContent)
+  );
+  const dysInput = dysToggle && dysToggle.querySelector("input");
+  assert(dysInput && dysInput.checked === true, "controls reflect dyslexicUiMode");
+  S.applyDyslexicUi(false);
+  dysInput.checked = false;
+  dysInput.dispatchEvent(new Event("change"));
+  assert(
+    uiPatch && uiPatch.dyslexicUiMode === false && !document.documentElement.classList.contains("rt-ui-dyslexic"),
+    "toggling dyslexic UI in the panel emits and reskins immediately"
+  );
+  dysInput.checked = true;
+  dysInput.dispatchEvent(new Event("change"));
+  assert(document.documentElement.classList.contains("rt-ui-dyslexic"), "re-enabling in the panel reskins immediately");
+  S.applyDyslexicUi(false);
 
   view.applyProfile({ ...S.DEFAULT_PROFILE, bionic: 45 });
   assert(host.querySelectorAll("b.rt-b").length > 8, "bionic");

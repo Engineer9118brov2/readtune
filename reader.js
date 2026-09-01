@@ -5,10 +5,12 @@
  * hands off to createReadingScreen for the panel / transport / read-aloud / aids.
  */
 
-import { takeArticle } from "./shared/settings.js";
+import { takeArticle, applyStoredDyslexicUi } from "./shared/settings.js";
 import { createReadingView } from "./shared/render.js";
 import { createReadingScreen } from "./shared/screen.js";
 import { showMessage, hideMessage, prettyHost } from "./shared/ui.js";
+
+applyStoredDyslexicUi();
 
 const surface = document.getElementById("surface");
 const viewHost = document.getElementById("view");

@@ -60,6 +60,16 @@
   --rt-reading-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Dyslexic UI mode: swap the chrome to OpenDyslexic so the settings themselves
+   are readable to someone who needs that font. settings.js toggles the class on
+   <html>; everything below inherits via --rt-ui-font / --rt-ui-display. */
+:root.rt-ui-dyslexic {
+  --rt-ui-font: "OpenDyslexic", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --rt-ui-display: "OpenDyslexic", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root.rt-ui-dyslexic body.rt-ui { line-height: 1.62; }
+:root.rt-ui-dyslexic .rt-chip { letter-spacing: 0.05em; }
+
 * {
   box-sizing: border-box;
 }

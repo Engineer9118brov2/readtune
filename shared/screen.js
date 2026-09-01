@@ -16,6 +16,7 @@ import {
   loadTTSConfig,
   saveTTSConfig,
   forgetTTSKey,
+  applyDyslexicUi,
   DEFAULT_PROFILE,
 } from "./settings.js";
 import { applyTypography, paintPage } from "./render.js";
@@ -29,6 +30,7 @@ import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
 
 export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
+  applyDyslexicUi(profile.dyslexicUiMode);
   let ttsConfig = await loadTTSConfig();
   let memory = { scroll: 0, highlights: [] };
   let saveTimer = 0;
@@ -419,6 +421,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   function applyAll(p) {
     profile = p;
+    applyDyslexicUi(p.dyslexicUiMode);
     applyTypography(surface, p);
     paintPage(p);
     view.applyProfile(p);
