@@ -461,6 +461,15 @@ input[type="range"]::-moz-range-thumb {
 .rt-panel-hint-tight {
   margin-top: 4px;
 }
+.rt-voice-upgrade {
+  padding: 10px 12px;
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--rt-ui-accent-soft) 60%, transparent);
+}
+.rt-voice-upgrade .rt-link {
+  margin-top: 2px;
+}
 .rt-reset {
   align-self: flex-start;
   font-size: 0.85rem;

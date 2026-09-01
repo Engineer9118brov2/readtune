@@ -367,6 +367,24 @@
   margin-bottom: 6px;
 }
 
+.lab-voice-upgrade {
+  border-radius: 18px;
+  border: 1px solid rgba(201, 227, 216, 0.92);
+  background: rgba(230, 241, 236, 0.5);
+  padding: 16px 18px;
+}
+.lab-voice-upgrade strong {
+  display: block;
+  font-family: var(--rt-ui-display);
+  margin-bottom: 6px;
+}
+.lab-voice-upgrade p {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: var(--ink-soft, var(--rt-ui-ink-soft));
+  line-height: 1.5;
+}
+
 .lab-leader,
 .lab-use-case,
 .lab-timeline-item {

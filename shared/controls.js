@@ -9,7 +9,7 @@
 import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
-import { formatBrowserVoiceLabel, recommendedBrowserVoices } from "./tts.js";
+import { formatBrowserVoiceLabel, recommendedBrowserVoices, hasNaturalVoice, osVoiceTip } from "./tts.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
@@ -305,6 +305,12 @@ export function buildControls(profile, onChange) {
     ]),
   ]);
   const browserVoiceNote = el("p", { class: "rt-panel-hint rt-panel-hint-tight" });
+  const rescanBtn = el("button", { class: "rt-link", type: "button" }, "Re-scan for new voices");
+  rescanBtn.addEventListener("click", () => onChange({ __tts: { rescan: true } }));
+  const browserVoiceUpgrade = el("div", { class: "rt-panel-hint rt-panel-hint-tight rt-voice-upgrade", hidden: true }, [
+    el("span", { class: "rt-voice-upgrade-text" }),
+    rescanBtn,
+  ]);
 
   const keyInput = el("input", {
     type: "password",
@@ -364,12 +370,13 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, freeHint, browserVoiceRow, browserVoiceNote, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, freeHint, browserVoiceRow, browserVoiceNote, browserVoiceUpgrade, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
     engineRow,
     freeHint,
     browserVoiceRow,
     browserVoiceNote,
+    browserVoiceUpgrade,
     keyRow,
     keyHint,
     elVoiceRow,
@@ -378,6 +385,7 @@ export function buildControls(profile, onChange) {
     rateRow,
     statusLine,
     ttsState,
+    voiceUpgradeRelevant: false,
   });
 
   body.append(
@@ -448,6 +456,7 @@ export function buildControls(profile, onChange) {
     reg.rateRow.hidden = !aloud;
     reg.browserVoiceRow.hidden = !aloud || eleven;
     reg.browserVoiceNote.hidden = !aloud || eleven;
+    reg.browserVoiceUpgrade.hidden = !aloud || eleven || !reg.voiceUpgradeRelevant;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
@@ -519,8 +528,15 @@ export function buildControls(profile, onChange) {
         reg.browserVoiceNote.textContent =
           recommended[0].localService === false
             ? `${recommended[0].name} is the strongest free voice Chrome exposed here. It may use an online engine.`
-            : `${recommended[0].name} is the strongest free voice on this device right now. If you install richer system voices, ReadTune will surface them here automatically.`;
+            : `${recommended[0].name} is the strongest free voice on this device right now.`;
       }
+
+      // The plain OS voices are the tiring part. If nothing rich is installed,
+      // tell the user exactly where their OS hides the good free voices.
+      const tip = osVoiceTip();
+      reg.voiceUpgradeRelevant = ranked.length > 0 && !hasNaturalVoice(ranked);
+      reg.browserVoiceUpgrade.querySelector(".rt-voice-upgrade-text").textContent = tip.text + " ";
+      paintTTS();
     },
     /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error, note }. */
     setTTS(next) {

@@ -22,7 +22,7 @@ import {
 import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
-import { createTTS, isTTSAvailable, onVoicesReady } from "./tts.js";
+import { createTTS, isTTSAvailable, onVoicesReady, listVoices } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
@@ -305,6 +305,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   async function handleTTSPatch(t) {
     if (t.preview) {
       previewVoice(typeof t.browserVoice === "string" ? t.browserVoice : "");
+      return;
+    }
+    if (t.rescan) {
+      controls.setVoices(listVoices());
       return;
     }
     stopPreview();

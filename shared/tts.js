@@ -57,6 +57,44 @@ export function recommendedBrowserVoices(voices, limit = 3) {
   return (local.length ? local : ranked).slice(0, Math.max(0, limit));
 }
 
+/** True if the device already has a rich local voice (Enhanced / Natural / Neural…). */
+export function hasNaturalVoice(voices) {
+  return (Array.isArray(voices) ? voices : []).some(
+    (voice) => voice && voice.localService !== false && NATURAL_VOICE_RE.test(voiceName(voice))
+  );
+}
+
+/**
+ * The plain system voices (Samantha, David…) are the tiring part of free
+ * read-aloud. Every desktop OS ships far better voices that just aren't
+ * installed by default. Point the user at the right settings screen.
+ */
+export function osVoiceTip(ua = (typeof navigator !== "undefined" && navigator.userAgent) || "") {
+  const s = String(ua);
+  if (/CrOS/i.test(s)) {
+    return {
+      os: "ChromeOS",
+      text: "ChromeOS has natural Google voices: Settings → Accessibility → Text-to-Speech → Speech engines, enable the enhanced voices, then re-scan.",
+    };
+  }
+  if (/Mac OS X|Macintosh/i.test(s) && !/(iPhone|iPad|iPod)/i.test(s)) {
+    return {
+      os: "macOS",
+      text: "Your Mac can add much better voices for free: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download an English voice marked (Enhanced) or (Premium) — Ava, Zoe or Allison are good. Then re-scan.",
+    };
+  }
+  if (/Windows NT/i.test(s)) {
+    return {
+      os: "Windows",
+      text: "Windows can add natural voices: Settings → Time & language → Speech → Manage voices → Add voices. Restart Chrome, then re-scan. (Some Windows builds don't expose these to the browser.)",
+    };
+  }
+  return {
+    os: "",
+    text: "Your system may have higher-quality voices you can install from its accessibility or speech settings. Add one, then re-scan.",
+  };
+}
+
 export function formatBrowserVoiceLabel(voice) {
   const name = voiceName(voice) || "Unnamed voice";
   return `${name} (${browserVoiceSource(voice)})`;

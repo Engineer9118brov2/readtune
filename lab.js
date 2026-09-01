@@ -21,7 +21,15 @@ import {
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
-import { onVoicesReady, recommendedBrowserVoices, browserVoiceSource, describeBrowserVoice } from "./shared/tts.js";
+import {
+  onVoicesReady,
+  recommendedBrowserVoices,
+  browserVoiceSource,
+  describeBrowserVoice,
+  hasNaturalVoice,
+  osVoiceTip,
+  listVoices,
+} from "./shared/tts.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
 
 const PREVIEW_TEXT =
@@ -417,7 +425,31 @@ function renderVoiceCards() {
     host.append(...cards);
   }
 
+  if (browserVoices.length && !hasNaturalVoice(browserVoices)) {
+    host.append(voiceUpgradeNote());
+  }
+
   renderVoiceSummary();
+}
+
+function voiceUpgradeNote() {
+  const box = document.createElement("div");
+  box.className = "lab-voice-upgrade";
+  const title = document.createElement("strong");
+  title.textContent = "Your device can do better — for free";
+  const body = document.createElement("p");
+  body.textContent = osVoiceTip().text;
+  const rescan = document.createElement("button");
+  rescan.type = "button";
+  rescan.className = "rt-link";
+  rescan.textContent = "Re-scan for new voices";
+  rescan.addEventListener("click", () => {
+    browserVoices = listVoices();
+    voiceNotice = "";
+    renderVoiceCards();
+  });
+  box.append(title, body, rescan);
+  return box;
 }
 
 function initVoiceFit() {
