@@ -43,8 +43,9 @@ The product now also ships a **research-backed starter** before calibration fini
 - **One sentence at a time** — step through with the keyboard or the transport bar
 - **Speed reader (RSVP)** — one word at a time at an adjustable words-per-minute, with pivot-letter alignment
 - **Auto-scroll** — the page scrolls itself at your reading pace
-- **Read aloud** — the current sentence and word are highlighted as it speaks. Two voices:
+- **Read aloud** — the current sentence and word are highlighted as it speaks. Three voices:
   - **Browser voice** (default) — your OS speech engine, no key, no network
+  - **Piper natural voice** — an opt-in neural voice that runs locally. It downloads a ~60 MB voice model once from Hugging Face, caches it in the browser, and never uploads the text being read
   - **ElevenLabs** (optional) — paste your own API key in the panel for much better voices with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
 - **Voice Fit** — the Reading Lab surfaces the strongest free voices on your device, lets you preview them fast, and saves the one that feels clearest for read-aloud
 
@@ -82,13 +83,14 @@ reader.* / pdf.*        Reader View / PDF mode (thin — most logic is shared/)
 calibration.*           The calibration test + scoring
 shared/
   settings.js           Profile schema, defaults, storage wrappers, per-page + per-site memory,
-                        read-aloud config (incl. the ElevenLabs key — local storage only)
+                        read-aloud config (including optional voice credentials — local storage only)
   render.js             The one formatting engine: sanitize → structure → typography → bionic →
                         syllables → sentence-wrap → pacing (flow / sentence / RSVP)
   inpage-style.js       Generates the CSS the in-page restyle injects (scoped to html.rt-inpage)
   aids.js               Ruler, progress bar, paragraph focus, resume position, highlights
-  tts.js                Read-aloud: browser + ElevenLabs backends, sentence + word highlighting,
+  tts.js                Read-aloud: browser + Piper + ElevenLabs backends, sentence + word highlighting,
                         plus free-voice ranking and Voice Fit copy
+  piper.js / piper/     Opt-in local neural voice client + worker
   elevenlabs.js         ElevenLabs API (voices, /with-timestamps synth, alignment → word index)
   transport.js          The floating playback bar
   controls.js           The settings panel
@@ -137,7 +139,7 @@ License texts are in `lib/`.
 - Reader View needs a real article — home pages, feeds and web apps show a clear message, not a broken page.
 - PDF mode needs selectable text. Scans (images of pages) show a "no text to pull out" message.
 - Sentence splitting, syllable breaks, and PDF paragraph reconstruction are heuristic — they handle the common cases well, not every edge case.
-- Read-aloud uses whatever voices your browser/OS provides; word-level highlighting depends on the voice reporting word boundaries (most local voices do).
+- Piper's word highlight is a proportional estimate because its local model does not emit word timestamps; sentence highlighting stays exact.
 - `chrome://` pages and the Chrome Web Store block all extensions, including this one.
 
 ## License

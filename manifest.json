@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReadTune",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Finds the reading settings that help you, then applies them to articles, PDFs, and web pages. Free, private, and login-free.",
   "action": {
     "default_popup": "popup.html",
@@ -22,7 +22,10 @@
     "type": "module"
   },
   "permissions": ["activeTab", "scripting", "storage"],
-  "optional_host_permissions": ["https://api.elevenlabs.io/*", "*://*/*"],
+  "optional_host_permissions": ["https://api.elevenlabs.io/*", "https://huggingface.co/*", "https://*.hf.co/*", "*://*/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "web_accessible_resources": [
     {
       "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js"],

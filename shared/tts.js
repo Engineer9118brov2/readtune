@@ -14,6 +14,7 @@
  */
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
+import { createPiperEngine } from "./piper.js";
 
 const NATURAL_VOICE_RE = /\b(enhanced|natural|neural|premium|studio)\b/i;
 const PLATFORM_VOICE_RE = /\b(siri|apple|google|microsoft)\b/i;
@@ -167,6 +168,8 @@ export function createTTS({
   let audio = null;
   let el = null; // { k, data, chunk } currently playing
   let raf = 0;
+  let piper = null;
+  let piperUrl = "";
 
   /* ---------- collect sentences + chunk them ---------- */
   function collect() {
@@ -392,6 +395,60 @@ export function createTTS({
     }
   }
 
+  function stopPiperAudio() {
+    cancelAnimationFrame(raf);
+    if (audio) {
+      audio.onended = audio.onerror = null;
+      audio.pause();
+      audio = null;
+    }
+    if (piperUrl) URL.revokeObjectURL(piperUrl);
+    piperUrl = "";
+  }
+
+  async function piperSpeak() {
+    if (!playing) return;
+    if (i >= sentences.length) return finish();
+    const mine = run;
+    const sentence = sentences[i];
+    markSentence(i);
+    try {
+      if (!piper) piper = createPiperEngine({ voiceId: getConfig().piperVoice });
+      const blob = await piper.synthesize(sentence.text);
+      if (!playing || mine !== run) return;
+      stopPiperAudio();
+      piperUrl = URL.createObjectURL(blob);
+      audio = new Audio(piperUrl);
+      audio.playbackRate = rate;
+      audio.onended = () => {
+        if (!playing || mine !== run) return;
+        i += 1;
+        piperSpeak();
+      };
+      audio.onerror = () => {
+        if (!playing || mine !== run) return;
+        onError("Natural voice playback failed. Using the browser voice.");
+        provider = "browser";
+        browserSpeak();
+      };
+      await audio.play();
+      const tick = () => {
+        if (!playing || mine !== run || !audio) return;
+        if (Number.isFinite(audio.duration) && audio.duration > 0) {
+          const char = Math.floor((audio.currentTime / audio.duration) * sentence.text.length);
+          try { highlightWord(sentence, char); } catch {}
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    } catch (err) {
+      if (!playing || mine !== run) return;
+      onError(err && err.message ? `${err.message} Using the browser voice.` : "Natural voice failed. Using the browser voice.");
+      provider = "browser";
+      browserSpeak();
+    }
+  }
+
   function releaseUrls() {
     for (const p of chunkCache.values()) {
       Promise.resolve(p).then((d) => d && d.url && URL.revokeObjectURL(d.url)).catch(() => {});
@@ -404,6 +461,8 @@ export function createTTS({
     if (provider === "elevenlabs") {
       buildChunks();
       elevenPlay(chunkOf(i), i);
+    } else if (provider === "piper") {
+      piperSpeak();
     } else {
       browserSpeak();
     }
@@ -414,6 +473,7 @@ export function createTTS({
     run++;
     if (synth) synth.cancel();
     stopAudioEl();
+    stopPiperAudio();
     el = null;
     releaseUrls();
     clearHighlight();
@@ -424,10 +484,12 @@ export function createTTS({
     run++;
     if (synth) synth.cancel();
     stopAudioEl();
+    stopPiperAudio();
   }
 
   function resolveProvider() {
     const cfg = getConfig();
+    if (cfg.provider === "piper" && cfg.piperVoice) return "piper";
     return cfg.provider === "elevenlabs" && cfg.apiKey && cfg.voiceId ? "elevenlabs" : "browser";
   }
 
@@ -451,7 +513,7 @@ export function createTTS({
     },
     toggle() {
       if (playing) return this.pause();
-      if (provider === "elevenlabs" && audio && el) {
+      if ((provider === "elevenlabs" || provider === "piper") && audio && el) {
         playing = true;
         audio.playbackRate = rate;
         audio.play().catch(() => {});
@@ -522,6 +584,8 @@ export function createTTS({
       playing = false;
       halt();
       releaseUrls();
+      if (piper) piper.destroy();
+      piper = null;
       clearHighlight();
     },
   };

@@ -59,12 +59,12 @@
       </table>
 
       <h2>Network behaviour</h2>
-      <p>The default text-to-speech voice is your device's built-in speech engine. Nothing is sent anywhere. Page reformatting, PDF text extraction, and the calibration test all run entirely in the browser using code bundled in the extension (no CDN, no remote scripts — Manifest V3 forbids them and ReadTune loads none).</p>
+      <p>The default text-to-speech voice is your device's built-in speech engine. Nothing is sent anywhere. Students may also opt into Piper, a neural voice that downloads a one-time model from Hugging Face and then synthesizes speech on the device; the reading text is never uploaded. Page reformatting, PDF text extraction, and the calibration test all run entirely in the browser using code bundled in the extension (no CDN, no remote scripts — Manifest V3 forbids them and ReadTune loads none).</p>
       <p><strong>One opt-in exception:</strong> a student can paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key to use higher-quality read-aloud voices. If they do, the passage being read and their key are sent to <code>api.elevenlabs.io</code> to generate audio. This requires a personal ElevenLabs account and API key, which students on a school account will not have, and it can be disregarded for your evaluation. The feature is off by default and there is no ElevenLabs integration unless a key is entered.</p>
 
       <h2>Support burden</h2>
       <ul>
-        <li>~0.8 MB. No account to provision or reset.</li>
+        <li>~29 MB base package. The optional Piper voice model downloads once per reader (~60 MB) and can be skipped entirely.</li>
         <li>Nothing to configure centrally. A student runs the 4-minute calibration once; everything else is a preference.</li>
         <li>Open source — the full code is on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a> for your security team to inspect before approval.</li>
         <li>The extension is inert on <code>chrome://</code> pages and the Chrome Web Store, like all extensions.</li>

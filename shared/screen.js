@@ -24,6 +24,7 @@ import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady, listVoices } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
+import { requestPiperPermission } from "./piper.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
 import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
@@ -203,7 +204,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     change({ pacing: "aloud" });
   }
 
-  /* ---- read-aloud engine (browser voice, or the user's ElevenLabs key) ---- */
+  /* ---- read-aloud engine (browser voice, Piper, or the user's ElevenLabs key) ---- */
   function pushTTS(extra = {}) {
     const hasKey = !!ttsConfig.apiKey;
     const canList = hasKey && (ttsConfig.voices || []).length > 0;
@@ -320,6 +321,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       return;
     }
     if (t.provider && t.provider !== ttsConfig.provider) {
+      if (t.provider === "piper") {
+        const granted = await requestPiperPermission();
+        if (!granted) {
+          pushTTS({ error: "ReadTune needs permission to download the one-time natural voice model from Hugging Face." });
+          return;
+        }
+      }
       ttsConfig = await saveTTSConfig({ provider: t.provider });
       pushTTS();
       tts.reload();

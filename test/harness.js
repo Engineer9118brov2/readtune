@@ -315,6 +315,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.saveTTSConfig({ provider: "elevenlabs", apiKey: "sk-test-123", voiceId: "v1", voiceName: "Aria" });
   let tc = await S.loadTTSConfig();
   assert(tc.provider === "elevenlabs" && tc.apiKey === "sk-test-123" && tc.voiceId === "v1", "TTS config round-trip");
+  tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-amy-low" });
+  assert(tc.provider === "piper" && tc.piperVoice === "en_US-amy-low", "Piper TTS config round-trip");
   await S.forgetTTSKey();
   tc = await S.loadTTSConfig();
   assert(tc.provider === "browser" && !tc.apiKey, "forgetTTSKey clears key + reverts to browser");
@@ -345,6 +347,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.body.append(cp.panel);
   const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Voice source/.test(n.textContent));
   assert(engRow && !engRow.closest(".rt-field").hidden, "engine picker visible in aloud mode");
+  assert(
+    !!cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="piper"]'),
+    "Piper natural engine is available"
+  );
   assert(/No account, no API bill/.test(cp.panel.textContent), "browser voice is clearly free");
   cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="elevenlabs"]').click();
   assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "elevenlabs", "engine → __tts patch");

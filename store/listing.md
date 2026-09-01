@@ -99,6 +99,7 @@ are paywalled or behind a school login, and ReadTune is neither.
 > Read aloud
 > • The current sentence and word are highlighted as it speaks, in your chosen font
 > • The built-in browser voice needs no account and no network
+> • Optional: Piper natural voice downloads a ~60 MB model once from Hugging Face, then reads on-device. The passage stays on the device and no account or key is needed
 > • Optional: bring your own ElevenLabs API key for higher-quality voices with tight word timing. Your key is stored only on your device; text is sent only to api.elevenlabs.io, only while reading
 > • "Voice Fit" surfaces the clearest free voices on your device and lets you preview them fast
 >
@@ -128,7 +129,7 @@ are paywalled or behind a school login, and ReadTune is neither.
 >
 > No server. No account. No analytics or telemetry. No selling data — there is no data to sell. Your reading profile, calibration history, reading position, and highlights are stored with the browser's local extension storage, on your device. The extension installs asking only for activeTab, scripting, and storage.
 >
-> The one time anything leaves your device is fully opt-in: if you enter your own ElevenLabs API key, the passage you ask to have read aloud and your key are sent to your own ElevenLabs account (api.elevenlabs.io) to generate audio. Nothing else, nowhere else.
+> Piper is also fully opt-in: it downloads a one-time voice model from Hugging Face and caches it locally, but the passage being read never leaves the device. If you enter your own ElevenLabs API key, the passage you ask to have read aloud and your key are sent to your own ElevenLabs account (api.elevenlabs.io) to generate audio. Nothing else, nowhere else.
 >
 > Free and open source. The full code is on GitHub.
 
@@ -180,12 +181,15 @@ The Vercel homepage is the public product page. It is intentionally separate fro
 **Optional host permissions — `https://api.elevenlabs.io/*`:**
 > Not requested at install. Requested only when the user enters their own ElevenLabs API key to use ElevenLabs voices for read-aloud. Used only to send the passage being read aloud and generate word timings.
 
+**Optional host permissions — `https://huggingface.co/*` and `https://*.hf.co/*`:**
+> Not requested at install. Requested only when the user selects the optional Piper natural voice. Used to download the selected voice model once; the text being read stays on the device.
+
 **Optional host permissions — `*://*/*`:**
 > Not requested at install. Requested only if the user turns on "auto-open" / "auto-restyle in ReadTune" for a specific site, scoped to that site, so its pages open in Reader View (or restyle) automatically.
 
 **Remote code:** None. All libraries (Readability, pdf.js, hyphenation, fonts) are bundled in the package. The optional ElevenLabs feature only calls the documented REST API — no remote code is loaded or executed.
 
-**Data usage disclosures:** ReadTune does not collect analytics or sell data. If you enable the optional ElevenLabs voice, disclose under "Web history / User activity" that the text the user chooses to have read aloud is transmitted to the user's own ElevenLabs account to generate audio, at the user's initiation.
+**Data usage disclosures:** ReadTune does not collect analytics or sell data. If you enable the optional ElevenLabs voice, disclose under "Web history / User activity" that the text the user chooses to have read aloud is transmitted to the user's own ElevenLabs account to generate audio, at the user's initiation. Piper downloads a voice model but does not transmit reading text.
 
 ## After submitting
 

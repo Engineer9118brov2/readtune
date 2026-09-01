@@ -269,6 +269,7 @@ export function buildControls(profile, onChange) {
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
     { val: "browser", label: "Free voice" },
+    { val: "piper", label: "Piper natural" },
     { val: "elevenlabs", label: "Bring your own" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
@@ -282,6 +283,11 @@ export function buildControls(profile, onChange) {
     "p",
     { class: "rt-panel-hint" },
     "Free voice uses your browser's built-in speech. No account, no API bill, nothing sent to our servers."
+  );
+  const piperHint = el(
+    "p",
+    { class: "rt-panel-hint" },
+    "Piper is a natural-sounding voice that runs on your device. The first use downloads a one-time ~60 MB voice model from Hugging Face; the text you read is never uploaded."
   );
 
   const previewBtn = (aria, patchFactory = () => ({ preview: true })) => {
@@ -370,10 +376,11 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, freeHint, browserVoiceRow, browserVoiceNote, browserVoiceUpgrade, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, freeHint, piperHint, browserVoiceRow, browserVoiceNote, browserVoiceUpgrade, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
     engineRow,
     freeHint,
+    piperHint,
     browserVoiceRow,
     browserVoiceNote,
     browserVoiceUpgrade,
@@ -450,13 +457,15 @@ export function buildControls(profile, onChange) {
     const t = reg.ttsState;
     const aloud = state.pacing === "aloud";
     const eleven = t.provider === "elevenlabs";
+    const piper = t.provider === "piper";
     const canList = t.hasKey && t.voices.length > 0;
     reg.engineRow.hidden = !aloud;
-    reg.freeHint.hidden = !aloud || eleven;
+    reg.freeHint.hidden = !aloud || eleven || piper;
+    reg.piperHint.hidden = !aloud || !piper;
     reg.rateRow.hidden = !aloud;
-    reg.browserVoiceRow.hidden = !aloud || eleven;
-    reg.browserVoiceNote.hidden = !aloud || eleven;
-    reg.browserVoiceUpgrade.hidden = !aloud || eleven || !reg.voiceUpgradeRelevant;
+    reg.browserVoiceRow.hidden = !aloud || eleven || piper;
+    reg.browserVoiceNote.hidden = !aloud || eleven || piper;
+    reg.browserVoiceUpgrade.hidden = !aloud || eleven || piper || !reg.voiceUpgradeRelevant;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
@@ -471,6 +480,9 @@ export function buildControls(profile, onChange) {
       reg.statusLine.dataset.kind = "info";
     } else if (t.note) {
       reg.statusLine.textContent = t.note;
+      reg.statusLine.dataset.kind = "info";
+    } else if (piper) {
+      reg.statusLine.textContent = "Natural voice selected. The first Listen downloads Amy once, then it stays on this device.";
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
       reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";

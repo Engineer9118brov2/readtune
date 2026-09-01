@@ -286,12 +286,13 @@ export const setSiteAutoStyle = (origin, on) => writeSite(origin, { autoStyle: !
 /* ---- read-aloud engine config (browser voice, or the user's ElevenLabs key) ---- */
 
 export const DEFAULT_TTS = {
-  provider: "browser", // "browser" | "elevenlabs"
+  provider: "browser", // "browser" | "piper" | "elevenlabs"
   apiKey: "", // the user's own ElevenLabs key — stored here only, never in a file or the profile
   voiceId: "", // ElevenLabs voice id
   voiceName: "",
   model: "eleven_flash_v2_5",
   voices: [], // cached [{id,name}] for the picker
+  piperVoice: "en_US-amy-low",
 };
 
 export async function loadTTSConfig() {
