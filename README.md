@@ -104,6 +104,10 @@ test/                   Browser test harness (not shipped)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it's built and *why each part is the way it is*
 - [`docs/RESEARCH.md`](docs/RESEARCH.md) — the evidence behind each reading aid, including where it's weak
 - [`docs/DEVPOST.md`](docs/DEVPOST.md) / [`docs/VIDEO.md`](docs/VIDEO.md) / [`docs/VIDEO_PLAN.md`](docs/VIDEO_PLAN.md) — submission writeup, demo script, and participant-video production plan
+- [`docs/JUDGE_PROMPT.md`](docs/JUDGE_PROMPT.md) — reviewer prompts to paste into a fresh session
+- [`docs/LAUNCH.md`](docs/LAUNCH.md) — post-launch growth plan and community list
+- [`docs/SCHOOL-DISTRICTS.md`](docs/SCHOOL-DISTRICTS.md) — getting unblocked in a managed school environment
+- [`store/listing.md`](store/listing.md) — Chrome Web Store submission pack (checklist, long description, permission justifications)
 
 ## Tests
 
