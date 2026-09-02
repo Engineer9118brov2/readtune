@@ -455,6 +455,25 @@ function buildChunks(fragment) {
     for (const s of splitSentences(text)) chunks.push({ text: s, heading: !!heading });
   };
 
+  /* One list level at a time. A nested list's text is already inside its
+     parent <li>'s textContent, so querySelectorAll("li, dd, dt") over the
+     whole subtree emitted every nested bullet twice — once folded into the
+     parent's run, once on its own. Take each item's own text (minus any
+     sub-list) and recurse into the sub-lists. */
+  const LIST_TAGS = /^(?:UL|OL|DL)$/;
+  const emitList = (list) => {
+    for (const item of list.children) {
+      if (item.tagName !== "LI" && item.tagName !== "DT" && item.tagName !== "DD") continue;
+      let own = "";
+      for (const kid of item.childNodes) {
+        if (kid.nodeType === Node.ELEMENT_NODE && LIST_TAGS.test(kid.tagName)) continue;
+        own += kid.textContent || "";
+      }
+      push(own, false);
+      for (const kid of item.children) if (LIST_TAGS.test(kid.tagName)) emitList(kid);
+    }
+  };
+
   const walk = (parent) => {
     for (const node of Array.from(parent.childNodes)) {
       if (node.nodeType === Node.TEXT_NODE) {
@@ -476,7 +495,7 @@ function buildChunks(fragment) {
         const t = node.textContent.trim();
         if (t) chunks.push({ text: t, heading: true });
       } else if (tag === "UL" || tag === "OL" || tag === "DL") {
-        for (const li of node.querySelectorAll("li, dd, dt")) push(li.textContent, false);
+        emitList(node);
       } else if (tag === "TABLE") {
         emitTableInto(node, chunks, push);
       } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR") {

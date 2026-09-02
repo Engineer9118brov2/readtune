@@ -85,7 +85,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 </body></html>`;
 
 (async () => {
-  const RANGES_MIN = 0.6, RANGES_MAX = 1.8;
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
@@ -623,7 +622,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     );
     assert(S.nextTtsRate(S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1]) === S.TTS_RATE_STEPS[0], "the top rung wraps to the bottom");
     assert(S.formatRate(1.35) === "1.35×" && S.formatRate(1.5) === "1.5×", "a rate is never rounded to a value the ladder cannot reach");
-    assert(S.TTS_RATE_STEPS.every((r) => r >= RANGES_MIN && r <= RANGES_MAX), "every rung is reachable on the slider too");
+    assert(
+      S.TTS_RATE_STEPS.every((r) => r >= S.RANGES.ttsRate.min && r <= S.RANGES.ttsRate.max),
+      "every rung is reachable on the slider too",
+    );
   }
 
   /* ---- panel: tint picking without the OS colour panel ---- */
@@ -830,6 +832,29 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       }
       assert(aligned, "read-aloud walks the sentences in step with their data-i");
       tts.destroy();
+      h.remove();
+    }
+
+    // Sentence / speed-reader mode: a nested bullet is chunked once, not once
+    // folded into its parent's run and once again on its own. The list leads so
+    // the bullet's chunks land early, before stepping can wrap round the end.
+    {
+      const { h, v } = mk(
+        "<ul><li>Top level item stands here.<ul><li>Nested bullet is read one time.</li></ul></li></ul>" + filler,
+        "https://x.test/nested-list",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 6; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.push(t.textContent.trim());
+        v.step(1);
+      }
+      assert(
+        seen.filter((s) => /Nested bullet is read one time/.test(s)).length === 1,
+        "a nested list item is chunked exactly once, not folded in and repeated",
+      );
+      assert(seen.some((s) => /Top level item stands here/.test(s)), "the parent list item is still chunked");
       h.remove();
     }
 
