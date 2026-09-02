@@ -108,6 +108,9 @@ export function createTTS({
     const s = sentences[idx];
     if (!s) return;
     s.el.classList.add("rt-speak-sentence");
+    /* A folded infobox must open when reading reaches it — otherwise playback
+       carries on inside a collapsed <details> with nothing visible to follow. */
+    for (let d = s.el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
     if (scroll) s.el.scrollIntoView({ block: "center", behavior: "smooth" });
     onState({ playing, index: idx, total: sentences.length });
   }

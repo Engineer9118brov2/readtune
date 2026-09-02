@@ -437,15 +437,41 @@ input[type="range"]::-moz-range-thumb {
   outline-offset: 2px;
 }
 
-.rt-color {
+/* Custom tints: six to a row, so twelve washes read as one palette. */
+.rt-swatches-custom { grid-template-columns: repeat(6, 1fr); }
+
+.rt-hex {
   width: 100%;
   height: 38px;
-  padding: 2px;
+  padding: 0 11px;
   border: 1px solid var(--rt-ui-line);
   border-radius: 9px;
   background: var(--rt-ui-panel);
-  cursor: pointer;
+  color: var(--rt-ui-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
 }
+.rt-hex:focus-visible { outline: 2px solid var(--rt-ui-accent); outline-offset: 1px; }
+.rt-hex[aria-invalid="true"] { border-color: #c2452f; }
+
+/* The research explainer, folded. It reads once and then gets in the way. */
+.rt-research-fold { margin-bottom: 14px; }
+.rt-research-fold > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 11px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--rt-ui-ink-soft);
+}
+.rt-research-fold > summary:hover { background: var(--rt-ui-accent-soft); }
+.rt-research-fold[open] > summary { margin-bottom: 10px; }
+.rt-research-fold .rt-research-box { margin-top: 0; }
 
 .rt-select {
   width: 100%;

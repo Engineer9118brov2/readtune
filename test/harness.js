@@ -85,6 +85,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 </body></html>`;
 
 (async () => {
+  const RANGES_MIN = 0.6, RANGES_MAX = 1.8;
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
@@ -263,7 +264,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   let uiPatch = null;
   const uiControls = buildControls({ ...S.DEFAULT_PROFILE, dyslexicUiMode: true }, (p) => (uiPatch = p));
   const dysToggle = [...uiControls.panel.querySelectorAll(".rt-toggle")].find((n) =>
-    /OpenDyslexic for ReadTune's menus/.test(n.textContent)
+    /Dyslexia-friendly menus/.test(n.textContent)
+  );
+  assert(
+    dysToggle && !dysToggle.closest("details"),
+    "the dyslexia-friendly menus toggle sits at the top of the panel, not folded inside a section",
   );
   const dysInput = dysToggle && dysToggle.querySelector("input");
   assert(dysInput && dysInput.checked === true, "controls reflect dyslexicUiMode");
@@ -599,6 +604,36 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     tts.destroy();
     assert(flow.querySelectorAll(".rt-speak-word, .rt-speak-sentence").length === 0, "stopping clears every highlight");
     h.remove();
+  }
+
+  /* ---- the speed pill steps a fixed ladder ---- */
+  {
+    // The old rule (+0.2, wrap at 1.7) drifted onto a second set of values, so
+    // the same button never brought you back to the speed you had.
+    const walk = (start, n) => { const out = []; let r = start; for (let k = 0; k < n; k++) { r = S.nextTtsRate(r); out.push(r); } return out; };
+    const fromOne = walk(1.0, S.TTS_RATE_STEPS.length);
+    const fromElsewhere = walk(1.35, S.TTS_RATE_STEPS.length);
+    assert(
+      JSON.stringify([...fromOne].sort((a, b) => a - b)) === JSON.stringify([...S.TTS_RATE_STEPS].sort((a, b) => a - b)),
+      "cycling the speed visits every rung of the ladder and no other value",
+    );
+    assert(
+      JSON.stringify([...fromElsewhere].sort((a, b) => a - b)) === JSON.stringify([...fromOne].sort((a, b) => a - b)),
+      "the speed cycle does not drift with where you started",
+    );
+    assert(S.nextTtsRate(S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1]) === S.TTS_RATE_STEPS[0], "the top rung wraps to the bottom");
+    assert(S.formatRate(1.35) === "1.35×" && S.formatRate(1.5) === "1.5×", "a rate is never rounded to a value the ladder cannot reach");
+    assert(S.TTS_RATE_STEPS.every((r) => r >= RANGES_MIN && r <= RANGES_MAX), "every rung is reachable on the slider too");
+  }
+
+  /* ---- panel: tint picking without the OS colour panel ---- */
+  {
+    const c = buildControls({ ...S.DEFAULT_PROFILE }, () => {});
+    assert(!c.panel.querySelector('input[type="color"]'), "the panel no longer opens the OS colour picker");
+    assert(c.panel.querySelectorAll(".rt-swatches-custom .rt-swatch").length >= 8, "a palette of reading tints is offered instead");
+    assert(c.panel.querySelector(".rt-hex"), "a hex field covers anything the palette misses");
+    const widths = [...c.panel.querySelectorAll(".rt-seg button")].map((b) => b.textContent);
+    assert(widths.includes("Narrow") && widths.includes("Wide"), "line width has named stops, not only a character count");
   }
 
   /* showcase */

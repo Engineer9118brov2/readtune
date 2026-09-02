@@ -6,7 +6,7 @@
  * a reset is { __reset: true }.
  */
 
-import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi } from "./settings.js";
+import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi, formatRate } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
@@ -19,6 +19,24 @@ const FOCUS_OPTS = [
 ];
 const RULER_SPAN_OPTS = RULER_LINE_OPTIONS.map((val) => ({ val, label: rulerSpanLabel(val) }));
 const PACING_OPTS = Object.entries(PACING).map(([val, label]) => ({ val, label }));
+/* Typographic measure, in characters per line. ~66 is the classic target; the
+   narrow end helps readers who lose the line on long sweeps. */
+/* Pale washes only — a reading tint that competes with the text defeats itself. */
+const CUSTOM_TINTS = [
+  { hex: "#fdf6e3", label: "Warm sand" }, { hex: "#f7f0e8", label: "Parchment" },
+  { hex: "#f4efe6", label: "Oat" },       { hex: "#fdeee4", label: "Peach" },
+  { hex: "#fdecec", label: "Rose" },      { hex: "#f7ecfa", label: "Lilac" },
+  { hex: "#eaf1fb", label: "Sky" },       { hex: "#e6f2f1", label: "Sea glass" },
+  { hex: "#ecf6e9", label: "Mint" },      { hex: "#f0f0f2", label: "Cool grey" },
+  { hex: "#20242c", label: "Slate (dark)" }, { hex: "#14161a", label: "Ink (dark)" },
+];
+
+const WIDTH_OPTS = [
+  { val: 45, label: "Narrow" },
+  { val: 58, label: "Comfort" },
+  { val: 72, label: "Wide" },
+  { val: 92, label: "Full" },
+];
 
 const SLIDERS = {
   fontSize: "Text size",
@@ -40,7 +58,7 @@ function fmt(key, v) {
   if (key === "fontSize") return `${Math.round(v)}px`;
   if (key === "columnWidth") return `${Math.round(v)} chars`;
   if (key === "wpm") return `${Math.round(v)} wpm`;
-  if (key === "ttsRate") return `${Number(v).toFixed(1)}×`;
+  if (key === "ttsRate") return formatRate(v);
   if (key === "contrast" || key === "rulerHeight") return `${Math.round(v)}${r.unit || ""}`;
   if (key === "lineHeight" || key === "paragraphSpacing") return Number(v).toFixed(2);
   if (r.unit === "em") return `${Number(v).toFixed(2)}em`;
@@ -166,7 +184,17 @@ export function buildControls(profile, onChange) {
 
   const researchButton = el("button", { class: "rt-btn rt-primary rt-research-btn", type: "button" }, "Use this starter");
   researchButton.addEventListener("click", () => emit(researchStarterPatch(state)));
-  body.append(
+  /* Settings people actually reach for come first. The research explainer is
+     worth having and worth *reading once* — it does not need to be the first
+     half-screen of the panel every single time. */
+  body.append(toggle("dyslexicUiMode", "Dyslexia-friendly menus"));
+
+  const researchDetails = el("details", { class: "rt-research-fold" });
+  researchDetails.append(
+    el("summary", {}, [evidenceChip("strong", "Research-backed starter"), " What tends to help most"]),
+  );
+  body.append(researchDetails);
+  researchDetails.append(
     el("section", { class: "rt-research-box" }, [
       el("div", { class: "rt-research-top" }, [
         el("div", {}, [
@@ -202,7 +230,9 @@ export function buildControls(profile, onChange) {
   const secText = section(sectionTitle("Text", "strong"), false);
   secText.append(hint("Spacing and line width are some of the safest levers to reach for first."));
   secText.append(field("Font", segment("font", FONT_OPTS, "Font")));
-  secText.append(toggle("dyslexicUiMode", "Also use OpenDyslexic for ReadTune's menus & buttons"));
+  /* Named stops first, then the slider for anything in between. Reading for
+     a measure is easier than reading for a character count. */
+  secText.append(field("Line width", segment("columnWidth", WIDTH_OPTS, "Line width")));
   for (const k of ["fontSize", "lineHeight", "letterSpacing", "wordSpacing", "paragraphSpacing", "columnWidth"]) {
     secText.append(slider(k, SLIDERS[k]));
   }
@@ -233,10 +263,39 @@ export function buildControls(profile, onChange) {
     return b;
   });
   swatchGrid.append(...reg.swatch);
-  const customInput = el("input", { type: "color", class: "rt-color", value: state.customTint, "aria-label": "Custom tint colour" });
-  customInput.addEventListener("input", () => emit({ overlay: "custom", customTint: customInput.value }));
-  reg.customInput = customInput;
-  secColour.append(field("Reading tint", swatchGrid), field("Custom colour", customInput));
+  /* Custom tint: our own soft palette plus a hex box.
+     <input type="color"> handed the reader the OS colour panel — a saturated
+     picker aimed at choosing paint, in the middle of a reading-comfort setting,
+     where every usable answer is a pale wash. */
+  const customGrid = el("div", { class: "rt-swatches rt-swatches-custom", role: "group", "aria-label": "Custom tint colour" });
+  reg.customSwatch = CUSTOM_TINTS.map(({ hex, label }) => {
+    const b = el("button", { type: "button", class: "rt-swatch", "data-hex": hex, "aria-pressed": "false", title: label, style: `--sw:${hex}` });
+    b.addEventListener("click", () => emit({ overlay: "custom", customTint: hex }));
+    return b;
+  });
+  customGrid.append(...reg.customSwatch);
+
+  const hexInput = el("input", {
+    type: "text", class: "rt-hex", value: state.customTint, spellcheck: "false",
+    maxlength: "7", inputmode: "text", "aria-label": "Custom tint hex code", placeholder: "#eef3f8",
+  });
+  const commitHex = () => {
+    const v = hexInput.value.trim().replace(/^#?/, "#");
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      hexInput.setAttribute("aria-invalid", "false");
+      emit({ overlay: "custom", customTint: v.toLowerCase() });
+    } else {
+      hexInput.setAttribute("aria-invalid", "true");
+    }
+  };
+  hexInput.addEventListener("change", commitHex);
+  hexInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commitHex(); } });
+  reg.customInput = hexInput;
+  secColour.append(
+    field("Reading tint", swatchGrid),
+    field("Custom colour", customGrid),
+    field("Hex code", hexInput),
+  );
   secColour.append(slider("contrast", SLIDERS.contrast));
   secColour.append(toggle("hideImages", "Hide images"));
   secColour.append(toggle("freezeMotion", "Freeze animations & GIFs"));
@@ -402,6 +461,10 @@ export function buildControls(profile, onChange) {
     }
     for (const b of reg.swatch) b.setAttribute("aria-pressed", b.dataset.val === state.overlay ? "true" : "false");
     reg.customInput.value = state.customTint || "#eef3f8";
+    reg.customInput.setAttribute("aria-invalid", "false");
+    for (const b of reg.customSwatch) {
+      b.setAttribute("aria-pressed", state.overlay === "custom" && b.dataset.hex === state.customTint ? "true" : "false");
+    }
     for (const [key, input] of Object.entries(reg.toggle)) input.checked = !!state[key];
     for (const [key, { input, valEl }] of Object.entries(reg.slider)) {
       input.value = String(state[key]);

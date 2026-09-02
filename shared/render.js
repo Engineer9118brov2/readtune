@@ -214,6 +214,48 @@ function runReadability(rawHtml, base) {
   return null;
 }
 
+/* ---------- post-extraction layout repairs ---------- */
+
+/* A wide data table (a climate table, a fixture list) has no reason to widen
+   the whole document, but `table { width: 100% }` alone doesn't stop it: the
+   cells' own content sets a floor. Give every table its own scroll box so the
+   reading column keeps the measure the reader chose. */
+function wrapWideTables(fragment) {
+  for (const table of Array.from(fragment.querySelectorAll("table"))) {
+    if (table.parentElement && table.parentElement.classList.contains("rt-table-wrap")) continue;
+    const box = document.createElement("div");
+    box.className = "rt-table-wrap";
+    box.setAttribute("tabindex", "0");
+    box.setAttribute("role", "region");
+    const caption = table.querySelector("caption");
+    box.setAttribute("aria-label", (caption && caption.textContent.trim()) || "Table");
+    table.parentNode.insertBefore(box, table);
+    box.appendChild(table);
+  }
+}
+
+/* Wikipedia and friends open with an infobox, so the reader lands on a wall of
+   fact rows and has to scroll past it to reach the first sentence. Fold a
+   leading table away behind a summary the way Wikipedia's own mobile view does.
+   It stays in the document, in order, one click from open. */
+function foldLeadingTable(fragment) {
+  let node = fragment.firstElementChild;
+  while (node && !node.textContent.trim()) node = node.nextElementSibling;
+  if (!node) return;
+  const table = node.classList && node.classList.contains("rt-table-wrap") ? node.querySelector("table") : null;
+  if (!table) return;
+  const rows = table.querySelectorAll("tr").length;
+  if (rows < 4) return; // a small table is not in the way
+  const details = document.createElement("details");
+  details.className = "rt-fold";
+  const summary = document.createElement("summary");
+  const caption = table.querySelector("caption");
+  summary.textContent = (caption && caption.textContent.trim()) || "Quick facts";
+  details.append(summary);
+  node.parentNode.insertBefore(details, node);
+  details.appendChild(node);
+}
+
 export function buildArticleFragment(rawHtml, baseUrl) {
   let base = null;
   try {
@@ -234,6 +276,8 @@ export function buildArticleFragment(rawHtml, baseUrl) {
     }
   }
   const quality = assessArticleQuality(fragment, meta);
+  wrapWideTables(fragment);
+  foldLeadingTable(fragment);
   return { fragment, meta, extracted: extracted && fragment.textContent.trim().length > 0, quality };
 }
 
