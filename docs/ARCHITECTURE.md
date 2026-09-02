@@ -29,8 +29,11 @@ into another site's DOM; only an extension can. Manifest V3 (the current, and
 soon only, extension format) adds two constraints that shape the code:
 
 1. **No remote code.** You can't `<script src>` a CDN. So Readability, pdf.js,
-   the hyphenation patterns, and the fonts are downloaded once and committed
-   into `lib/`. `scripts/check.mjs` fails the build if any of them go missing.
+   the hyphenation patterns, the fonts, and the whole Piper read-aloud runtime
+   (onnxruntime-web + the WebAssembly phonemizer) are downloaded once and
+   committed into `lib/`. `scripts/check.mjs` fails the build if any go missing.
+   The only thing fetched at runtime is an optional extra voice model (weights,
+   not code) from Hugging Face, and only if you pick a non-default voice.
 2. **Minimal permissions, requested late.** The install only asks for
    `activeTab`, `scripting`, `storage`. `activeTab` grants access to the current
    tab *only after you click the toolbar button or press the shortcut* — a user
@@ -137,20 +140,24 @@ wall of toggles*, and that's the claim.
 ## Read-aloud — two backends, one highlighter
 
 `shared/tts.js` exposes one interface (`start/pause/step/seek/…`) over two
-engines:
+engines. There is **no** `speechSynthesis` backend — the plain system voices are
+what users disliked most, so if Piper can't start, read-aloud reports it rather
+than dropping to a robotic voice.
 
-- **Browser** (`speechSynthesis`) — default, no key, no network. One utterance
-  per sentence because Chrome truncates long ones. "Pause" is
-  `cancel()` + remembered index, because `SpeechSynthesis.pause()` is unreliable
-  across platforms. Word highlighting rides the `onboundary` event where the
-  voice fires it.
+- **Piper** (`shared/piper.js` + `shared/piper/worker.js`) — default. An
+  on-device neural voice: onnxruntime-web + a WebAssembly phonemizer in a Web
+  Worker. The default voice (`en_US-ljspeech-medium`, public domain) ships in
+  `lib/piper/voices/`, so first use needs no network and no permission; other
+  voices download a one-time model from Hugging Face. The model emits no word
+  timings, so the word highlight is a proportional estimate; the sentence
+  highlight is exact.
 - **ElevenLabs** (`shared/elevenlabs.js`) — optional, your own key. Sentences
   are batched into ~550-char chunks; each chunk's `/with-timestamps` response
   returns per-character start times, and `charIndexAt()` binary-searches them on
   every animation frame to highlight the exact word. Chunks are fetched
   just-in-time with one prefetch ahead, so stopping early doesn't spend quota on
   the rest of the article. Any API error (bad key, quota, offline) shows a toast
-  and finishes the article on the browser voice.
+  and falls back to the on-device Piper voice.
 
 The key lives **only** in `chrome.storage.local` under its own key
 (`readtune_tts`), never in the profile object, never in a file, never in git.
@@ -163,28 +170,30 @@ you why.
 ## File map
 
 ```
-manifest.json         MV3. activeTab + scripting + storage; optional api.elevenlabs.io & <all_urls>
-background.js          Service worker — Alt+R / Alt+Shift+R commands, per-site auto-open/restyle
+manifest.json         MV3. activeTab + scripting + storage; optional api.elevenlabs.io, huggingface.co, <all_urls>
+background.js          Service worker — Alt+R / Alt+Shift+R / Alt+Shift+D commands, per-site auto-open/restyle
 content.js             One-shot page capture for Reader View
 inpage.js / .css       "Restyle this page" — content script + shadow-DOM bar
-popup.*                Three entry points + profile summary + per-site automation mode chooser
-lab.*                  Reading Lab — confidence, stability, repeated wins
+dictate.js             "Talk to type" — content script, Chrome speech recognition → caret, spoken punctuation
+popup.*                Entry points + profile summary + per-site automation mode chooser
+lab.*                  Reading Lab — repeatability, stability, Voice Fit
 reader.* / pdf.*       Thin — hand content to shared/screen.js
-calibration.*          The test UI; scoring is in shared/calibration-score.js
+calibration.*          The check UI; scoring is in shared/calibration-score.js
 shared/
   settings.js          Profile shape, ranges, normalize/migrate, storage wrappers, TTS config
   render.js            THE formatting engine: sanitize → structure → typography → bionic → pacing
   calibration-score.js Pure scoring model (de-trend, per-dimension deltas, threshold) — unit-tested
   inpage-style.js      Generates the html.rt-inpage stylesheet — unit-tested
   aids.js              Ruler, progress bar, paragraph focus, resume position, highlights
-  tts.js               Read-aloud: browser + ElevenLabs backends + shared highlighter
+  tts.js               Read-aloud: Piper + ElevenLabs backends + shared highlighter
+  piper.js / piper/    On-device neural voice — client, Web Worker, voice list (all PD/CC0)
   elevenlabs.js        The API: voices, /with-timestamps synth, alignment → word index
   transport.js         The floating playback bar
   controls.js          The settings panel
   screen.js            Wires a reading view to panel / transport / tts / aids / per-page memory
   pdftext.js           PDF text layer → paragraphs (gap-based paragraph detection) — unit-tested
-lib/                   Vendored, no remote code
-test/harness.html      Open in a browser — ~50 assertions, stubs chrome.*
+lib/                   Vendored, no remote code (Readability, pdf.js, Hypher, fonts, onnxruntime-web, piper_phonemize)
+test/harness.html      Open in a browser (or `npm run harness`) — ~110 assertions, stubs chrome.*
 scripts/check.mjs      Syntax + manifest + asset-reference check (npm run check)
 scripts/build.mjs      Clean Web Store zip (npm run build)
 ```

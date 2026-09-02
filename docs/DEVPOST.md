@@ -98,7 +98,7 @@ Chrome extension, Manifest V3. Everything runs on your device.
 
 The calibration scoring is a small, testable model:
 `shared/calibration-score.js`, with unit tests. There's a CI pipeline and a
-~50-assertion test harness.
+~110-assertion test harness.
 
 ## What we're honest about
 

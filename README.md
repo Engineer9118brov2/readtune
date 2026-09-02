@@ -117,7 +117,7 @@ test/                   Browser test harness (not shipped)
 
 ```
 npm run check     # syntax, manifest, asset references
-npm run harness   # ~50 behavioural assertions in headless Chrome
+npm run harness   # ~110 behavioural assertions in headless Chrome
 npm test          # both
 npm run build     # clean Web Store zip
 ```

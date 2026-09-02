@@ -16,12 +16,17 @@ An IT admin evaluating an extension checks, roughly in order:
    only. It cannot read a page until the student clicks the button or presses
    the shortcut. Broader access is an *optional* per-site permission the student
    turns on themselves.
-3. **Does it phone home?** No — with one opt-in exception (ElevenLabs read-aloud,
-   which needs a personal API key students won't have). The default browser
-   voice is fully on-device.
+3. **Does it phone home?** Not by default. Read-aloud uses a neural voice that
+   runs on the device, and the default voice ships inside the extension. Two
+   opt-in features send data: dictation uses Chrome's own speech recognition
+   (audio goes to Google, as it does for any site that uses that browser API),
+   and ElevenLabs read-aloud needs a personal API key students won't have.
+   Selecting an extra read-aloud voice downloads a one-time model file from
+   Hugging Face.
 4. **What does it cost?** Nothing. No per-seat licence, no quote, no renewal.
-5. **Is it a support burden?** It's ~0.8 MB, no login to reset, no account to
-   provision, works offline.
+5. **Is it a support burden?** No login to reset, no account to provision, works
+   offline. The package is larger than a typical extension (~60 MB) because the
+   on-device voice is bundled.
 
 That's a genuinely easy approval compared to a paid tool that ships an SSO
 integration and a data-processing agreement.

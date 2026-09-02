@@ -79,8 +79,8 @@ Focus areas:
 
 5. RESILIENCE. Every chrome.* call — is a rejected promise or a thrown
    exception handled so the user gets a message instead of a blank screen?
-   Check storage-blocked, offline, speechSynthesis-unavailable, PDF-worker-
-   failed, Readability-returns-nothing.
+   Check storage-blocked, offline, the Piper worker or model failing to load,
+   PDF-worker-failed, Readability-returns-nothing.
 
 6. ACCESSIBILITY of the extension's own UI (WCAG 2.2 AA): focus order and
    visible focus in the popup and the settings panel; the reading ruler and
