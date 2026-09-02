@@ -125,12 +125,12 @@ html.rt-inpage body *${READING_GUARD} {
  * a dark fill while the text on top is repainted dark too. The result is
  * unreadable patches scattered through an otherwise tinted page. Media and
  * anything painting with an image keep what they have. */
-html.rt-inpage body *:not(img):not(picture):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(rt-bionic):not(pre):not(code):not(kbd):not(samp):not(blockquote):not(mark):not(button):not(input):not(select):not(textarea) {
+html.rt-inpage body *:not(img):not(picture):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(rt-bionic):not(pre):not(code):not(kbd):not(samp):not(blockquote):not(mark):not(button):not(input):not(select):not(textarea):not(option):not(optgroup) {
   background-color: transparent !important;
 }
 /* Controls are excluded from the ink rules above, so give them a surface of
    their own rather than letting them keep a dark fill under dark text. */
-html.rt-inpage :is(button, input, select, textarea) {
+html.rt-inpage :is(button, input, select, textarea, option, optgroup) {
   background-color: var(--rt-inpage-faint) !important;
   color: var(--rt-inpage-ink) !important;
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;

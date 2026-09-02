@@ -43,7 +43,7 @@ const OVERLAY_SELECTORS = [
   // named consent managers
   '[id*="onetrust" i]', '[class*="onetrust" i]', '[class*="ot-sdk" i]', '[class*="optanon" i]',
   '[id*="evidon" i]', '[class*="evidon" i]',
-  '[id*="truste" i]', '[class*="truste" i]',
+  '#truste-consent-track', '[id^="truste-" i]', '[class^="truste-" i]', '[class*="trustarc" i]',
   '[id^="sp_message_container" i]', '[class*="sp-message" i]',
   '[class*="qc-cmp" i]', '[class*="fc-consent-root" i]', '[class*="osano" i]',
   '[id*="usercentrics" i]', '[class*="usercentrics" i]', '[id*="didomi" i]', '[class*="didomi" i]',
@@ -60,17 +60,26 @@ const OVERLAY_SELECTORS = [
   '[role="dialog"]', '[role="alertdialog"]', '[aria-modal="true"]',
 ].join(",");
 
-/* Text that only a consent notice says. Belt-and-braces for a CMP whose markup
-   none of the selectors above happens to match. */
-const CONSENT_PHRASES = [
+/* Belt-and-braces for a CMP whose markup none of the selectors above matches.
+ *
+ * Split in two on purpose. The first list is consent-UI copy — wording that
+ * appears because a dialog is asking you something, not because a writer chose
+ * it. The second list is wording an article about tracking might reasonably
+ * quote, so on its own it is never grounds to throw a page away. Discarding a
+ * real article silently is a worse failure than rendering a banner, which the
+ * reader can at least see and route around. */
+const CONSENT_UI_PHRASES = [
   /\bdo not sell (?:or share )?my (?:personal )?info(?:rmation)?\b/i,
   /\bopt[- ]out of the sale or sharing\b/i,
   /\bcustomi[sz]e my ad experience\b/i,
+  /\bstrictly necessary cookies\b/i,
+  /\byour privacy choices\b/i,
+];
+
+const CONSENT_TOPIC_PHRASES = [
   /\b(?:accept|allow) all cookies\b/i,
   /\bwe(?:'| u)se cookies\b/i,
-  /\byour privacy choices\b/i,
   /\bmanage (?:your )?(?:cookie )?preferences\b/i,
-  /\bstrictly necessary cookies\b/i,
   /\binterest[- ]based advertising\b/i,
 ];
 
@@ -93,10 +102,17 @@ export function stripOverlays(doc) {
   return removed;
 }
 
+const countHits = (list, t) => list.reduce((n, re) => n + (re.test(t) ? 1 : 0), 0);
+
 /** How much of this text reads like a cookie/consent notice rather than prose. */
 export function consentPhraseHits(text) {
   const t = String(text || "");
-  return CONSENT_PHRASES.reduce((n, re) => n + (re.test(t) ? 1 : 0), 0);
+  return countHits(CONSENT_UI_PHRASES, t) + countHits(CONSENT_TOPIC_PHRASES, t);
+}
+
+/** Phrases that appear because a dialog is asking, not because a writer chose them. */
+export function consentUiHits(text) {
+  return countHits(CONSENT_UI_PHRASES, String(text || ""));
 }
 
 /* ---------- URL + node sanitizing ---------- */
@@ -351,10 +367,12 @@ export function assessArticleQuality(fragment, meta = {}) {
 
   const readLength = Math.max(0, Number(meta.length) || 0);
   /* A consent notice is short, dense prose — it clears every threshold below on
-     its own. Two distinct consent phrases in a passage this short means we
-     extracted the cookie banner, not the page. */
-  const consentHits = consentPhraseHits(fragment.textContent);
-  const looksLikeConsent = consentHits >= 2 && words.length < 400;
+     its own. Requires at least one phrase that only a consent dialog uses: an
+     article that merely discusses tracking is never thrown away on the strength
+     of the topic words alone. */
+  const text = fragment.textContent;
+  const consentHits = consentPhraseHits(text);
+  const looksLikeConsent = consentUiHits(text) >= 1 && consentHits >= 2 && words.length < 400;
   const ok =
     words.length >= 30 &&
     (
@@ -381,24 +399,49 @@ function buildChunks(fragment) {
   const push = (text, heading) => {
     for (const s of splitSentences(text)) chunks.push({ text: s, heading: !!heading });
   };
-  for (const node of Array.from(fragment.childNodes)) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      push(node.nodeValue, false);
-      continue;
+
+  const walk = (parent) => {
+    for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        push(node.nodeValue, false);
+        continue;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      const tag = node.tagName;
+      /* Layout wrappers — the table scroll box, a folded infobox — carry no text
+         of their own. Descend, or their contents arrive here as one undivided
+         run: before this, a wrapped table produced the single "sentence"
+         "CountryUnited StatesStateCalifornia…". */
+      if (tag === "DIV" || tag === "DETAILS" || tag === "SECTION") {
+        walk(node);
+      } else if (tag === "SUMMARY") {
+        const t = node.textContent.trim();
+        if (t) chunks.push({ text: t, heading: true });
+      } else if (/^H[1-6]$/.test(tag)) {
+        const t = node.textContent.trim();
+        if (t) chunks.push({ text: t, heading: true });
+      } else if (tag === "UL" || tag === "OL" || tag === "DL") {
+        for (const li of node.querySelectorAll("li, dd, dt")) push(li.textContent, false);
+      } else if (tag === "TABLE") {
+        /* One chunk per cell, so a data table reads as the rows it is rather
+           than as a wall of concatenated labels and values. */
+        const caption = node.querySelector("caption");
+        if (caption && caption.textContent.trim()) chunks.push({ text: caption.textContent.trim(), heading: true });
+        for (const row of node.querySelectorAll("tr")) {
+          const cells = Array.from(row.querySelectorAll("th, td"))
+            .map((c) => normalizeText(c.textContent))
+            .filter(Boolean);
+          if (cells.length) push(cells.join(": "), false);
+        }
+      } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR") {
+        /* skipped in chunk mode */
+      } else {
+        push(node.textContent, false);
+      }
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-    const tag = node.tagName;
-    if (/^H[1-6]$/.test(tag)) {
-      const t = node.textContent.trim();
-      if (t) chunks.push({ text: t, heading: true });
-    } else if (tag === "UL" || tag === "OL" || tag === "DL") {
-      for (const li of node.querySelectorAll("li, dd, dt")) push(li.textContent, false);
-    } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR" || tag === "TABLE") {
-      /* skipped in chunk mode */
-    } else {
-      push(node.textContent, false);
-    }
-  }
+  };
+
+  walk(fragment);
   return chunks;
 }
 
@@ -513,10 +556,6 @@ function wrapSentences(root) {
   const blocks = root.querySelectorAll(SENTENCE_BLOCKS);
   for (const block of blocks) {
     if (block.closest("pre")) continue;
-    /* Wrap the innermost block only. A <td> holding a <p>, or a <blockquote>
-       holding paragraphs, would otherwise be wrapped twice and every sentence
-       inside it would be counted — and highlighted — two deep. */
-    if (block.querySelector(SENTENCE_BLOCKS)) continue;
     const kids = Array.from(block.childNodes);
     if (!kids.length) continue;
     const frag = document.createDocumentFragment();
@@ -541,6 +580,21 @@ function wrapSentences(root) {
           if (/[.!?…]["'”’)\]]*\s*$/.test(m[0]) && re.lastIndex < text.length) newSpan();
         }
         if (!any) span.appendChild(document.createTextNode(text));
+      } else if (
+        node.nodeType === Node.ELEMENT_NODE &&
+        (node.matches(SENTENCE_BLOCKS) || node.querySelector(SENTENCE_BLOCKS))
+      ) {
+        /* A block nested inside another block — <li> holding a <ul>, a <td>
+           holding a <p>. It gets its own pass, so hand it through untouched
+           rather than folding it into this block's sentence. Wrapping it here
+           too would nest .rt-s two deep and count those sentences twice — as
+           would folding in a plain <ul> that merely *contains* such blocks; but
+           skipping the whole parent (as an earlier attempt did) silently
+           dropped the parent's own text — "Parent topic" in a nested list was
+           never read aloud at all. */
+        if (span && !span.hasChildNodes()) span.remove();
+        frag.appendChild(node);
+        newSpan();
       } else {
         span.appendChild(node);
       }

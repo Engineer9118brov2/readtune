@@ -677,6 +677,85 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     style.remove();
   }
 
+  /* ---- review follow-ups (Codex, PR #3) ---- */
+  {
+    const mk = (inner, url) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      const res = v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        url,
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE });
+      return { h, v, res, flow: h.querySelector(".rt-article") };
+    };
+    const filler = "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>";
+
+    // A block nested in a block: the parent's own text must still be spoken.
+    {
+      const { h, flow } = mk(filler + "<ul><li>Parent topic<ul><li>Child detail</li></ul></li></ul>", "https://x.test/a");
+      const said = [...flow.querySelectorAll(".rt-s")].map((n) => n.textContent.trim());
+      assert(said.includes("Parent topic"), "a list item's own label is read, not just its children");
+      assert(said.includes("Child detail"), "the nested item is read too");
+      assert(flow.querySelectorAll(".rt-s .rt-s").length === 0, "and neither is wrapped twice");
+      h.remove();
+    }
+
+    // Sentence mode must not concatenate a table into one malformed sentence.
+    {
+      const { h, v } = mk(
+        filler +
+          "<table><tr><th>Country</th><td>United States</td></tr><tr><th>State</th><td>California</td></tr>" +
+          "<tr><th>County</th><td>Los Angeles</td></tr><tr><th>Zip</th><td>91301</td></tr></table>",
+        "https://x.test/b",
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence" });
+      const seen = new Set();
+      for (let k = 0; k < 40; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.add(t.textContent.trim());
+        v.step(1);
+      }
+      const all = [...seen].join(" | ");
+      assert(!/CountryUnited States|StatesState/.test(all), "sentence mode never mashes table cells into one run");
+      assert(seen.has("Country: United States"), "a table row reads as the row it is");
+      h.remove();
+    }
+
+    // The overlay stripper must not eat ordinary ids that merely start with "truste".
+    {
+      const { h, res } = mk(
+        '<div id="trusted-experts"><p>' + "Our trusted experts explain the topic in careful detail. ".repeat(10) + "</p></div>",
+        "https://x.test/c",
+      );
+      assert(res.quality.ok && /trusted experts/i.test(h.textContent), "an id beginning \"trusted\" is not mistaken for a consent vendor");
+      h.remove();
+    }
+
+    // Topic words alone must never discard a real article.
+    {
+      const para =
+        "We use cookies, the banner says, and then it hands you a wall of toggles. You can usually " +
+        "manage your preferences from the same panel, though the reject control is buried by design.";
+      const { h, res } = mk("<p>" + para + "</p><p>" + para + "</p>", "https://x.test/d");
+      assert(R.consentPhraseHits(h.textContent) >= 2, "the fixture really does carry two consent topic phrases");
+      assert(R.consentUiHits(h.textContent) === 0, "but none of them is consent-dialog copy");
+      assert(res.quality.ok, "a short article about tracking is not thrown away for its topic");
+      h.remove();
+    }
+    assert(
+      R.consentUiHits('Do not sell my info. Customize my ad experience.') === 2,
+      "consent-dialog copy is still recognised",
+    );
+  }
+
+  /* ---- restyle: option rows get the control surface ---- */
+  {
+    const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+    assert(/option/.test(css) && /:not\(option\)/.test(css), "option rows are excluded from the transparent sweep and given a surface");
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);
