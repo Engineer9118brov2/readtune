@@ -411,9 +411,10 @@ body.rt-reading-page > .rt-surface {
   font-weight: 600;
   color: color-mix(in srgb, var(--rt-ink) 78%, transparent);
 }
-/* A "Source: …" row spans the whole table and reads as a footnote, not data. */
-.rt-article tfoot td,
-.rt-article td[colspan]:only-child {
+/* A footer row reads as a note about the table rather than data in it. Scoped
+   to <tfoot>: a lone spanning cell is just as often a section label or a group
+   heading, and muting those makes real content look like small print. */
+.rt-article tfoot td {
   border-top: 1px solid var(--rt-faint);
   font-size: 0.92em;
   color: color-mix(in srgb, var(--rt-ink) 68%, transparent);

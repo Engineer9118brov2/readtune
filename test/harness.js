@@ -915,6 +915,36 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     }
   }
 
+  /* ---- nested tables are read once, not twice ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(
+      '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' +
+        "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>" +
+        "<table><tr><th>Outer</th><td>Outer value</td></tr>" +
+        "<tr><th>Nested</th><td><table><tr><th>Inner</th><td>Inner value</td></tr>" +
+        "<tr><th>Second</th><td>Second value</td></tr></table></td></tr></table>" +
+        "</article></body></html>",
+      "https://x.test/nested",
+    );
+    v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence" });
+    const seen = [];
+    for (let k = 0; k < 14; k++) {
+      const t = h.querySelector(".rt-chunk-sentence");
+      if (t) seen.push(t.textContent.trim());
+      v.step(1);
+    }
+    const innerMentions = seen.filter((t) => /Inner value/.test(t)).length;
+    assert(innerMentions <= 1, "a nested table's content is read once, not once inside its parent row and again on its own");
+    assert(
+      !seen.some((t) => /Nested: Inner/.test(t)),
+      "the outer row does not swallow the nested table's text",
+    );
+    h.remove();
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

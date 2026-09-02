@@ -458,9 +458,16 @@ function buildChunks(fragment) {
         const summary = fold ? fold.querySelector("summary") : null;
         const alreadySaid = !!summary && summary.textContent.trim() === captionText;
         if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
-        for (const row of node.querySelectorAll("tr")) {
+        /* Only this table's own rows and cells. A descendant selector also
+           collects a nested table's rows — once inside the outer cell's
+           textContent and again as rows of their own — so the inner table
+           gets read twice, merged into its parent row the first time. The
+           nested table is reached on its own when the walker descends. */
+        const ownRows = Array.from(node.querySelectorAll("tr")).filter((r) => r.closest("table") === node);
+        for (const row of ownRows) {
           const cells = Array.from(row.querySelectorAll("th, td"))
-            .map((c) => normalizeText(c.textContent))
+            .filter((c) => c.closest("table") === node)
+            .map((c) => normalizeText(cellTextWithoutNestedTables(c)))
             .filter(Boolean);
           if (cells.length) push(cells.join(": "), false);
         }
@@ -474,6 +481,15 @@ function buildChunks(fragment) {
 
   walk(fragment);
   return chunks;
+}
+
+/* A cell's own words, with any table nested inside it left out — that table is
+   walked separately and would otherwise be read twice. */
+function cellTextWithoutNestedTables(cell) {
+  if (!cell.querySelector("table")) return cell.textContent;
+  const copy = cell.cloneNode(true);
+  copy.querySelectorAll("table").forEach((t) => t.remove());
+  return copy.textContent;
 }
 
 /* ---------- bionic bolding ---------- */
