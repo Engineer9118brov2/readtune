@@ -5,6 +5,37 @@ the user's device — no key, no account, no per-sentence network call. This is 
 one thing no competitor in the space does (Speechify/NaturalReader paywall their
 good voices; Immersive Reader's are cloud; the OS voices are hit-or-miss).
 
+## As shipped (v0.7.2)
+
+Piper is **the only read-aloud engine** (ElevenLabs stays as an optional
+bring-your-own-key path). There is no browser-speech fallback: if Piper can't
+run, read-aloud shows a clear message rather than a robotic system voice.
+
+- `shared/piper.js` — voice list + `createPiperEngine()`; `shared/piper/worker.js`
+  runs ORT + the phonemizer off the main thread.
+- **The default voice ships inside the extension.** `lib/piper/voices/en_US-ljspeech-medium.onnx`
+  (+ `.onnx.json`). `worker.js` registers a bundled resolver (`setBundledResolver`
+  in `piper-tts-web.js`) that serves it from `chrome.runtime.getURL(...)` before
+  any network fetch — so first-use read-aloud works offline, with no download and
+  no permission prompt.
+- **Voice licensing is resolved.** Every offered voice is public domain or CC0
+  and safe to bundle/redistribute: **Linden** (`ljspeech`, public domain,
+  bundled default), **Joe** (`joe`, CC0, download), **Kristin** (`kristin`,
+  public domain / LibriVox, download). The Piper stock defaults (lessac = Blizzard
+  research-only; amy = unclear; ryan = CC-BY-NC) are deliberately **not** offered;
+  `loadTTSConfig()` migrates anyone previously on them to Linden.
+- Extra (non-bundled) voices download once from Hugging Face (~60 MB) and need
+  the `huggingface.co` optional permission, requested at that moment.
+- **Zip size: ~70 MB** (was 15 MB). The bundled voice is ~63 MB; ORT wasm ~20 MB;
+  espeak-ng data ~18 MB. Large but legal, and it buys a fully-offline neural
+  voice. Trim paths, in order: drop the non-SIMD `ort-wasm.wasm` (−10 MB),
+  English-only espeak rebuild (−16 MB), host the model on our own domain instead
+  of bundling (−63 MB, but re-introduces a first-use download).
+
+**Still open:** (1) `espeak-ng` is GPLv3 — see the licensing note at the bottom;
+(2) never actually clicked in a loaded extension end to end — the clean-profile
+verification the award plan requires; (3) Chromebook / throttled-CPU perf test.
+
 ## Status: spike PASSED (2026-08-31)
 
 A throwaway MV3 extension (`scratchpad/piper-spike/ext/`) loaded the whole Piper
@@ -138,5 +169,14 @@ UI (`shared/controls.js`, `lab.js`):
 `piper-tts-web.js` (patched), `piper-o91UDS6e.js`, `voices_static-*.js`,
 `ort/ort.wasm.min.js`, `ort/ort-wasm-simd.wasm`, `ort/ort-wasm.wasm`,
 `piper/piper_phonemize.wasm`, `piper/piper_phonemize.data`.
-Licenses: onnxruntime-web MIT, piper-tts-web MIT, piper/espeak-ng GPLv3 —
-**check the espeak-ng GPL implication for a bundled extension before shipping.**
+Licenses:
+- onnxruntime-web — MIT ✅
+- `@mintplex-labs/piper-tts-web` glue — MIT ✅
+- Voice models — **Linden** public domain, **Joe** CC0, **Kristin** public
+  domain (LibriVox). All safe to bundle and redistribute. ✅
+- `piper_phonemize` bundles **espeak-ng — GPLv3.** ⚠️ Unresolved. The extension
+  ships this wasm as a black-box phonemizer called through a fixed interface;
+  the common reading is "mere aggregation," and ReadTune's own source is public,
+  which satisfies the GPL source-offer. But get this confirmed before a real
+  Chrome Web Store launch, or swap to a non-GPL g2p. Low-stakes for the hackathon
+  submission itself.

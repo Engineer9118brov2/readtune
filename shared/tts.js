@@ -150,17 +150,14 @@ export function createTTS({
   getFlow,
   onState = () => {},
   onStatus = () => {},
-  getConfig = () => ({ provider: "browser" }),
+  getConfig = () => ({ provider: "piper" }),
   onError = () => {},
 }) {
-  const synth = isTTSAvailable() ? window.speechSynthesis : null;
-
   let sentences = [];
   let i = 0;
   let playing = false;
   let rate = 1;
-  let voiceName = "";
-  let provider = "browser";
+  let provider = "piper";
   let run = 0; // bumped on every stop/restart; async work checks it
 
   // ElevenLabs state
@@ -269,40 +266,16 @@ export function createTTS({
     if (target) target.classList.add("rt-speak-word");
   }
 
-  /* ---------- browser backend ---------- */
-  function browserSpeak() {
-    if (!playing) return;
-    if (!synth) {
-      playing = false;
-      onError("Read-aloud isn't available in this browser.");
-      onState({ playing: false, done: true, index: 0, total: sentences.length });
-      return;
-    }
-    if (i >= sentences.length) return finish();
-    const mine = run;
-    const s = sentences[i];
-    markSentence(i);
-    const u = new SpeechSynthesisUtterance(s.text);
-    u.rate = rate;
-    if (voiceName && synth) {
-      const v = synth.getVoices().find((x) => x.name === voiceName);
-      if (v) {
-        u.voice = v;
-        u.lang = v.lang;
-      }
-    }
-    u.onboundary = (ev) => {
-      if (ev.name && ev.name !== "word") return;
-      try {
-        highlightWord(s, ev.charIndex || 0);
-      } catch {}
-    };
-    u.onend = u.onerror = () => {
-      if (!playing || mine !== run) return;
-      i += 1;
-      browserSpeak();
-    };
-    synth.speak(u);
+  /* Read-aloud has one on-device engine (Piper). If it can't run, the honest
+     answer is a clear message — never a fall back to a robotic system voice. */
+  function readAloudFailed(message) {
+    playing = false;
+    run++;
+    stopAudioEl();
+    stopPiperAudio();
+    clearHighlight();
+    onError(message || "Read-aloud couldn't start on this device.");
+    onState({ playing: false, done: true, index: i, total: sentences.length });
   }
 
   /* ---------- ElevenLabs backend ---------- */
@@ -326,10 +299,10 @@ export function createTTS({
       fetchChunk(k + 1);
     } catch (err) {
       if (mine !== run) return;
-      onError(err && err.message ? err.message : "ElevenLabs request failed. Using the browser voice.");
-      provider = "browser";
+      onError(err && err.message ? err.message : "ElevenLabs request failed. Switching to the on-device voice.");
+      provider = "piper";
       i = sentenceIdx;
-      return browserSpeak();
+      return piperSpeak();
     }
     if (!playing || mine !== run) return;
 
@@ -352,10 +325,10 @@ export function createTTS({
     };
     audio.onerror = () => {
       if (!playing || mine !== run) return;
-      onError("Audio playback failed. Using the browser voice.");
-      provider = "browser";
+      onError("Audio playback failed. Switching to the on-device voice.");
+      provider = "piper";
       i = sentenceIdx;
-      browserSpeak();
+      piperSpeak();
     };
 
     try {
@@ -451,21 +424,17 @@ export function createTTS({
       };
       audio.onerror = () => {
         if (!playing || mine !== run) return;
-        const message = "The local voice couldn't play this sentence. Using the browser voice.";
+        const message = "The on-device voice couldn't play this sentence.";
         onStatus({ provider: "piper", kind: "error", message, percent: null });
-        onError(message);
-        provider = "browser";
-        browserSpeak();
+        readAloudFailed(message);
       };
       await audio.play();
       drivePiper(mine, sentence);
     } catch (err) {
       if (!playing || mine !== run) return;
-      const message = err && err.message ? `${err.message} Using the browser voice.` : "Natural voice failed. Using the browser voice.";
+      const message = err && err.message ? err.message : "The on-device voice couldn't start.";
       onStatus({ provider: "piper", kind: "error", message, percent: null });
-      onError(message);
-      provider = "browser";
-      browserSpeak();
+      readAloudFailed(message);
     }
   }
 
@@ -481,17 +450,14 @@ export function createTTS({
     if (provider === "elevenlabs") {
       buildChunks();
       elevenPlay(chunkOf(i), i);
-    } else if (provider === "piper") {
-      piperSpeak();
     } else {
-      browserSpeak();
+      piperSpeak();
     }
   }
 
   function finish() {
     playing = false;
     run++;
-    if (synth) synth.cancel();
     stopAudioEl();
     stopPiperAudio();
     el = null;
@@ -502,15 +468,13 @@ export function createTTS({
 
   function halt() {
     run++;
-    if (synth) synth.cancel();
     stopAudioEl();
     stopPiperAudio();
   }
 
   function resolveProvider() {
     const cfg = getConfig();
-    if (cfg.provider === "piper" && cfg.piperVoice) return "piper";
-    return cfg.provider === "elevenlabs" && cfg.apiKey && cfg.voiceId ? "elevenlabs" : "browser";
+    return cfg.provider === "elevenlabs" && cfg.apiKey && cfg.voiceId ? "elevenlabs" : "piper";
   }
 
   return {
@@ -526,7 +490,6 @@ export function createTTS({
     },
     pause() {
       playing = false;
-      if (synth) synth.cancel();
       if (audio) audio.pause();
       cancelAnimationFrame(raf);
       onState({ playing: false, index: i, total: sentences.length });
@@ -580,18 +543,10 @@ export function createTTS({
     setRate(r) {
       rate = Math.max(0.5, Math.min(2, Number(r) || 1));
       if (audio) audio.playbackRate = rate;
-      if (playing && provider === "browser" && synth) {
-        synth.cancel();
-        browserSpeak();
-      }
     },
-    setVoice(name) {
-      voiceName = name || "";
-      if (playing && provider === "browser" && synth) {
-        synth.cancel();
-        browserSpeak();
-      }
-    },
+    /* No-op: read-aloud voice is the Piper voice in the TTS config, not a
+       browser voice name. Kept so callers don't need to branch. */
+    setVoice() {},
     /** ElevenLabs key / voice / provider changed. */
     reload() {
       const wasPlaying = playing;

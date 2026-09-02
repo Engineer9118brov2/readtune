@@ -113,7 +113,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   }
   const labVoiceText = labDoc.getElementById("lab-voice-panel").textContent;
   assert(labDoc.querySelectorAll(".lab-voice-card").length === 3, "Voice Fit Lab renders exactly three curated Piper voices");
-  assert(/Lessac/.test(labVoiceText) && /Amy/.test(labVoiceText) && /Ryan/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
+  assert(/Linden/.test(labVoiceText) && /Joe/.test(labVoiceText) && /Kristin/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
+  assert(/Built in/.test(labVoiceText), "Voice Fit Lab marks the bundled default voice as built in");
   assert(!/Browser default|Best free voices|Re-scan/i.test(labVoiceText), "Voice Fit Lab does not surface browser voice clutter");
 
   /* settings */
@@ -370,14 +371,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.saveTTSConfig({ provider: "elevenlabs", apiKey: "sk-test-123", voiceId: "v1", voiceName: "Aria" });
   let tc = await S.loadTTSConfig();
   assert(tc.provider === "elevenlabs" && tc.apiKey === "sk-test-123" && tc.voiceId === "v1", "TTS config round-trip");
-  tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-lessac-medium" });
-  assert(tc.provider === "piper" && tc.piperVoice === "en_US-lessac-medium", "Piper TTS config round-trip");
-  await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-amy-low" });
+  tc = await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-joe-medium" });
+  assert(tc.provider === "piper" && tc.piperVoice === "en_US-joe-medium", "Piper TTS config round-trip");
+  await S.saveTTSConfig({ provider: "piper", piperVoice: "en_US-lessac-medium" });
   tc = await S.loadTTSConfig();
-  assert(tc.piperVoice === "en_US-lessac-medium", "legacy Amy low selection upgrades to the medium Piper default");
+  assert(tc.piperVoice === "en_US-ljspeech-medium", "retired Piper voice upgrades to the bundled public-domain default");
   await S.forgetTTSKey();
   tc = await S.loadTTSConfig();
-  assert(tc.provider === "browser" && !tc.apiKey, "forgetTTSKey clears key + reverts to browser");
+  assert(tc.provider === "piper" && !tc.apiKey, "forgetTTSKey clears the ElevenLabs key + reverts to the on-device voice");
   assert(!JSON.stringify(S.DEFAULT_PROFILE).includes("apiKey"), "API key is NOT part of the profile object");
 
   await S.setSiteAutoStyle("https://blog.test", true);
@@ -399,46 +400,22 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const ipNone = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "none" }, "");
   assert(!/background: #/.test(ipNone.replace(/#readtune-ruler[^}]+}/g, "")), "inpageCSS overlay=none leaves page colours alone");
 
-  /* ---- controls: read-aloud engine picker ---- */
+  /* ---- controls: read-aloud engine picker (Piper on-device + optional key) ---- */
   let ttsPatch = null;
   const cp = buildControls({ ...S.DEFAULT_PROFILE, pacing: "aloud" }, (p) => (ttsPatch = p));
   document.body.append(cp.panel);
   const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Voice source/.test(n.textContent));
   assert(engRow && !engRow.closest(".rt-field").hidden, "engine picker visible in aloud mode");
-  assert(
-    !!cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="piper"]'),
-    "Piper natural engine is available"
-  );
-  assert(/No account, no API bill/.test(cp.panel.textContent), "browser voice is clearly free");
+  const engButtons = [...cp.panel.querySelectorAll('.rt-seg[aria-label="Read-aloud engine"] button')].map((b) => b.dataset.val);
+  assert(engButtons.includes("piper") && engButtons.includes("elevenlabs") && !engButtons.includes("browser"), "engine picker offers the on-device voice and an optional key, not a browser voice");
+  assert(/ships with ReadTune/.test(cp.panel.textContent), "panel explains the default voice is built in");
   cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="elevenlabs"]').click();
   assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "elevenlabs", "engine → __tts patch");
   cp.setTTS({ provider: "elevenlabs", hasKey: true, voices: [{ id: "a", name: "Aria" }, { id: "b", name: "Bill" }], voiceId: "a", status: "ok" });
-  assert(cp.reg ? true : cp.panel.querySelector(".rt-tts-connected") && !cp.panel.querySelector(".rt-tts-connected").hidden, "connected row shown when key present");
+  assert(cp.panel.querySelector(".rt-tts-connected") && !cp.panel.querySelector(".rt-tts-connected").hidden, "connected row shown when key present");
   const elSel = [...cp.panel.querySelectorAll("select")].find((s) => s.options.length === 2 && s.options[0].textContent === "Aria");
   assert(elSel, "EL voice list populated");
   cp.panel.remove();
-
-  const originalSynth = Object.getOwnPropertyDescriptor(window, "speechSynthesis");
-  const originalUtterance = Object.getOwnPropertyDescriptor(window, "SpeechSynthesisUtterance");
-  let synthCancels = 0;
-  let synthSpeaks = 0;
-  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
-    getVoices: () => [{ name: "Samantha Enhanced", localService: true, lang: "en-US" }],
-    speak: () => { synthSpeaks += 1; },
-    cancel: () => { synthCancels += 1; },
-    addEventListener: () => {},
-    removeEventListener: () => {},
-  } });
-  Object.defineProperty(window, "SpeechSynthesisUtterance", {
-    configurable: true,
-    writable: true,
-    value: function SpeechSynthesisUtterance(text) {
-      this.text = text;
-      this.rate = 1;
-      this.lang = "en-US";
-      this.voice = null;
-    },
-  });
 
   const screenSurface = document.createElement("section");
   const screenHost = document.createElement("div");
@@ -451,26 +428,15 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
-  const preview = [...document.querySelectorAll(".rt-preview")].find((btn) => !btn.closest(".rt-field").hidden);
-  preview.click();
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  assert(
-    synthCancels >= 1 && synthSpeaks >= 2 && document.querySelector(".rt-play").textContent === "▶",
-    "voice preview pauses active read-aloud"
-  );
   document.querySelector(".rt-reset").click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(
-    screen.getProfile().pacing === "flow" && synthCancels >= 1 && document.querySelector(".rt-transport").hidden,
-    "reset stops read-aloud cleanly"
+    screen.getProfile().pacing === "flow" && document.querySelector(".rt-transport").hidden,
+    "reset returns to flow and hides the transport"
   );
   screen.destroy();
   assert(!document.querySelector(".rt-panel") && !document.querySelector(".rt-panel-toggle"), "reading screen destroy cleans up controls");
   screenSurface.remove();
-  if (originalSynth) Object.defineProperty(window, "speechSynthesis", originalSynth);
-  else delete window.speechSynthesis;
-  if (originalUtterance) Object.defineProperty(window, "SpeechSynthesisUtterance", originalUtterance);
-  else delete window.SpeechSynthesisUtterance;
 
   const listenMode = RM.modePatch("listen", S.DEFAULT_PROFILE);
   assert(listenMode.pacing === "aloud" && listenMode.focus === "ruler" && listenMode.rulerLines === 3, "listen mode follows spoken sentence with more context");

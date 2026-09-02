@@ -1,15 +1,50 @@
-/* ReadTune's opt-in, on-device Piper voice client. */
+/* ReadTune's on-device Piper voice client.
+ *
+ * Read-aloud has one engine: Piper, running locally. The default voice ships
+ * inside the extension, so first-use never waits on a download or a network.
+ * Every voice here is public domain or CC0 — safe to bundle and redistribute.
+ * (The Piper defaults elsewhere — lessac, amy, ryan — are research- or
+ * NonCommercial-licensed and are deliberately not offered.)
+ */
 
 export const PIPER_VOICES = [
-  { id: "en_US-lessac-medium", label: "Lessac", detail: "Clear and balanced", downloadMB: 60 },
-  { id: "en_US-amy-medium", label: "Amy", detail: "Softer and measured", downloadMB: 60 },
-  { id: "en_US-ryan-medium", label: "Ryan", detail: "Lower and steady", downloadMB: 60 },
+  {
+    id: "en_US-ljspeech-medium",
+    label: "Linden",
+    detail: "Clear narrator",
+    bundled: true,
+    downloadMB: 0,
+    license: "Public domain (LJ Speech)",
+  },
+  {
+    id: "en_US-joe-medium",
+    label: "Joe",
+    detail: "Low and steady",
+    bundled: false,
+    downloadMB: 61,
+    license: "CC0 (OHF Voice)",
+  },
+  {
+    id: "en_US-kristin-medium",
+    label: "Kristin",
+    detail: "Warm and even",
+    bundled: false,
+    downloadMB: 61,
+    license: "Public domain (LibriVox)",
+  },
 ];
 
 export const PIPER_VOICE = PIPER_VOICES[0];
 
 export function piperVoiceById(id) {
   return PIPER_VOICES.find((voice) => voice.id === id) || PIPER_VOICE;
+}
+
+/** A bundled voice is already on disk; only downloadable voices need the
+ *  Hugging Face permission and the one-time model fetch. */
+export function piperVoiceNeedsDownload(voiceOrId) {
+  const voice = typeof voiceOrId === "string" ? piperVoiceById(voiceOrId) : voiceOrId;
+  return !!voice && !voice.bundled;
 }
 
 const PIPER_ORIGINS = ["https://huggingface.co/*", "https://*.hf.co/*"];

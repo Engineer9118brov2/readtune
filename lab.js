@@ -21,7 +21,7 @@ import {
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
-import { PIPER_VOICES, createPiperEngine, piperVoiceById, requestPiperPermission } from "./shared/piper.js";
+import { PIPER_VOICES, createPiperEngine, piperVoiceById, piperVoiceNeedsDownload, requestPiperPermission } from "./shared/piper.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
 
 const PREVIEW_TEXT =
@@ -240,7 +240,10 @@ function currentPiperVoice() {
 }
 
 function currentVoiceBody(voice) {
-  return `${voice.label} is a ${voice.detail.toLowerCase()} medium-quality Piper voice. It will be used in Reader View and PDF mode after its one-time ${voice.downloadMB} MB model download.`;
+  const base = `${voice.label} is a ${voice.detail.toLowerCase()} Piper voice that runs on this device`;
+  return piperVoiceNeedsDownload(voice)
+    ? `${base}. Reader View and PDF mode use it after a one-time ${voice.downloadMB} MB model download.`
+    : `${base} — it ships with ReadTune, so Reader View and PDF mode can use it right away with nothing to download.`;
 }
 
 function renderVoiceSummary() {
@@ -267,15 +270,19 @@ async function applyResearchStarter() {
 
 async function savePiperVoice(voice) {
   stopVoicePreview();
-  const granted = await requestPiperPermission();
-  if (!granted) {
-    voiceNotice = "Allow the one-time Hugging Face download to use this local voice.";
-    renderVoiceSummary();
-    return;
+  if (piperVoiceNeedsDownload(voice)) {
+    const granted = await requestPiperPermission();
+    if (!granted) {
+      voiceNotice = "Allow the one-time Hugging Face download to use this local voice.";
+      renderVoiceSummary();
+      return;
+    }
   }
   ttsConfig = (await saveTTSConfig({ provider: "piper", piperVoice: voice.id })) || ttsConfig;
   await markSetupStep("voiceFit");
-  voiceNotice = `${voice.label} is now your local read-aloud voice. Press Listen to download it once, then it stays on this device.`;
+  voiceNotice = piperVoiceNeedsDownload(voice)
+    ? `${voice.label} is now your local read-aloud voice. Press Listen to download it once, then it stays on this device.`
+    : `${voice.label} is now your local read-aloud voice. It ships with ReadTune, so Listen works right away.`;
   if (launchFocus === "voice" && (launchSource === "calibration" || launchSource === "setup")) {
     voiceNotice += " Setup complete. Next, try Listen on a real page or PDF.";
   }
@@ -289,11 +296,13 @@ async function speakVoicePreview(voice) {
     renderVoiceCards();
     return;
   }
-  const granted = await requestPiperPermission();
-  if (!granted) {
-    voiceNotice = "Allow the one-time Hugging Face download to preview a local Piper voice.";
-    renderVoiceSummary();
-    return;
+  if (piperVoiceNeedsDownload(voice)) {
+    const granted = await requestPiperPermission();
+    if (!granted) {
+      voiceNotice = "Allow the one-time Hugging Face download to preview this local Piper voice.";
+      renderVoiceSummary();
+      return;
+    }
   }
   stopVoicePreview();
   previewRun += 1;
@@ -351,12 +360,14 @@ function voiceCard(voice) {
   meta.className = "lab-voice-meta";
   meta.append(
     makeVoiceChip("Piper local"),
-    makeVoiceChip("Medium quality"),
-    makeVoiceChip(`${voice.downloadMB} MB once`)
+    makeVoiceChip(piperVoiceNeedsDownload(voice) ? `${voice.downloadMB} MB once` : "Built in"),
+    makeVoiceChip(voice.license)
   );
 
   const body = document.createElement("p");
-  body.textContent = "Free, no account, and no reading text is uploaded. Downloaded once when you first preview or listen.";
+  body.textContent = piperVoiceNeedsDownload(voice)
+    ? "Free, no account, and no reading text is uploaded. The voice model downloads once when you first preview or listen."
+    : "Free, no account, and no reading text is uploaded. This voice ships with ReadTune and works offline right away.";
 
   const actions = document.createElement("div");
   actions.className = "lab-voice-actions";

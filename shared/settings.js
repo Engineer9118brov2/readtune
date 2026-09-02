@@ -286,22 +286,31 @@ export const setSiteAutoStyle = (origin, on) => writeSite(origin, { autoStyle: !
 /* ---- read-aloud engine config (browser voice, or the user's ElevenLabs key) ---- */
 
 export const DEFAULT_TTS = {
-  provider: "browser", // "browser" | "piper" | "elevenlabs"
+  provider: "piper", // "piper" | "elevenlabs" — Piper (on-device) is the built-in read-aloud engine
   apiKey: "", // the user's own ElevenLabs key — stored here only, never in a file or the profile
   voiceId: "", // ElevenLabs voice id
   voiceName: "",
   model: "eleven_flash_v2_5",
   voices: [], // cached [{id,name}] for the picker
-  piperVoice: "en_US-lessac-medium",
+  piperVoice: "en_US-ljspeech-medium", // bundled, public-domain — no download on first use
 };
+
+// Voices dropped for licensing (Blizzard research-only / CC-BY-NC) or quality.
+const RETIRED_PIPER_VOICES = new Set([
+  "en_US-amy-low",
+  "en_US-lessac-medium",
+  "en_US-amy-medium",
+  "en_US-ryan-medium",
+]);
 
 export async function loadTTSConfig() {
   try {
     const got = await chrome.storage.local.get(TTS_KEY);
     const config = { ...DEFAULT_TTS, ...(got && got[TTS_KEY] ? got[TTS_KEY] : {}) };
-    // Version 0.7 used Amy low. Move existing readers to the curated medium
-    // voice instead of silently keeping the lower-quality model.
-    if (config.piperVoice === "en_US-amy-low") config.piperVoice = DEFAULT_TTS.piperVoice;
+    // Move readers off retired voices onto the bundled public-domain default.
+    if (RETIRED_PIPER_VOICES.has(config.piperVoice)) config.piperVoice = DEFAULT_TTS.piperVoice;
+    // Read-aloud has one engine now; anything that isn't ElevenLabs is Piper.
+    if (config.provider === "browser") config.provider = "piper";
     return config;
   } catch (err) {
     console.warn("[ReadTune] loadTTSConfig failed:", err);
@@ -328,7 +337,7 @@ export async function forgetTTSKey() {
   try {
     const cur = await loadTTSConfig();
     await chrome.storage.local.set({
-      [TTS_KEY]: { ...cur, provider: "browser", apiKey: "", voices: [] },
+      [TTS_KEY]: { ...cur, provider: "piper", apiKey: "", voiceId: "", voiceName: "", voices: [] },
     });
     return true;
   } catch (err) {

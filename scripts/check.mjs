@@ -67,8 +67,19 @@ for (const f of files.filter((f) => extname(f) === ".html")) {
   }
 }
 
-// 4. lib present
-for (const need of ["lib/readability.js", "lib/pdf.min.js", "lib/pdf.worker.min.js", "lib/hyphen.js", "lib/fonts"]) {
+// 4. lib present — incl. the on-device voice engine and the bundled default voice
+for (const need of [
+  "lib/readability.js",
+  "lib/pdf.min.js",
+  "lib/pdf.worker.min.js",
+  "lib/hyphen.js",
+  "lib/fonts",
+  "lib/ort/ort.wasm.min.js",
+  "lib/piper/piper_phonemize.wasm",
+  "lib/piper/piper_phonemize.data",
+  "lib/piper/voices/en_US-ljspeech-medium.onnx",
+  "lib/piper/voices/en_US-ljspeech-medium.onnx.json",
+]) {
   if (!existsSync(join(ROOT, need))) fail(`missing ${need}`);
 }
 

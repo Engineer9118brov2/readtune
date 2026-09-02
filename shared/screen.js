@@ -24,7 +24,7 @@ import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS, isTTSAvailable, onVoicesReady, listVoices } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
-import { requestPiperPermission } from "./piper.js";
+import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
 import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
@@ -327,16 +327,22 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       return;
     }
     if (t.provider && t.provider !== ttsConfig.provider) {
-      if (t.provider === "piper") {
+      if (t.provider === "piper" && piperVoiceNeedsDownload(ttsConfig && ttsConfig.piperVoice)) {
         const granted = await requestPiperPermission();
         if (!granted) {
-          pushTTS({ error: "ReadTune needs permission to download the one-time natural voice model from Hugging Face." });
+          pushTTS({ error: "ReadTune needs permission to download that one-time natural voice model from Hugging Face." });
           return;
         }
       }
       ttsConfig = await saveTTSConfig({ provider: t.provider });
       piperStatus = t.provider === "piper"
-        ? { kind: "info", message: "Your local voice is selected. Press Listen to prepare the one-time download.", percent: null }
+        ? {
+            kind: "info",
+            message: piperVoiceNeedsDownload(ttsConfig && ttsConfig.piperVoice)
+              ? "Your local voice is selected. Press Listen to prepare the one-time download."
+              : "Your local voice is selected and built in. Press Listen to start.",
+            percent: null,
+          }
         : { kind: "", message: "", percent: null };
       pushTTS();
       tts.reload();

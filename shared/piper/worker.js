@@ -1,9 +1,22 @@
-import { TtsSession } from "./piper-tts-web.js";
+import { TtsSession, setBundledResolver } from "./piper-tts-web.js";
 
 let session = null;
 let activeVoice = "";
 
 const runtimeUrl = (path) => new URL(`../../${path}`, import.meta.url).href;
+
+/* Voices whose .onnx + .onnx.json ship inside the extension. The default voice
+   is bundled so first-use read-aloud never depends on a network download. */
+const BUNDLED_VOICES = new Set(["en_US-ljspeech-medium"]);
+
+setBundledResolver(async (url) => {
+  const file = String(url).split("/").pop() || "";
+  const voiceId = file.replace(/\.onnx(\.json)?$/, "");
+  if (!BUNDLED_VOICES.has(voiceId)) return null;
+  const res = await fetch(runtimeUrl(`lib/piper/voices/${file}`));
+  if (!res.ok) return null;
+  return await res.blob();
+});
 
 function progress(event) {
   const total = Number(event.total) || 0;

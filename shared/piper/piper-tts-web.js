@@ -455,8 +455,21 @@ async function predict(config, callback) {
   });
   return session.predict(config.text);
 }
+/* ReadTune patch: let the host resolve a model file from a bundled extension
+   asset before any network fetch, so the default voice works fully offline. */
+let bundledResolver = null;
+function setBundledResolver(fn) {
+  bundledResolver = typeof fn === "function" ? fn : null;
+}
 async function getBlob(url, callback) {
   let blob = await readBlob(url);
+  if (!blob && bundledResolver) {
+    try {
+      blob = await bundledResolver(url);
+    } catch {
+      blob = null;
+    }
+  }
   if (!blob) {
     blob = await fetchBlob(url, callback);
     await writeBlob(url, blob);
@@ -520,6 +533,7 @@ export {
   flush,
   predict,
   remove,
+  setBundledResolver,
   stored,
   voices
 };

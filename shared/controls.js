@@ -264,13 +264,12 @@ export function buildControls(profile, onChange) {
   reg.wpmRow = wpmRow;
 
   /* read-aloud: engine picker + browser voice + ElevenLabs key */
-  const ttsState = { provider: "browser", hasKey: false, voices: [], voiceId: "", status: "", error: "", piperProgress: null };
+  const ttsState = { provider: "piper", hasKey: false, voices: [], voiceId: "", status: "", error: "", piperProgress: null };
 
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
-    { val: "browser", label: "Free voice" },
-    { val: "piper", label: "Piper natural · beta" },
-    { val: "elevenlabs", label: "Bring your own" },
+    { val: "piper", label: "On-device voice" },
+    { val: "elevenlabs", label: "Bring your own key" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
     b.addEventListener("click", () => onChange({ __tts: { provider: o.val } }));
@@ -287,7 +286,7 @@ export function buildControls(profile, onChange) {
   const piperHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "Piper is an optional natural-sounding voice that runs on your device. First use downloads your selected voice once from Hugging Face (about 60 MB); the text you read is never uploaded."
+    "Read-aloud uses a natural voice that runs on your device. The default voice ships with ReadTune, so it works right away and offline. Extra voices in the Reading Lab download once (~60 MB). The text you read is never uploaded."
   );
 
   const previewBtn = (aria, patchFactory = () => ({ preview: true })) => {
