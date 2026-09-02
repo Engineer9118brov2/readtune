@@ -1,8 +1,8 @@
 {
   "name": "readtune",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "private": true,
-  "description": "A Chrome extension that measures which reading settings work for you, then applies them everywhere.",
+  "description": "A Chrome extension that suggests reading settings worth trying, then applies them everywhere — articles, PDFs, and web pages.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
