@@ -24,6 +24,7 @@ The product now also ships a **research-backed starter** before calibration fini
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
 | **Restyle this page** | Applies your font / spacing / tint / bionic / adaptive line focus to the live page you're on — no new tab — with a small floating bar. Toggle off to restore it exactly |
 | **PDF mode** | Extracts text from a PDF worksheet/handout (pdf.js) and renders it through the *same* engine |
+| **Talk to type** | Dictate into any text field on any page — email, docs, forms — with spoken punctuation ("period", "new line"). `Alt+Shift+D`. Uses the browser's own speech recognition |
 | **Guided setup** | Calibration now hands off into Voice Fit, so first-run users finish with both a reading profile and a free read-aloud voice |
 | **Settings panel** | Everything below, live and saved, consistent across articles and PDFs |
 

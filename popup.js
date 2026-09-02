@@ -125,7 +125,7 @@ function configureFirstRun() {
   $("calibrate-sub").textContent = "6 short passages · about 4 minutes";
   $("btn-reader").querySelector(".rt-btn-title").textContent = "Open Reader View";
   $("btn-reader").querySelector(".rt-btn-sub").textContent = "Pull the current article into a calmer page · Alt+R";
-  setActionOrder(["calibrate", "reader", "pdf", "restyle"]);
+  setActionOrder(["calibrate", "reader", "pdf", "restyle", "dictate"]);
 }
 
 function configureReturningUser(profile, insights) {
@@ -153,7 +153,7 @@ function configureReturningUser(profile, insights) {
   $("calibrate-title").textContent = "Retake the calibration";
   $("calibrate-sub").textContent = "See whether the result stays consistent";
   $("btn-lab").querySelector(".rt-btn-sub").textContent = "See stability, repeated patterns, and choose your local voice";
-  setActionOrder(["reader", "restyle", "pdf", "lab", "calibrate"]);
+  setActionOrder(["reader", "restyle", "dictate", "pdf", "lab", "calibrate"]);
 }
 
 async function openReader() {
@@ -230,8 +230,30 @@ async function restylePage() {
   }
 }
 
+async function startDictation() {
+  setStatus("");
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) {
+      setStatus("Open the page with the text field first, then click this again.");
+      return;
+    }
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["dictate.js"] });
+    window.close();
+  } catch (err) {
+    const blocked = isExpectedPageBlock(err);
+    if (!blocked) console.warn("[ReadTune] dictation failed:", err);
+    setStatus(
+      blocked
+        ? "This page doesn't allow extensions (chrome:// pages and the Web Store are blocked)."
+        : "ReadTune couldn't start dictation here. Refresh the page and try again."
+    );
+  }
+}
+
 $("btn-reader").addEventListener("click", openReader);
 $("btn-restyle").addEventListener("click", restylePage);
+$("btn-dictate").addEventListener("click", startDictation);
 $("btn-pdf").addEventListener("click", () => openPage("pdf.html"));
 $("btn-calibrate").addEventListener("click", () => openPage("calibration.html"));
 $("btn-retake").addEventListener("click", () => openPage("calibration.html"));

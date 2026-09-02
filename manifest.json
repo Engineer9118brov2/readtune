@@ -40,6 +40,10 @@
     "toggle-inpage": {
       "suggested_key": { "default": "Alt+Shift+R" },
       "description": "Restyle the current page in place with your ReadTune settings"
+    },
+    "toggle-dictation": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Talk to type — dictate into the current text field"
     }
   }
 }

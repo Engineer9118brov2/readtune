@@ -53,6 +53,15 @@ async function toggleInpage(tab) {
   }
 }
 
+async function toggleDictation(tab) {
+  if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["dictate.js"] });
+  } catch (err) {
+    console.warn("[ReadTune] toggle-dictation failed:", err);
+  }
+}
+
 async function ensureInpage(tab) {
   if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
   try {
@@ -81,6 +90,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (command === "open-reader") await openReaderFor(tab);
     else if (command === "toggle-inpage") await toggleInpage(tab);
+    else if (command === "toggle-dictation") await toggleDictation(tab);
   } catch (err) {
     console.warn(`[ReadTune] command ${command} failed:`, err);
   }
