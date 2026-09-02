@@ -8,8 +8,9 @@
  * ways to move through the text (flow / sentence / word / auto-scroll / aloud).
  */
 
-import { OVERLAYS, FONTS, DEFAULT_PROFILE } from "./settings.js";
+import { OVERLAYS, FONTS, LINE_TINTS, lineTintStops, DEFAULT_PROFILE } from "./settings.js";
 import { hyphenateWord } from "../lib/hyphen.js";
+import { syllabify } from "./syllables.js";
 
 const ALLOWED = new Set([
   "P", "BR", "HR", "H1", "H2", "H3", "H4", "H5", "H6",
@@ -621,7 +622,7 @@ function applySyllables(scope) {
         frag.appendChild(document.createTextNode(tok));
         continue;
       }
-      const parts = hyphenateWord(tok);
+      const parts = syllabify(tok);
       if (parts.length < 2) {
         frag.appendChild(document.createTextNode(tok));
         continue;
@@ -759,6 +760,7 @@ export function applyTypography(host, p) {
   host.dataset.rtFreeze = prof.freezeMotion ? "true" : "false";
   host.dataset.rtDeitalic = prof.deItalic ? "true" : "false";
   host.dataset.rtFocus = prof.focus || "off";
+  host.dataset.rtLineTint = LINE_TINTS[prof.lineTint] ? prof.lineTint : "off";
 
   const s = host.style;
   s.setProperty("--rt-font-size", `${prof.fontSize}px`);
@@ -769,6 +771,24 @@ export function applyTypography(host, p) {
   s.setProperty("--rt-measure", `${prof.columnWidth}ch`);
   s.setProperty("--rt-contrast", String((prof.contrast ?? 100) / 100));
   s.setProperty("--rt-ruler-h", `${prof.rulerHeight || 40}px`);
+
+  /* The line-tint gradient repeats every two lines, so consecutive lines get
+     different colours and the return sweep has something to aim at. Sized in
+     `lh` so it re-registers automatically when line spacing changes. */
+  const overlay = OVERLAYS[prof.overlay] || OVERLAYS.none;
+  const surface =
+    prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "") ? prof.customTint : overlay.surface;
+  const stops = lineTintStops(prof.lineTint, surface);
+  if (stops) {
+    s.setProperty("--rt-linetint-a", stops[0]);
+    s.setProperty("--rt-linetint-b", stops[1]);
+  } else {
+    /* No legible pair for this surface — fall back to ordinary ink rather than
+       painting text the reader cannot see. */
+    host.dataset.rtLineTint = "off";
+    s.removeProperty("--rt-linetint-a");
+    s.removeProperty("--rt-linetint-b");
+  }
 
   if (prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "")) {
     const { r, g, b } = hexToRgb(prof.customTint);
@@ -1125,6 +1145,15 @@ export function createReadingView(host) {
       onEvent = typeof cb === "function" ? cb : () => {};
     },
     getFlowEl() {
+      return flow;
+    },
+    /* Whatever the reader is actually looking at. In flow pacing that is the
+       article; in sentence and word pacing the flow is hidden and a chunk
+       element is on screen instead. Anything anchored to the words a reader
+       can see — word lookup, for one — has to ask for this, not the flow. */
+    getVisibleTextEl() {
+      if (sentenceEl && sentenceEl.isConnected && !sentenceEl.hidden && sentenceEl.offsetParent !== null) return sentenceEl;
+      if (rsvpWord && rsvpWord.isConnected && !rsvpWord.hidden && rsvpWord.offsetParent !== null) return rsvpWord;
       return flow;
     },
     isEmpty() {

@@ -664,3 +664,95 @@ body.rt-reading-page > .rt-surface {
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
+
+
+/* ---------- line tint (BeeLine-style return-sweep aid) ----------
+   A repeating gradient clipped to the text, one full colour cycle every two
+   lines. Sized in `lh` so it follows the reader's line-spacing setting. The
+   read-aloud marks paint over it with an explicit fill, or they would inherit
+   the transparent text and vanish mid-sentence. */
+.rt-surface[data-rt-line-tint="warm"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence),
+.rt-surface[data-rt-line-tint="cool"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence),
+.rt-surface[data-rt-line-tint="mono"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence) {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--rt-linetint-a) 0,
+    var(--rt-linetint-b) 1lh,
+    var(--rt-linetint-a) 2lh
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.rt-surface:not([data-rt-line-tint="off"]) .rt-article :is(.rt-speak-word, .rt-speak-sentence, mark) {
+  -webkit-text-fill-color: var(--rt-ink);
+  color: var(--rt-ink);
+}
+/* Bionic bolding sets its own weight, not its own colour, so it rides along. */
+@media (prefers-reduced-transparency: reduce) {
+  .rt-surface[data-rt-line-tint] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence) {
+    -webkit-text-fill-color: currentColor;
+    color: var(--rt-ink);
+    background-image: none;
+  }
+}
+
+/* ---------- word lookup ---------- */
+.rt-wordlook {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(92vw, 460px);
+  padding: 11px 13px 11px 16px;
+  background: var(--rt-ui-panel, #fff);
+  color: var(--rt-ui-ink, #1f2430);
+  border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .14));
+  border-radius: 13px;
+  box-shadow: 0 10px 34px -12px rgba(0, 0, 0, .4);
+  font-family: var(--rt-ui-font, system-ui, sans-serif);
+  animation: rt-wordlook-in .12s ease-out;
+}
+@keyframes rt-wordlook-in { from { opacity: 0; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .rt-wordlook { animation: none; } }
+
+.rt-wordlook-word { font-weight: 700; font-size: 1rem; }
+.rt-wordlook-syllables {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  flex-wrap: wrap;
+  font-size: .95rem;
+  color: var(--rt-ui-ink-soft, #5b5d53);
+}
+.rt-wordlook-syllable {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--rt-ui-accent-soft, rgba(31, 122, 92, .12));
+}
+.rt-wordlook-dot { opacity: .5; }
+.rt-wordlook-hear {
+  margin-left: auto;
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--rt-ui-accent, #1f7a5c);
+  color: #fff;
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rt-wordlook-hear[disabled] { opacity: .6; cursor: default; }
+.rt-wordlook-close {
+  border: 0;
+  background: none;
+  color: var(--rt-ui-ink-soft, #5b5d53);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}

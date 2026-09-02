@@ -21,6 +21,7 @@
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 import { createPiperEngine } from "./piper.js";
+import { RANGES } from "./settings.js";
 
 const CHUNK_CHARS = 550;
 
@@ -383,6 +384,59 @@ export function createTTS({
   }
 
   return {
+    /* Speak one word or phrase without disturbing playback position.
+       Reuses the engine read-aloud already has, so looking a word up doesn't
+       spin a second Piper worker or re-load the voice model. */
+    async speakOnce(text) {
+      const say = String(text || "").trim();
+      if (!say) return;
+      if (!piper) {
+        piper = createPiperEngine({
+          voiceId: getConfig().piperVoice,
+          onStatus: (status) => onStatus({ provider: "piper", ...status }),
+        });
+      }
+      /* The caller ducks narration around this and restores it in a finally,
+         and the "Hear it" button re-enables itself the same way, so this must
+         always settle. A synth that never resolves or an <audio> that never
+         fires ended/error would otherwise freeze read-aloud permanently. */
+      const withTimeout = (p, ms, onExpire) => {
+        let timer;
+        const expiry = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            if (onExpire) onExpire();
+            reject(new Error("speakOnce timed out"));
+          }, ms);
+        });
+        return Promise.race([p, expiry]).finally(() => clearTimeout(timer));
+      };
+      let url;
+      try {
+        const blob = await withTimeout(piper.synthesize(say), 30000);
+        url = URL.createObjectURL(blob);
+        const one = new Audio(url);
+        /* A looked-up word is for clarity, not pace — never faster than 1×,
+           but honour a reader who has slowed everything down. */
+        one.playbackRate = Math.min(rate, 1);
+        /* play() resolves when playback *starts*; the caller ducks narration
+           around this call, so settle on ended/error instead. */
+        await withTimeout(
+          new Promise((resolve) => {
+            const finish = () => resolve();
+            one.onended = finish;
+            one.onerror = finish;
+            one.play().catch(finish);
+          }),
+          15000,
+          () => { try { one.pause(); } catch {} },
+        );
+        return one;
+      } catch {
+        /* a silent "Hear it" beats one stuck on "…" */
+      } finally {
+        if (url) URL.revokeObjectURL(url);
+      }
+    },
     start(fromIndex) {
       collect();
       if (!sentences.length) return;
@@ -446,7 +500,11 @@ export function createTTS({
       }
     },
     setRate(r) {
-      rate = Math.max(0.5, Math.min(2, Number(r) || 1));
+      /* Derived from the shared range, never a literal. There were three
+         independent rate clamps — RANGES, normalizeProfile and this one — and
+         raising the ceiling in the first two left playback pinned at 2x while
+         the UI happily reported 3x. */
+      rate = Math.max(RANGES.ttsRate.min, Math.min(RANGES.ttsRate.max, Number(r) || 1));
       if (audio) audio.playbackRate = rate;
     },
     /** ElevenLabs key / voice / provider changed. */
