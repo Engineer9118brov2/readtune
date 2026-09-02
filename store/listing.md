@@ -16,7 +16,7 @@ read-aloud, no browser-speech fallback, honest calibration language).
 
 # Build tab → Package
 
-- Upload `readtune-0.7.2.zip` (run `npm run build`). ~60 MB — the bundled
+- Upload `readtune-0.8.0.zip` (run `npm run build`). ~60 MB — the bundled
   public-domain Piper voice is most of it; this is expected and allowed.
 - "Verified CRX uploads": optional. Fine to skip for now.
 
@@ -67,8 +67,8 @@ Reading and layout
 • Fonts chosen for legibility: OpenDyslexic, Atkinson Hyperlegible, Lexend, or your system sans
 • Text size; line, letter, word and paragraph spacing; line width; a gentle contrast control
 • Leading-letter ("bionic") bolding, adjustable
-• Automatic hyphenation and optional visible syllable breaks (in·for·ma·tion)
-• Nine calm reading tints plus a custom colour
+• Automatic hyphenation, plus real syllable breaks you can show inline (in·for·ma·tion) or pull up one word at a time — double-click any word for its syllables and a "hear it" button
+• Nine calm reading tints plus a custom colour; an optional line tint that alternates a faint wash between lines to help you keep your place down the page
 • Remove italics, hide images, freeze animated GIFs
 
 Focus and pacing
