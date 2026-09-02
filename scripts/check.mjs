@@ -67,6 +67,24 @@ for (const f of files.filter((f) => extname(f) === ".html")) {
   }
 }
 
+// 3b. the Vercel site beacons must never reach a file the extension ships.
+//     site.js is site-only; if it ever gets pulled into an extension page the
+//     privacy policy stops being true, so fail loudly instead.
+const SHIPPED = [
+  "manifest.json", "background.js", "content.js", "inpage.js", "inpage.css", "dictate.js",
+  "popup.html", "popup.js", "popup.css", "reader.html", "reader.js",
+  "pdf.html", "pdfview.js", "pdf.css", "calibration.html", "calibration.js", "calibration.css",
+  "lab.html", "lab.js", "lab.css",
+];
+for (const rel of SHIPPED) {
+  const abs = join(ROOT, rel);
+  if (!existsSync(abs)) continue;
+  if (/_vercel|site\.js/.test(readFileSync(abs, "utf8"))) fail(`${rel} references site-only analytics — the extension must ship none`);
+}
+for (const abs of walk(join(ROOT, "shared"))) {
+  if (/_vercel/.test(readFileSync(abs, "utf8"))) fail(`${abs.replace(ROOT + "/", "")} references site-only analytics`);
+}
+
 // 4. lib present — incl. the on-device voice engine and the bundled default voice
 for (const need of [
   "lib/readability.js",

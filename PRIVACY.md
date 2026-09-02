@@ -35,7 +35,11 @@ ReadTune is built so there is nothing to collect. There is no ReadTune account a
 
 ## What ReadTune does not do
 
-ReadTune does not sell or share data, run analytics, create an account, send your browsing history to its creator, or use data for advertising, creditworthiness, or lending.
+The extension does not sell or share data, run analytics, create an account, send your browsing history to its creator, or use data for advertising, creditworthiness, or lending.
+
+## The readtune.app website
+
+The marketing pages at `readtune.app` are hosted on Vercel and use [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy) and Speed Insights for page views and load timings. It is cookieless, does not track you across sites, and does not build a profile: it records the page URL, referrer, country and coarse device type, and Vercel discards the IP address after deriving those. **None of this ships in the extension** — every statement above about the extension still holds exactly as written.
 
 ## Your control
 

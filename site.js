@@ -1,3 +1,16 @@
+/* Vercel Web Analytics — the readtune.app marketing site only.
+   site.js is loaded by index/privacy/school.html and by nothing inside the
+   extension, so no page the extension renders ever reaches this code.
+   The script path is served by Vercel at runtime; off Vercel it 404s and the
+   queue below is simply never drained. */
+(function () {
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  const s = document.createElement("script");
+  s.defer = true;
+  s.src = "/_vercel/insights/script.js";
+  document.head.appendChild(s);
+})();
+
 /* Dyslexia-friendly view — OpenDyslexic + roomier spacing across the whole site.
    Persisted per browser; applied pre-paint by the inline <head> script. */
 const DYS_KEY = "readtune-dys-view";
