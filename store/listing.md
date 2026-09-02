@@ -37,11 +37,11 @@ Two small cleanups worth doing before upload (neither blocks review):
 
 **Summary (132 chars max):** — pick one
 
-> Free, private reading assistant: a quick test finds the settings that help you read, then applies them to any article, PDF, or page.
+> Free, private reading tool: a quick check suggests a reading setup to try, then applies it to any article, PDF, or web page.
 
-*(128 chars. Alternatives:)*
-> Free, private, no account. Measures which reading settings actually help you, then uses them on any article, PDF, or web page. *(126)*
-> The free reading tool that tests what helps you read — spacing, fonts, read-aloud — then applies it everywhere. No login, no tracking. *(131)*
+*(120 chars. Alternatives:)*
+> Free, local-first reading support. A quick check suggests settings to try — spacing, fonts, read-aloud — then applies them everywhere. *(131)*
+> The free reading tool that tries the settings with you first, then carries your profile to any article, PDF, or page. No account. *(127)*
 
 **Category:** Accessibility
 
@@ -55,9 +55,9 @@ Paste this into the "Description" field. It leads with free + private because th
 is the wedge: the tools that do the most (Speechify, Immersive Reader, Helperbird)
 are paywalled or behind a school login, and ReadTune is neither.
 
-> **ReadTune is a free reading tool that measures which settings actually help *you* read — then applies them everywhere.**
+> **ReadTune is a free reading tool. A short check suggests a reading setup worth trying — then applies it to any article, PDF, or web page.**
 >
-> No account. No subscription. No analytics. Nothing leaves your device. It keeps working offline.
+> No account. No subscription. No analytics. Your reading and profile stay on your device, and read-aloud runs on-device too. It keeps working offline.
 >
 > ---
 >
@@ -97,11 +97,14 @@ are paywalled or behind a school login, and ReadTune is neither.
 > • Auto-scroll at your reading pace
 >
 > Read aloud
+> • A natural neural voice (Piper) that runs entirely on your device — the default voice ships with the extension, so it works offline with nothing to download and no permission prompt
 > • The current sentence and word are highlighted as it speaks, in your chosen font
-> • The built-in browser voice needs no account and no network
-> • Optional: Piper natural voice downloads a ~60 MB model once from Hugging Face, then reads on-device. The passage stays on the device and no account or key is needed
-> • Optional: bring your own ElevenLabs API key for higher-quality voices with tight word timing. Your key is stored only on your device; text is sent only to api.elevenlabs.io, only while reading
-> • "Voice Fit" surfaces the clearest free voices on your device and lets you preview them fast
+> • "Voice Fit" in the Reading Lab lets you preview the voices and keep the clearest one; the extra voices download a one-time ~60 MB model
+> • Optional: bring your own ElevenLabs API key for a different voice. Your key is stored only on your device; the passage is sent only to api.elevenlabs.io, only while reading
+>
+> Talk to type
+> • Dictate into any text field on any page — email, docs, comment boxes — with spoken punctuation ("period", "comma", "new line")
+> • Uses the browser's own speech recognition (Chrome sends the audio to Google to transcribe); ReadTune stores nothing
 >
 > Where it works
 > • Reader View — pulls the article out of any page and re-renders it
@@ -129,7 +132,9 @@ are paywalled or behind a school login, and ReadTune is neither.
 >
 > No server. No account. No analytics or telemetry. No selling data — there is no data to sell. Your reading profile, calibration history, reading position, and highlights are stored with the browser's local extension storage, on your device. The extension installs asking only for activeTab, scripting, and storage.
 >
-> Piper is also fully opt-in: it downloads a one-time voice model from Hugging Face and caches it locally, but the passage being read never leaves the device. If you enter your own ElevenLabs API key, the passage you ask to have read aloud and your key are sent to your own ElevenLabs account (api.elevenlabs.io) to generate audio. Nothing else, nowhere else.
+> Read-aloud runs on your device: the default voice ships inside the extension, so it needs no network at all. If you pick one of the other voices in the Reading Lab, its model is downloaded once from Hugging Face and cached locally — the text you read is never sent anywhere.
+>
+> Two features do send data, and only when you choose them: **Talk to type** uses the browser's built-in speech recognition, which sends your audio to Google to transcribe (that is Chrome's engine, not ReadTune's). **ElevenLabs read-aloud**, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account (api.elevenlabs.io). Nothing else, nowhere else.
 >
 > Free and open source. The full code is on GitHub.
 

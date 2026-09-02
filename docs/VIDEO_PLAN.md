@@ -8,7 +8,7 @@ Make one short video that feels real, not staged:
 
 - a dyslexic person uses ReadTune on an actual reading task
 - the viewer understands the problem in under 10 seconds
-- the product's differentiator is obvious: it measures what helps instead of dumping toggles on the user
+- the product's differentiator is obvious: it tries the settings with you and suggests a starting point, instead of dumping toggles on the user
 - we stay honest: this is not a diagnosis, not a cure, and not a claim that one setting works for everyone
 
 ## Format
@@ -90,7 +90,7 @@ Show only the fastest understandable parts:
 
 Voiceover:
 
-- "ReadTune changes one thing at a time and measures what actually helps this reader."
+- "ReadTune changes one thing at a time and checks how it went for this reader — reading time, a comprehension question, and how it felt."
 
 ### 4. ReadTune in use — 0:35 to 1:00
 
@@ -124,7 +124,7 @@ Good answers mention:
 On screen:
 
 - ReadTune
-- Measures what helps you read
+- Suggests a reading setup to try
 - Free
 - Private
 - Works on articles, live pages, and PDFs
@@ -162,9 +162,8 @@ That last question matters. A small honest criticism makes the whole video more 
 
 Allowed:
 
-- "It measures which settings seem to help this reader."
-- "It gives a starting point instead of a wall of toggles."
-- "Nothing leaves the device unless the user chooses an online voice."
+- "It checks which settings seem to help this reader, and suggests a starting point instead of a wall of toggles."
+- "Reading, the profile, and read-aloud all stay on the device. Dictation and the optional premium voice send data, and the app says so."
 
 Not allowed:
 

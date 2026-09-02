@@ -7,8 +7,8 @@ and the honesty paragraph.
 
 ## Tagline
 
-The reading tool that measures what actually helps *you*, checks whether the
-result stays consistent, then applies it everywhere. Free, private, no account.
+The reading tool that tries the settings *with* you — a quick check suggests a
+setup worth keeping, then applies it everywhere. Free, local-first, no account.
 
 ## The problem
 
@@ -45,21 +45,23 @@ retakes so you can see whether spacing, a font, or sentence chunking keeps
 winning or whether today's result was just a close call. It's a piece of
 self-knowledge, not just a settings blob.
 
-ReadTune now extends that same idea into **listening** too. Instead of dropping
-you into a flat voice picker, the Reading Lab surfaces the strongest free
-voices your device already has, lets you preview them quickly, and saves the
-one that feels clearest while you read along in your calibrated font and
-spacing.
+ReadTune extends that same idea into **listening** too. Read-aloud runs a
+natural neural voice (Piper) **entirely on the device** — the default voice
+ships inside the extension, so it works offline with nothing to download. The
+Reading Lab's **Voice Fit** lets you preview a few voices and keep the clearest
+one while you read along in your calibrated font and spacing.
+
+There's also **Talk to type** — dictate into any text field on any page, with
+spoken punctuation. It uses the browser's own speech recognition.
 
 From then on, **Reader View**, **PDF mode**, and **"Restyle this page"** all use
-that profile automatically, and the Reading Lab explains how confident ReadTune
-is in the current result. The first-run flow now also hands off into **Voice
-Fit**, so the user finishes setup with both a tuned reading profile and a saved
-free voice for read-aloud.
+your profile automatically, and the Reading Lab shows how repeatable the current
+result has been. The first-run flow hands off into Voice Fit, so setup finishes
+with both a reading profile and a chosen on-device voice.
 
 ## How it compares
 
-| | Personalises to you | Any article + PDF | Read-aloud w/ highlight | Actually free | Nothing leaves your device |
+| | Tries settings with you | Any article + PDF | Read-aloud w/ highlight | Actually free | Local-first by default |
 | --- | :---: | :---: | :---: | :---: | :---: |
 | Bionic Reading | manual toggles | ✓ | ✕ | freemium | ✕ |
 | BeeLine Reader | manual toggles | ✓ | ✕ | freemium | ✕ |
@@ -81,12 +83,18 @@ Chrome extension, Manifest V3. Everything runs on your device.
   removes every trace when you toggle it off.
 - **PDF mode** extracts the text layer with pdf.js and renders it through the
   same engine.
-- **Read-aloud** highlights the sentence and word as it speaks. The browser
-  voice needs no account; there's an optional ElevenLabs voice if you bring your
-  own key (stored only in your browser, sent only to ElevenLabs, only while
-  reading).
-- Libraries (Readability, pdf.js, hyphenation, fonts) are bundled — Manifest V3
-  forbids loading remote code, and it means the extension works offline.
+- **Read-aloud** highlights the sentence and word as it speaks. It runs the
+  Piper neural voice on-device via onnxruntime-web + a WebAssembly phonemizer,
+  in a Web Worker so the reader stays smooth. The default voice ships in the
+  package; other voices download a one-time model. An optional ElevenLabs voice
+  works if you bring your own key (stored only in your browser, sent only to
+  ElevenLabs, only while reading).
+- **Talk to type** injects a content script that runs the browser's speech
+  recognition and inserts the transcript at the caret, with spoken-punctuation
+  commands.
+- Libraries (Readability, pdf.js, hyphenation, fonts, the Piper runtime) are
+  bundled — Manifest V3 forbids loading remote code, and it means read-aloud
+  and everything else work offline.
 
 The calibration scoring is a small, testable model:
 `shared/calibration-score.js`, with unit tests. There's a CI pipeline and a
@@ -124,5 +132,5 @@ architecture writeup are in the repo.
 ## Built with
 
 JavaScript (no framework, no build step), Chrome Extensions Manifest V3, Mozilla
-Readability, pdf.js, Hypher, the Web Speech API, optionally the ElevenLabs API.
+Readability, pdf.js, Hypher, Piper + onnxruntime-web (on-device neural TTS), the browser's SpeechRecognition for dictation, optionally the ElevenLabs API.
 Fonts: OpenDyslexic, Atkinson Hyperlegible, Lexend.
