@@ -84,6 +84,34 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   inpageWindow.__readtuneInpage.toggleOff();
   assert(!inpageDoc.documentElement.classList.contains("rt-inpage") && !inpageDoc.getElementById("readtune-bar-host"), "in-page restyle removes itself cleanly");
 
+  // Re-injection is the real toggle path (popup button, Alt+Shift+R). Chrome
+  // re-runs inpage.js in the SAME script scope, so a stray top-level `const`
+  // would throw "already declared" and the toggle would silently do nothing.
+  // A fresh <script> element re-executes classic script source the same way.
+  async function reinjectInpage() {
+    await new Promise((resolve) => {
+      const s = inpageDoc.createElement("script");
+      s.src = "../inpage.js";
+      s.onload = resolve;
+      s.onerror = resolve;
+      inpageDoc.body.appendChild(s);
+    });
+    for (let i = 0; i < 40 && inpageWindow.__readtuneInpageBootStatus === "pending"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  }
+  await reinjectInpage();
+  assert(
+    inpageDoc.documentElement.classList.contains("rt-inpage") && !!inpageDoc.getElementById("readtune-bar-host"),
+    "in-page restyle re-injects cleanly after being toggled off",
+  );
+  await reinjectInpage();
+  assert(
+    !inpageDoc.documentElement.classList.contains("rt-inpage") && !inpageDoc.getElementById("readtune-bar-host"),
+    "in-page restyle toggles back off when re-injected",
+  );
+
   /* ---- Reader View: run the shipped page with a captured article and local speech stub ---- */
   const readerFrame = document.getElementById("reader-frame");
   await new Promise((resolve) => {

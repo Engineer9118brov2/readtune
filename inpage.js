@@ -10,9 +10,15 @@
  * imports the shared, web-accessible pieces.
  */
 
-const __readtuneToggleOff = !!window.__readtuneInpage;
-const __readtuneExistingBoot = !!window.__readtuneInpageBoot && window.__readtuneInpageBootStatus !== "failed";
-const __readtuneBoot = (async () => {
+// Chrome runs every executeScript({ files: ["inpage.js"] }) into ONE shared
+// script scope in the page's isolated world. Re-injection is how the popup
+// button and Alt+Shift+R toggle this off — so a top-level `const` here throws
+// "already declared" on the second run and the toggle silently dies. `var` is
+// deliberate: it re-binds on each injection instead of colliding. All state that
+// has to survive between injections lives on `window`.
+var __readtuneToggleOff = !!window.__readtuneInpage;
+var __readtuneExistingBoot = window.__readtuneInpageBootStatus === "pending";
+var __readtuneBoot = (async () => {
   if (__readtuneToggleOff) {
     window.__readtuneInpage.toggleOff();
     return;
@@ -278,8 +284,9 @@ const __readtuneBoot = (async () => {
   paintBar();
 })();
 
-// File injection itself is synchronous; expose the async boot so callers can
-// wait for imports, fonts, and the first paint before reporting success.
+// File injection itself is synchronous; expose the async boot so callers
+// (background.js / popup.js) can await imports, fonts, and the first paint
+// before reporting success.
 if (!__readtuneToggleOff && !__readtuneExistingBoot) {
   window.__readtuneInpageBoot = __readtuneBoot;
   window.__readtuneInpageBootStatus = "pending";
@@ -287,6 +294,10 @@ if (!__readtuneToggleOff && !__readtuneExistingBoot) {
 __readtuneBoot.then(() => {
   if (window.__readtuneInpageBoot === __readtuneBoot) window.__readtuneInpageBootStatus = "ready";
 }, (err) => {
-  if (window.__readtuneInpageBoot === __readtuneBoot) window.__readtuneInpageBootStatus = "failed";
+  if (window.__readtuneInpageBoot === __readtuneBoot) {
+    window.__readtuneInpageBootStatus = "failed";
+    // Drop the handle so a later re-injection can retry from a clean slate.
+    delete window.__readtuneInpageBoot;
+  }
   console.warn("[ReadTune] in-page restyle failed to initialize:", err);
 });
