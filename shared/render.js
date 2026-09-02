@@ -448,29 +448,7 @@ function buildChunks(fragment) {
       } else if (tag === "UL" || tag === "OL" || tag === "DL") {
         for (const li of node.querySelectorAll("li, dd, dt")) push(li.textContent, false);
       } else if (tag === "TABLE") {
-        /* One chunk per cell, so a data table reads as the rows it is rather
-           than as a wall of concatenated labels and values. */
-        const caption = node.querySelector("caption");
-        const captionText = caption ? caption.textContent.trim() : "";
-        /* foldLeadingTable copies the caption into the <summary>, which this
-           walker has already emitted — don't say it twice in a row. */
-        const fold = node.closest("details.rt-fold");
-        const summary = fold ? fold.querySelector("summary") : null;
-        const alreadySaid = !!summary && summary.textContent.trim() === captionText;
-        if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
-        /* Only this table's own rows and cells. A descendant selector also
-           collects a nested table's rows — once inside the outer cell's
-           textContent and again as rows of their own — so the inner table
-           gets read twice, merged into its parent row the first time. The
-           nested table is reached on its own when the walker descends. */
-        const ownRows = Array.from(node.querySelectorAll("tr")).filter((r) => r.closest("table") === node);
-        for (const row of ownRows) {
-          const cells = Array.from(row.querySelectorAll("th, td"))
-            .filter((c) => c.closest("table") === node)
-            .map((c) => normalizeText(cellTextWithoutNestedTables(c)))
-            .filter(Boolean);
-          if (cells.length) push(cells.join(": "), false);
-        }
+        emitTableInto(node, chunks, push);
       } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR") {
         /* skipped in chunk mode */
       } else {
@@ -483,8 +461,41 @@ function buildChunks(fragment) {
   return chunks;
 }
 
+/* One chunk per cell, so a data table reads as the rows it is rather than as a
+   wall of concatenated labels and values.
+ *
+ * Recursive by hand: the generic walker descends into a node's *children*, so
+ * handing it a <table> would skip this branch and dump the whole thing as one
+ * run of text. Excluding nested rows here without recursing is what made a
+ * nested table disappear instead of merely repeat. */
+function emitTableInto(node, chunks, push) {
+  const caption = node.querySelector("caption");
+  const captionText = caption ? caption.textContent.trim() : "";
+  /* foldLeadingTable copies the caption into the <summary>, which the walker
+     has already emitted — don't say it twice in a row. */
+  const fold = node.closest("details.rt-fold");
+  const summary = fold ? fold.querySelector("summary") : null;
+  const alreadySaid = !!summary && summary.textContent.trim() === captionText;
+  if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
+
+  const ownRows = Array.from(node.querySelectorAll("tr")).filter((r) => r.closest("table") === node);
+  for (const row of ownRows) {
+    const cells = Array.from(row.querySelectorAll("th, td"))
+      .filter((c) => c.closest("table") === node)
+      .map((c) => normalizeText(cellTextWithoutNestedTables(c)))
+      .filter(Boolean);
+    if (cells.length) push(cells.join(": "), false);
+  }
+
+  for (const inner of node.querySelectorAll("table")) {
+    if (inner.parentElement && inner.parentElement.closest("table") === node) {
+      emitTableInto(inner, chunks, push);
+    }
+  }
+}
+
 /* A cell's own words, with any table nested inside it left out — that table is
-   walked separately and would otherwise be read twice. */
+   walked separately (see the TABLE branch) and would otherwise be read twice. */
 function cellTextWithoutNestedTables(cell) {
   if (!cell.querySelector("table")) return cell.textContent;
   const copy = cell.cloneNode(true);

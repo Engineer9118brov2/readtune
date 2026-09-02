@@ -922,7 +922,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const v = R.createReadingView(h);
     v.setArticleHtml(
       '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' +
-        "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>" +
+        // distinct sentences: identical ones make "same text twice" ambiguous
+        "<p>" + Array.from({ length: 12 }, (_, n) => `Filler sentence number ${n} keeps the quality gate happy.`).join(" ") + "</p>" +
         "<table><tr><th>Outer</th><td>Outer value</td></tr>" +
         "<tr><th>Nested</th><td><table><tr><th>Inner</th><td>Inner value</td></tr>" +
         "<tr><th>Second</th><td>Second value</td></tr></table></td></tr></table>" +
@@ -930,14 +931,22 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       "https://x.test/nested",
     );
     v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence" });
+    /* Walk every chunk, not a guessed prefix — the table sits after the filler
+       prose, and a short loop silently never reaches it. */
     const seen = [];
-    for (let k = 0; k < 14; k++) {
+    for (let k = 0; k < 120; k++) {
       const t = h.querySelector(".rt-chunk-sentence");
-      if (t) seen.push(t.textContent.trim());
+      const text = t ? t.textContent.trim() : "";
+      if (text) seen.push(text);
       v.step(1);
+      // stop once stepping stops moving, rather than after a guessed count
+      if (seen.length > 2 && seen[seen.length - 1] === seen[seen.length - 2]) { seen.pop(); break; }
     }
     const innerMentions = seen.filter((t) => /Inner value/.test(t)).length;
-    assert(innerMentions <= 1, "a nested table's content is read once, not once inside its parent row and again on its own");
+    /* Exactly once. "At most once" is satisfied by the content vanishing
+       altogether, which is how the de-duplication fix hid it. */
+    assert(innerMentions === 1, "a nested table's content is read exactly once — not twice, and not zero times");
+    assert(seen.some((t) => /Second value/.test(t)), "every row of a nested table is read");
     assert(
       !seen.some((t) => /Nested: Inner/.test(t)),
       "the outer row does not swallow the nested table's text",
