@@ -192,7 +192,7 @@ The Vercel homepage is the public product page. It is intentionally separate fro
 **Optional host permissions — `*://*/*`:**
 > Not requested at install. Requested only if the user turns on "auto-open" / "auto-restyle in ReadTune" for a specific site, scoped to that site, so its pages open in Reader View (or restyle) automatically.
 
-**Remote code:** None. All libraries (Readability, pdf.js, hyphenation, fonts) are bundled in the package. The optional ElevenLabs feature only calls the documented REST API — no remote code is loaded or executed.
+**Remote code:** None. All libraries (Readability, pdf.js, hyphenation, fonts, the Piper read-aloud runtime — onnxruntime-web + the espeak-ng WebAssembly phonemizer) are bundled in the package. The optional ElevenLabs feature only calls the documented REST API — no remote code is loaded or executed. Bundled third-party licenses ship alongside their files in `lib/` (`lib/piper/espeak-ng.LICENSE.txt` carries the espeak-ng GPLv3 text and a written source offer).
 
 **Data usage disclosures:** ReadTune does not collect analytics or sell data. If you enable the optional ElevenLabs voice, disclose under "Web history / User activity" that the text the user chooses to have read aloud is transmitted to the user's own ElevenLabs account to generate audio, at the user's initiation. Piper downloads a voice model but does not transmit reading text.
 

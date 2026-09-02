@@ -44,11 +44,11 @@ The product now also ships a **research-backed starter** before calibration fini
 - **One sentence at a time** — step through with the keyboard or the transport bar
 - **Speed reader (RSVP)** — one word at a time at an adjustable words-per-minute, with pivot-letter alignment
 - **Auto-scroll** — the page scrolls itself at your reading pace
-- **Read aloud** — the current sentence and word are highlighted as it speaks. Three voices:
-  - **Browser voice** (default) — your OS speech engine, no key, no network
-  - **Piper natural voice** — an opt-in neural voice that runs locally. It downloads a ~60 MB voice model once from Hugging Face, caches it in the browser, and never uploads the text being read
-  - **ElevenLabs** (optional) — paste your own API key in the panel for much better voices with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
-- **Voice Fit** — the Reading Lab surfaces the strongest free voices on your device, lets you preview them fast, and saves the one that feels clearest for read-aloud
+- **Read aloud** — the current sentence and word are highlighted as it speaks:
+  - **Piper natural voice** (default) — a neural voice that runs entirely on your device. The default voice (**Linden**, public domain) ships inside the extension, so it works offline with nothing to download and no permission prompt. The text being read is never uploaded
+  - **ElevenLabs** (optional) — paste your own API key in the panel for a different voice with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
+  - There is no browser-speech fallback — if Piper can't start, read-aloud says so rather than dropping to a robotic system voice
+- **Voice Fit** — the Reading Lab lets you preview the other on-device voices (**Joe**, CC0; **Kristin**, public domain) and keep the clearest. Extra voices download a one-time model (~60 MB) from Hugging Face and are cached locally
 
 ### Memory
 
@@ -89,9 +89,9 @@ shared/
                         syllables → sentence-wrap → pacing (flow / sentence / RSVP)
   inpage-style.js       Generates the CSS the in-page restyle injects (scoped to html.rt-inpage)
   aids.js               Ruler, progress bar, paragraph focus, resume position, highlights
-  tts.js                Read-aloud: browser + Piper + ElevenLabs backends, sentence + word highlighting,
-                        plus free-voice ranking and Voice Fit copy
-  piper.js / piper/     Opt-in local neural voice client + worker
+  tts.js                Read-aloud: Piper (default) + ElevenLabs (own-key) backends,
+                        sentence + word highlighting
+  piper.js / piper/     On-device neural voice — client, Web Worker, voice list
   elevenlabs.js         ElevenLabs API (voices, /with-timestamps synth, alignment → word index)
   transport.js          The floating playback bar
   controls.js           The settings panel
@@ -132,6 +132,9 @@ Manifest V3 blocks remote scripts, so these are committed into `lib/`:
 - **[pdf.js](https://github.com/mozilla/pdf.js)** (`pdfjs-dist` 3.11.174) — Apache-2.0
 - **[Hypher](https://github.com/bramstein/hypher)** + en-US TeX patterns (hyphenation) — BSD
 - **OpenDyslexic**, **Atkinson Hyperlegible**, **Lexend** fonts — SIL Open Font License 1.1
+- **[onnxruntime-web](https://github.com/microsoft/onnxruntime)** 1.18 + **[@mintplex-labs/piper-tts-web](https://github.com/Mintplex-Labs/piper-tts-web)** glue (Piper runtime) — MIT
+- **[espeak-ng](https://github.com/espeak-ng/espeak-ng)** as a WebAssembly phonemizer (`piper_phonemize`) — **GPL-3.0-or-later**; license text and a written source offer are in [`lib/piper/espeak-ng.LICENSE.txt`](lib/piper/espeak-ng.LICENSE.txt). It runs as an isolated wasm module (text in, phonemes out); ReadTune as a whole stays MIT. See [`docs/PIPER.md`](docs/PIPER.md).
+- Bundled **Piper voices** — Linden / Joe / Kristin, all public domain or CC0
 
 License texts are in `lib/`.
 

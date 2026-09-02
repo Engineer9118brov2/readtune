@@ -26,15 +26,25 @@ run, read-aloud shows a clear message rather than a robotic system voice.
   `loadTTSConfig()` migrates anyone previously on them to Linden.
 - Extra (non-bundled) voices download once from Hugging Face (~60 MB) and need
   the `huggingface.co` optional permission, requested at that moment.
-- **Zip size: ~70 MB** (was 15 MB). The bundled voice is ~63 MB; ORT wasm ~20 MB;
-  espeak-ng data ~18 MB. Large but legal, and it buys a fully-offline neural
-  voice. Trim paths, in order: drop the non-SIMD `ort-wasm.wasm` (−10 MB),
-  English-only espeak rebuild (−16 MB), host the model on our own domain instead
-  of bundling (−63 MB, but re-introduces a first-use download).
+- **Zip size: ~60 MB** (`readtune-0.7.2.zip` = 60.02 MB). The bundled voice is
+  ~63 MB compressed to ~60; ORT SIMD wasm ~10.6 MB; espeak-ng data trimmed to
+  ~0.94 MB (English only). Already done: dropped the non-SIMD `ort-wasm.wasm`,
+  English-only espeak repack. Remaining trim path: host the model on our own
+  domain instead of bundling (−60 MB, but re-introduces a first-use download) —
+  not worth losing offline-first for.
 
-**Still open:** (1) `espeak-ng` is GPLv3 — see the licensing note at the bottom;
-(2) never actually clicked in a loaded extension end to end — the clean-profile
-verification the award plan requires; (3) Chromebook / throttled-CPU perf test.
+**Still open:** (1) Chromebook / throttled-CPU perf test. (2) A future release
+should swap espeak-ng for a permissively licensed g2p to retire the GPL question
+— see licensing note below; the current bundling is compliant (license text +
+written source offer shipped in `lib/piper/espeak-ng.LICENSE.txt`).
+
+**Verified in a loaded extension (2026-09-01, debug Chrome / CDP):** Piper
+synthesis with the bundled Linden voice, fully offline, RTF ≈ 0.30; Reader View
++ Listen on a live Wikipedia article; Restyle-this-page (including the
+inject/toggle/re-inject cycle — see `fix: in-page restyle silently stopped
+toggling off`); PDF mode with the text fixture; dictation panel + command
+parsing; calibration start → passage. Zero console errors on popup, lab,
+calibration, pdf.
 
 ## Status: spike PASSED (2026-08-31)
 
@@ -174,9 +184,21 @@ Licenses:
 - `@mintplex-labs/piper-tts-web` glue — MIT ✅
 - Voice models — **Linden** public domain, **Joe** CC0, **Kristin** public
   domain (LibriVox). All safe to bundle and redistribute. ✅
-- `piper_phonemize` bundles **espeak-ng — GPLv3.** ⚠️ Unresolved. The extension
-  ships this wasm as a black-box phonemizer called through a fixed interface;
-  the common reading is "mere aggregation," and ReadTune's own source is public,
-  which satisfies the GPL source-offer. But get this confirmed before a real
-  Chrome Web Store launch, or swap to a non-GPL g2p. Low-stakes for the hackathon
-  submission itself.
+- `piper_phonemize` bundles **espeak-ng — GPLv3-or-later.** Handled, with a
+  known long-term cleanup:
+  - `lib/piper/espeak-ng.LICENSE.txt` ships the full GPLv3 text, a written offer
+    of corresponding source (GPLv3 §6), and a plain statement of how espeak-ng
+    is combined with ReadTune. This file goes in the store zip (`lib/` ships
+    wholesale).
+  - **Position:** espeak-ng is compiled to a standalone wasm module with its own
+    linear memory; ReadTune calls it only across that boundary (text in, phoneme
+    string out — process-over-a-pipe shape), never linking its internals. That
+    is aggregation, so ReadTune-the-whole stays MIT and this espeak build stays
+    GPLv3. And even under the stricter reading, ReadTune's entire source is
+    already public and MIT is GPL-compatible, so no recipient is denied source
+    or freedoms — the practical exposure is nil.
+  - The only modification is the English-only `.data` repack; the procedure and
+    the original full file are in the project history (documented above).
+  - **Cleanup:** a later release should replace espeak-ng with a permissively
+    licensed grapheme-to-phoneme step (small English rules-based g2p, or a tiny
+    learned model) to remove the question entirely. Not a launch blocker.
