@@ -756,6 +756,84 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(/option/.test(css) && /:not\(option\)/.test(css), "option rows are excluded from the transparent sweep and given a surface");
   }
 
+  /* ---- review follow-ups, round two (Codex, PR #3) ---- */
+  {
+    const mk = (inner, url, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      const res = v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        url,
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return { h, v, res, flow: h.querySelector(".rt-article") };
+    };
+    const filler = "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>";
+
+    // data-i must match DOM order: screen.js addresses sentences by it, tts.js
+    // collects them in DOM order, and a gap sends a click to the wrong sentence.
+    {
+      const { h, flow } = mk(
+        filler +
+          "<ul><li>Parent topic<ul><li>Child detail one.</li><li>Child detail two.</li></ul></li><li>Sibling item.</li></ul>" +
+          "<table><caption>Quick facts table</caption><tr><th>Country</th><td><p>United States</p></td></tr>" +
+          "<tr><th>State</th><td>California</td></tr><tr><th>County</th><td>Los Angeles</td></tr>" +
+          "<tr><th>Zip</th><td>91301</td></tr></table>",
+        "https://x.test/i",
+      );
+      const spans = [...flow.querySelectorAll(".rt-s")];
+      const idx = spans.map((n) => Number(n.dataset.i));
+      assert(idx.every((v, i) => v === i), "sentence indices run 0..n-1 in DOM order, with no gaps");
+      // and the two addressing schemes agree on the same element
+      const pick = spans[Math.floor(spans.length / 2)];
+      assert(
+        flow.querySelector('.rt-s[data-i="' + pick.dataset.i + '"]') === pick,
+        "looking a sentence up by index returns the sentence you clicked",
+      );
+      h.remove();
+    }
+
+    // The folded infobox summary and the table caption are the same words.
+    {
+      const { h, v } = mk(
+        "<table><caption>Quick facts table</caption><tr><th>a</th><td>1</td></tr><tr><th>b</th><td>2</td></tr>" +
+          "<tr><th>c</th><td>3</td></tr><tr><th>d</th><td>4</td></tr></table>" + filler,
+        "https://x.test/j",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 8; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.push(t.textContent.trim());
+        v.step(1);
+      }
+      const hits = seen.filter((t) => t === "Quick facts table").length;
+      assert(hits <= 1, "a folded table's caption is not read twice in a row");
+      h.remove();
+    }
+
+    // "strictly necessary cookies" is ordinary prose in a privacy explainer.
+    {
+      const para =
+        "A banner will tell you it is setting strictly necessary cookies, which is the one category " +
+        "you cannot refuse. We use cookies here only to remember your reading settings, and nothing else.";
+      const { h, res } = mk("<p>" + para + "</p><p>" + para + "</p>", "https://x.test/k");
+      assert(res.quality.ok, "an explainer quoting standard banner terminology still extracts");
+      h.remove();
+    }
+
+    // ...but the banner itself, which is several UI phrases at once, still doesn't.
+    assert(
+      R.consentUiHits("Do not sell my info. Customize my ad experience.") === 2,
+      "two distinct pieces of consent-dialog copy are still recognised together",
+    );
+    assert(
+      R.consentUiHits("The banner mentions strictly necessary cookies.") === 0,
+      "banner terminology quoted in prose is not treated as dialog copy",
+    );
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

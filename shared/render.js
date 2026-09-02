@@ -72,7 +72,6 @@ const CONSENT_UI_PHRASES = [
   /\bdo not sell (?:or share )?my (?:personal )?info(?:rmation)?\b/i,
   /\bopt[- ]out of the sale or sharing\b/i,
   /\bcustomi[sz]e my ad experience\b/i,
-  /\bstrictly necessary cookies\b/i,
   /\byour privacy choices\b/i,
 ];
 
@@ -81,6 +80,7 @@ const CONSENT_TOPIC_PHRASES = [
   /\bwe(?:'| u)se cookies\b/i,
   /\bmanage (?:your )?(?:cookie )?preferences\b/i,
   /\binterest[- ]based advertising\b/i,
+  /\bstrictly necessary cookies\b/i,
 ];
 
 export function stripOverlays(doc) {
@@ -372,7 +372,8 @@ export function assessArticleQuality(fragment, meta = {}) {
      of the topic words alone. */
   const text = fragment.textContent;
   const consentHits = consentPhraseHits(text);
-  const looksLikeConsent = consentUiHits(text) >= 1 && consentHits >= 2 && words.length < 400;
+  const ui = consentUiHits(text);
+  const looksLikeConsent = words.length < 400 && (ui >= 2 || (ui >= 1 && consentHits >= 3));
   const ok =
     words.length >= 30 &&
     (
@@ -426,7 +427,13 @@ function buildChunks(fragment) {
         /* One chunk per cell, so a data table reads as the rows it is rather
            than as a wall of concatenated labels and values. */
         const caption = node.querySelector("caption");
-        if (caption && caption.textContent.trim()) chunks.push({ text: caption.textContent.trim(), heading: true });
+        const captionText = caption ? caption.textContent.trim() : "";
+        /* foldLeadingTable copies the caption into the <summary>, which this
+           walker has already emitted — don't say it twice in a row. */
+        const fold = node.closest("details.rt-fold");
+        const summary = fold ? fold.querySelector("summary") : null;
+        const alreadySaid = !!summary && summary.textContent.trim() === captionText;
+        if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
         for (const row of node.querySelectorAll("tr")) {
           const cells = Array.from(row.querySelectorAll("th, td"))
             .map((c) => normalizeText(c.textContent))
@@ -552,7 +559,6 @@ const SENTENCE_BLOCKS =
   "p, li, blockquote, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, td, th, caption";
 
 function wrapSentences(root) {
-  let counter = 0;
   const blocks = root.querySelectorAll(SENTENCE_BLOCKS);
   for (const block of blocks) {
     if (block.closest("pre")) continue;
@@ -563,7 +569,6 @@ function wrapSentences(root) {
     const newSpan = () => {
       span = document.createElement("span");
       span.className = "rt-s";
-      span.dataset.i = String(counter++);
       frag.appendChild(span);
     };
     newSpan();
@@ -603,7 +608,16 @@ function wrapSentences(root) {
     if (span && !span.hasChildNodes()) span.remove();
     block.replaceChildren(frag);
   }
-  return counter;
+  /* Number only now, walking the finished DOM.
+     Wrapping an outer block before its nested blocks means indices handed out
+     during the walk end up gapped — a span reserved next to a nested list may
+     be dropped as empty, and descendants are wrapped after their parent. That
+     matters because screen.js addresses sentences by data-i while tts.js
+     collects them in DOM order, so a gap makes clicking a sentence start
+     speech at a different one. */
+  let n = 0;
+  for (const span of root.querySelectorAll(".rt-s")) span.dataset.i = String(n++);
+  return n;
 }
 
 /* ---------- reading stats (Flesch–Kincaid grade) ---------- */

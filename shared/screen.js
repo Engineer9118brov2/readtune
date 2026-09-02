@@ -80,7 +80,14 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       syncReadAlong(st.index);
       transport.setPlaying(st.playing);
       transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
-      syncHeaderActions(); // the header button reads Pause / Resume from this
+      /* The header button reads Pause / Resume from this — but setActions()
+         rebuilds the button, so doing it on every sentence transition would
+         take focus off Pause from under a keyboard user mid-paragraph. Only
+         when the label would actually change. */
+      if (st.playing !== lastAloudPlaying) {
+        lastAloudPlaying = st.playing;
+        syncHeaderActions();
+      }
       if (st.done) {
         clearReadAlong();
         change({ pacing: "flow" });
@@ -115,6 +122,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   const controls = buildControls(profile, change);
   document.body.append(controls.toggle, controls.panel);
 
+  let lastAloudPlaying = null;
+
   function syncHeaderActions() {
     if (typeof view.setActions !== "function") return;
     view.setActions([
@@ -142,6 +151,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
           } else if (tts) {
             tts.toggle();
             syncTransport();
+            lastAloudPlaying = tts.isPlaying();
             syncHeaderActions();
           }
         },
