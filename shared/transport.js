@@ -6,10 +6,12 @@
  * the actual playback; this is just the controls.
  */
 
+import { formatRate } from "./settings.js";
+
 const SPEED_LABEL = {
   word: (p) => `${p.wpm} wpm`,
   scroll: (p) => `${p.wpm} wpm`,
-  aloud: (p) => `${p.ttsRate.toFixed(1)}×`,
+  aloud: (p) => formatRate(p.ttsRate),
 };
 
 export function createTransport(handlers = {}) {

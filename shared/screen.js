@@ -17,6 +17,7 @@ import {
   saveTTSConfig,
   forgetTTSKey,
   applyDyslexicUi,
+  nextTtsRate,
   DEFAULT_PROFILE,
 } from "./settings.js";
 import { applyTypography, paintPage } from "./render.js";
@@ -79,6 +80,14 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       syncReadAlong(st.index);
       transport.setPlaying(st.playing);
       transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
+      /* The header button reads Pause / Resume from this — but setActions()
+         rebuilds the button, so doing it on every sentence transition would
+         take focus off Pause from under a keyboard user mid-paragraph. Only
+         when the label would actually change. */
+      if (st.playing !== lastAloudPlaying) {
+        lastAloudPlaying = st.playing;
+        syncHeaderActions();
+      }
       if (st.done) {
         clearReadAlong();
         change({ pacing: "flow" });
@@ -103,7 +112,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
     onSpeed: () => {
       if (profile.pacing === "aloud") {
-        change({ ttsRate: profile.ttsRate >= 1.7 ? 0.7 : Math.round((profile.ttsRate + 0.2) * 10) / 10 });
+        change({ ttsRate: nextTtsRate(profile.ttsRate) });
       } else {
         change({ wpm: profile.wpm >= 650 ? 150 : profile.wpm + 100 });
       }
@@ -113,20 +122,38 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   const controls = buildControls(profile, change);
   document.body.append(controls.toggle, controls.panel);
 
+  let lastAloudPlaying = null;
+
   function syncHeaderActions() {
     if (typeof view.setActions !== "function") return;
     view.setActions([
       {
-        label: profile.pacing === "aloud" ? "Stop listening" : "Listen here",
+        /* Reading aloud is a thing you pause, not a thing you abandon: stopping
+           throws away your place, and this button is the one most people reach
+           for mid-paragraph. Stop still lives on the transport bar. */
+        label:
+          profile.pacing !== "aloud"
+            ? "Listen here"
+            : tts && tts.isPlaying()
+              ? "Pause"
+              : "Resume",
         primary: profile.pacing === "aloud",
-        pressed: profile.pacing === "aloud",
+        pressed: profile.pacing === "aloud" && !!tts && tts.isPlaying(),
         title:
-          profile.pacing === "aloud"
-            ? "Stop read-aloud."
-            : "Start from the sentence near the middle of the page. While listening, click any sentence to jump there.",
+          profile.pacing !== "aloud"
+            ? "Start from the sentence near the middle of the page. While listening, click any sentence to jump there."
+            : tts && tts.isPlaying()
+              ? "Pause read-aloud and keep your place."
+              : "Carry on from where you paused.",
         onClick: () => {
-          if (profile.pacing === "aloud") change({ pacing: "flow" });
-          else startAloudAt(currentSentenceIndex(), { preserveScroll: true });
+          if (profile.pacing !== "aloud") {
+            startAloudAt(currentSentenceIndex(), { preserveScroll: true });
+          } else if (tts) {
+            tts.toggle();
+            syncTransport();
+            lastAloudPlaying = tts.isPlaying();
+            syncHeaderActions();
+          }
         },
       },
     ]);

@@ -39,6 +39,42 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
 <ul><li>Spring tides: the biggest swing.</li><li>Neap tides: a gentler one, a week later.</li></ul>
 </article><footer>c</footer></body></html>`;
 
+/* A consent modal with no ARIA role — Readability's unlikelyRoles filter misses
+   these, so on a page with no long prose the cookie notice becomes "the article".
+   Britannica's home page rendered exactly this text in Reader View. */
+const CONSENT_PAGE = `<!doctype html><html><head><title>Encyclopedia Britannica | Britannica</title></head><body>
+<header><a href="/">Britannica</a><nav><a href="/games">Games</a><a href="/history">History</a></nav></header>
+<main><div class="grid"><a href="/t1"><h3>You Gotta Be Kitten Me</h3></a><a href="/t2"><h3>Alternative Energies</h3></a></div></main>
+<div id="_evidon-consent-frame" class="evidon-consent-modal">
+<a class="evidon-close" href="#">&times;</a><h2>Do not sell my info</h2>
+<p>You have chosen to opt-out of the sale or sharing of your information from this site and any of its affiliates. To opt back in please click the "Customize my ad experience" link.</p>
+<p>This site collects information through the use of cookies and other tracking tools. Cookies and these tools do not contain any information that personally identifies a user, but personal information that would be stored about you may be linked to the information stored in and obtained from them. This information would be used and shared for Analytics, Ad Serving, Interest Based Advertising, among other purposes.</p>
+<p>For more information please visit this site's Privacy Policy.</p>
+<a href="#">CANCEL</a><a href="#">CONTINUE</a></div></body></html>`;
+
+/* An article that legitimately discusses cookies and privacy: the overlay
+   stripper must not touch it. */
+const COOKIE_ARTICLE = `<!doctype html><html><head><title>How cookie banners got so bad</title></head><body><article>
+<h1>How cookie banners got so bad</h1>
+<p>We use cookies, the banner says, and then it offers you a wall of toggles that nobody reads. The design of consent has drifted a long way from the intent of the law that created it, and the result is a ritual that wastes a little of everyone's attention several times a day.</p>
+<p>Researchers who study these interfaces find that the placement of the reject control matters more than the wording of the notice. When accepting takes one click and declining takes four, most people accept, and the recorded consent tells you almost nothing about what they actually wanted.</p>
+<p>The fix that regulators keep circling is a machine-readable signal the browser sends once, so the negotiation happens without a modal at all. Several jurisdictions now recognise such a signal, and the banners persist anyway.</p>
+</article></body></html>`;
+
+/* A data table: read-aloud has to walk the cells, not step over them. */
+const TABLE_PAGE = `<!doctype html><html><head><title>Calabasas</title></head><body><article>
+<h1>Calabasas</h1>
+<p>Calabasas is a city in Los Angeles County, California, adjacent to the southwestern San Fernando Valley. Situated within the foothills of the Santa Monica mountains, it sits about thirty miles northwest of downtown Los Angeles and keeps a population of roughly twenty three thousand people.</p>
+<table><caption>Calabasas, California</caption>
+<tr><th>Country</th><td>United States</td></tr>
+<tr><th>State</th><td>California</td></tr>
+<tr><th>County</th><td>Los Angeles</td></tr>
+<tr><th>Incorporated</th><td>April 5, 1991</td></tr>
+<tr><th>Elevation</th><td>928 ft</td></tr>
+<tr><th>ZIP codes</th><td>91301, 91302</td></tr></table>
+<p>The name Calabasas is an archaic Californio spelling of the Spanish word for winter squashes, and the city has used it since well before incorporation.</p>
+</article></body></html>`;
+
 const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 <header><button>Search</button><button>New Chat</button><button>Library</button></header>
 <main>
@@ -227,7 +263,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   let uiPatch = null;
   const uiControls = buildControls({ ...S.DEFAULT_PROFILE, dyslexicUiMode: true }, (p) => (uiPatch = p));
   const dysToggle = [...uiControls.panel.querySelectorAll(".rt-toggle")].find((n) =>
-    /OpenDyslexic for ReadTune's menus/.test(n.textContent)
+    /Dyslexia-friendly menus/.test(n.textContent)
+  );
+  assert(
+    dysToggle && !dysToggle.closest("details"),
+    "the dyslexia-friendly menus toggle sits at the top of the panel, not folded inside a section",
   );
   const dysInput = dysToggle && dysToggle.querySelector("input");
   assert(dysInput && dysInput.checked === true, "controls reflect dyslexicUiMode");
@@ -481,6 +521,581 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     typeof controls.setVoices !== "function" && !controls.panel.querySelector('select[aria-label="Browser voice"]'),
     "controls no longer build a browser-voice picker",
   );
+
+  /* ---- consent / cookie overlays are never the article ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    const res = v.setArticleHtml(CONSENT_PAGE, "https://www.britannica.com/");
+    const text = h.querySelector(".rt-article").textContent;
+    assert(!/do not sell my info/i.test(text), "consent modal never renders as the article");
+    assert(!/Interest Based Advertising/i.test(text), "consent body text is stripped before Readability");
+    assert(!res.quality.ok, "a page whose only prose is a cookie notice fails the quality gate");
+
+    // the stripper must not eat an article that is *about* cookies
+    const h2 = document.createElement("div");
+    document.body.appendChild(h2);
+    const v2 = R.createReadingView(h2);
+    const res2 = v2.setArticleHtml(COOKIE_ARTICLE, "https://example.test/cookie-banners");
+    assert(res2.quality.ok, "an article about cookie banners still extracts");
+    assert(
+      /placement of the reject control/i.test(h2.querySelector(".rt-article").textContent),
+      "prose about consent survives the overlay stripper",
+    );
+    assert(R.consentPhraseHits("We use cookies and this is your privacy choices notice") >= 2, "consent phrases are detected");
+    assert(R.consentPhraseHits("The tide pools reset twice a day.") === 0, "ordinary prose trips no consent phrase");
+    h.remove();
+    h2.remove();
+  }
+
+  /* ---- read-aloud reaches table cells, and wraps each block only once ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(TABLE_PAGE, "https://example.test/calabasas");
+    v.applyProfile({ ...S.DEFAULT_PROFILE });
+    const flow = h.querySelector(".rt-article");
+    const cells = [...flow.querySelectorAll("td, th")].filter((c) => c.textContent.trim());
+    const unreachable = cells.filter((c) => !c.querySelector(".rt-s") && !c.classList.contains("rt-s"));
+    assert(cells.length > 0 && unreachable.length === 0, "every table cell with text is reachable by read-aloud");
+    assert(flow.querySelectorAll(".rt-s .rt-s").length === 0, "sentence spans are never nested");
+    assert(flow.querySelector("caption .rt-s"), "the table caption is read too");
+    h.remove();
+  }
+
+  /* ---- the read-aloud word highlight never leaves a trail ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+    v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "aloud" });
+    const flow = h.querySelector(".rt-article");
+    const tts = TTS.createTTS({ getFlow: () => flow });
+    tts.seek(0);
+
+    /* The playback path: each sentence marks a word as the audio moves through
+       it. Before the fix each call cleared only its own sentence, so every
+       sentence read left its last word highlighted permanently. */
+    const spans = [...flow.querySelectorAll(".rt-s")].slice(0, 4);
+    const words = spans.map((s) => {
+      const w = document.createElement("span");
+      w.className = "rt-w";
+      w.textContent = "word";
+      s.appendChild(w);
+      return w;
+    });
+    words.forEach((w) => TTS.markWord(flow, w));
+    assert(
+      flow.querySelectorAll(".rt-speak-word").length === 1,
+      "reading through four sentences leaves exactly one word mark, not four",
+    );
+    assert(words[words.length - 1].classList.contains("rt-speak-word"), "the surviving mark is the current word");
+
+    TTS.markWord(flow, null);
+    assert(flow.querySelectorAll(".rt-speak-word").length === 0, "the word mark can be cleared outright");
+
+    tts.step(1);
+    assert(flow.querySelectorAll(".rt-speak-sentence").length === 1, "exactly one sentence is marked at a time");
+
+    tts.destroy();
+    assert(flow.querySelectorAll(".rt-speak-word, .rt-speak-sentence").length === 0, "stopping clears every highlight");
+    h.remove();
+  }
+
+  /* ---- the speed pill steps a fixed ladder ---- */
+  {
+    // The old rule (+0.2, wrap at 1.7) drifted onto a second set of values, so
+    // the same button never brought you back to the speed you had.
+    const walk = (start, n) => { const out = []; let r = start; for (let k = 0; k < n; k++) { r = S.nextTtsRate(r); out.push(r); } return out; };
+    const fromOne = walk(1.0, S.TTS_RATE_STEPS.length);
+    const fromElsewhere = walk(1.35, S.TTS_RATE_STEPS.length);
+    assert(
+      JSON.stringify([...fromOne].sort((a, b) => a - b)) === JSON.stringify([...S.TTS_RATE_STEPS].sort((a, b) => a - b)),
+      "cycling the speed visits every rung of the ladder and no other value",
+    );
+    assert(
+      JSON.stringify([...fromElsewhere].sort((a, b) => a - b)) === JSON.stringify([...fromOne].sort((a, b) => a - b)),
+      "the speed cycle does not drift with where you started",
+    );
+    assert(S.nextTtsRate(S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1]) === S.TTS_RATE_STEPS[0], "the top rung wraps to the bottom");
+    assert(S.formatRate(1.35) === "1.35×" && S.formatRate(1.5) === "1.5×", "a rate is never rounded to a value the ladder cannot reach");
+    assert(
+      S.TTS_RATE_STEPS.every((r) => r >= S.RANGES.ttsRate.min && r <= S.RANGES.ttsRate.max),
+      "every rung is reachable on the slider too",
+    );
+  }
+
+  /* ---- panel: tint picking without the OS colour panel ---- */
+  {
+    const c = buildControls({ ...S.DEFAULT_PROFILE }, () => {});
+    assert(!c.panel.querySelector('input[type="color"]'), "the panel no longer opens the OS colour picker");
+    assert(c.panel.querySelectorAll(".rt-swatches-custom .rt-swatch").length >= 8, "a palette of reading tints is offered instead");
+    assert(c.panel.querySelector(".rt-hex"), "a hex field covers anything the palette misses");
+    const widths = [...c.panel.querySelectorAll(".rt-seg button")].map((b) => b.textContent);
+    assert(widths.includes("Narrow") && widths.includes("Wide"), "line width has named stops, not only a character count");
+  }
+
+  /* ---- restyle over a site already in its own dark theme ---- */
+  {
+    /* Wikipedia in night mode paints .vector-toc, .vector-appearance and
+       .infobox-caption dark. Restyle repainted the text dark to match the tint
+       and left those fills alone, so three unreadable dark-on-dark patches sat
+       in the middle of a cream page. */
+    const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    const host = document.createElement("div");
+    host.innerHTML =
+      '<div class="vector-toc" style="background:#27292d">Contents</div>' +
+      '<div class="infobox-caption" style="background:#27292d">Clockwise: aerial view</div>' +
+      '<button style="background:#202122">Appearance</button>' +
+      '<pre>code block</pre><img alt="" style="background:#27292d">';
+    document.documentElement.classList.add("rt-inpage");
+    document.body.appendChild(host);
+
+    const opaqueDark = (el) => {
+      const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (!m) return false;
+      const [r, g, b, a] = m[1].split(",").map(Number);
+      if (a === 0) return false;
+      return (r * 0.299 + g * 0.587 + b * 0.114) / 255 < 0.35;
+    };
+    assert(!opaqueDark(host.querySelector(".vector-toc")), "a page's own dark panel is cleared by the tint");
+    assert(!opaqueDark(host.querySelector(".infobox-caption")), "a page's own dark caption is cleared by the tint");
+    assert(!opaqueDark(host.querySelector("button")), "a dark control gets a readable surface, not dark-on-dark");
+    assert(
+      getComputedStyle(host.querySelector("pre")).backgroundColor !== "rgba(0, 0, 0, 0)",
+      "blocks that mean something by being set apart keep a faint surface",
+    );
+    assert(getComputedStyle(host.querySelector("img")).backgroundColor !== "rgba(0, 0, 0, 0)", "media keeps its own painting");
+
+    document.documentElement.classList.remove("rt-inpage");
+    host.remove();
+    style.remove();
+  }
+
+  /* ---- review follow-ups (Codex, PR #3) ---- */
+  {
+    const mk = (inner, url) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      const res = v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        url,
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE });
+      return { h, v, res, flow: h.querySelector(".rt-article") };
+    };
+    const filler = "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>";
+
+    // A block nested in a block: the parent's own text must still be spoken.
+    {
+      const { h, flow } = mk(filler + "<ul><li>Parent topic<ul><li>Child detail</li></ul></li></ul>", "https://x.test/a");
+      const said = [...flow.querySelectorAll(".rt-s")].map((n) => n.textContent.trim());
+      assert(said.includes("Parent topic"), "a list item's own label is read, not just its children");
+      assert(said.includes("Child detail"), "the nested item is read too");
+      assert(flow.querySelectorAll(".rt-s .rt-s").length === 0, "and neither is wrapped twice");
+      h.remove();
+    }
+
+    // Sentence mode must not concatenate a table into one malformed sentence.
+    {
+      const { h, v } = mk(
+        filler +
+          "<table><tr><th>Country</th><td>United States</td></tr><tr><th>State</th><td>California</td></tr>" +
+          "<tr><th>County</th><td>Los Angeles</td></tr><tr><th>Zip</th><td>91301</td></tr></table>",
+        "https://x.test/b",
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence" });
+      const seen = new Set();
+      for (let k = 0; k < 40; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.add(t.textContent.trim());
+        v.step(1);
+      }
+      const all = [...seen].join(" | ");
+      assert(!/CountryUnited States|StatesState/.test(all), "sentence mode never mashes table cells into one run");
+      assert(seen.has("Country: United States"), "a table row reads as the row it is");
+      h.remove();
+    }
+
+    // The overlay stripper must not eat ordinary ids that merely start with "truste".
+    {
+      const { h, res } = mk(
+        '<div id="trusted-experts"><p>' + "Our trusted experts explain the topic in careful detail. ".repeat(10) + "</p></div>",
+        "https://x.test/c",
+      );
+      assert(res.quality.ok && /trusted experts/i.test(h.textContent), "an id beginning \"trusted\" is not mistaken for a consent vendor");
+      h.remove();
+    }
+
+    // Topic words alone must never discard a real article.
+    {
+      const para =
+        "We use cookies, the banner says, and then it hands you a wall of toggles. You can usually " +
+        "manage your preferences from the same panel, though the reject control is buried by design.";
+      const { h, res } = mk("<p>" + para + "</p><p>" + para + "</p>", "https://x.test/d");
+      assert(R.consentPhraseHits(h.textContent) >= 2, "the fixture really does carry two consent topic phrases");
+      assert(R.consentUiHits(h.textContent) === 0, "but none of them is consent-dialog copy");
+      assert(res.quality.ok, "a short article about tracking is not thrown away for its topic");
+      h.remove();
+    }
+    assert(
+      R.consentUiHits('Do not sell my info. Customize my ad experience.') === 2,
+      "consent-dialog copy is still recognised",
+    );
+  }
+
+  /* ---- restyle: option rows get the control surface ---- */
+  {
+    const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+    assert(/option/.test(css) && /:not\(option\)/.test(css), "option rows are excluded from the transparent sweep and given a surface");
+  }
+
+  /* ---- review follow-ups, round two (Codex, PR #3) ---- */
+  {
+    const mk = (inner, url, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      const res = v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        url,
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return { h, v, res, flow: h.querySelector(".rt-article") };
+    };
+    const filler = "<p>" + "Long enough prose to clear the quality gate. ".repeat(12) + "</p>";
+
+    // data-i must match DOM order: screen.js addresses sentences by it, tts.js
+    // collects them in DOM order, and a gap sends a click to the wrong sentence.
+    {
+      const { h, flow } = mk(
+        filler +
+          "<ul><li>Parent topic<ul><li>Child detail one.</li><li>Child detail two.</li></ul></li><li>Sibling item.</li></ul>" +
+          "<table><caption>Quick facts table</caption><tr><th>Country</th><td><p>United States</p></td></tr>" +
+          "<tr><th>State</th><td>California</td></tr><tr><th>County</th><td>Los Angeles</td></tr>" +
+          "<tr><th>Zip</th><td>91301</td></tr></table>",
+        "https://x.test/i",
+      );
+      const spans = [...flow.querySelectorAll(".rt-s")];
+      const idx = spans.map((n) => Number(n.dataset.i));
+      assert(idx.every((v, i) => v === i), "sentence indices run 0..n-1 in DOM order, with no gaps");
+      // and the two addressing schemes agree on the same element
+      const pick = spans[Math.floor(spans.length / 2)];
+      assert(
+        flow.querySelector('.rt-s[data-i="' + pick.dataset.i + '"]') === pick,
+        "looking a sentence up by index returns the sentence you clicked",
+      );
+      h.remove();
+    }
+
+    // A .rt-s that holds only whitespace — the source newlines between two
+    // nested <ul>s inside one <li> — used to be numbered like any other span
+    // while tts.js collect() skipped it, so tts's sentences[k] and the span
+    // with data-i="k" drifted apart and a sentence click seeked read-aloud to
+    // the wrong line (and clicks past the last real sentence did nothing).
+    {
+      const { h, flow } = mk(
+        filler +
+          "<ul>\n  <li>Lead sentence stands on its own here.\n" +
+          "    <ul>\n      <li>First nested point is written out.</li>\n    </ul>\n" +
+          "    <ul>\n      <li>Second nested point is written out.</li>\n    </ul>\n" +
+          "  </li>\n  <li>A plain sibling item closes the list.</li>\n</ul>",
+        "https://x.test/blank-span",
+        { pacing: "aloud" },
+      );
+      const spans = [...flow.querySelectorAll(".rt-s")];
+      assert(
+        spans.length > 0 && spans.every((s) => s.textContent.trim()),
+        "no whitespace-only sentence span survives wrapping",
+      );
+      assert(
+        spans.every((s, k) => Number(s.dataset.i) === k),
+        "every .rt-s carries its own DOM-order index",
+      );
+      // behavioural: walking read-aloud one sentence at a time must stay on
+      // the matching .rt-s. Before the fix, tts.js skipped the blank span so
+      // from that point on markSentence(k) landed on spans[k + 1].
+      const tts = TTS.createTTS({ getFlow: () => flow });
+      tts.seek(0);
+      let aligned = flow.querySelector(".rt-speak-sentence") === spans[0];
+      for (let k = 1; k < spans.length && aligned; k++) {
+        tts.step(1);
+        aligned = flow.querySelector(".rt-speak-sentence") === spans[k];
+      }
+      assert(aligned, "read-aloud walks the sentences in step with their data-i");
+      tts.destroy();
+      h.remove();
+    }
+
+    // Sentence / speed-reader mode: a nested bullet is chunked once, not once
+    // folded into its parent's run and once again on its own. The list leads so
+    // the bullet's chunks land early, before stepping can wrap round the end.
+    {
+      const { h, v } = mk(
+        "<ul><li>Top level item stands here.<ul><li>Nested bullet is read one time.</li></ul></li></ul>" + filler,
+        "https://x.test/nested-list",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 6; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.push(t.textContent.trim());
+        v.step(1);
+      }
+      assert(
+        seen.filter((s) => /Nested bullet is read one time/.test(s)).length === 1,
+        "a nested list item is chunked exactly once, not folded in and repeated",
+      );
+      assert(seen.some((s) => /Top level item stands here/.test(s)), "the parent list item is still chunked");
+      h.remove();
+    }
+
+    // The folded infobox summary and the table caption are the same words.
+    {
+      const { h, v } = mk(
+        "<table><caption>Quick facts table</caption><tr><th>a</th><td>1</td></tr><tr><th>b</th><td>2</td></tr>" +
+          "<tr><th>c</th><td>3</td></tr><tr><th>d</th><td>4</td></tr></table>" + filler,
+        "https://x.test/j",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 8; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        if (t) seen.push(t.textContent.trim());
+        v.step(1);
+      }
+      const hits = seen.filter((t) => t === "Quick facts table").length;
+      assert(hits <= 1, "a folded table's caption is not read twice in a row");
+      h.remove();
+    }
+
+    // "strictly necessary cookies" is ordinary prose in a privacy explainer.
+    {
+      const para =
+        "A banner will tell you it is setting strictly necessary cookies, which is the one category " +
+        "you cannot refuse. We use cookies here only to remember your reading settings, and nothing else.";
+      const { h, res } = mk("<p>" + para + "</p><p>" + para + "</p>", "https://x.test/k");
+      assert(res.quality.ok, "an explainer quoting standard banner terminology still extracts");
+      h.remove();
+    }
+
+    // ...but the banner itself, which is several UI phrases at once, still doesn't.
+    assert(
+      R.consentUiHits("Do not sell my info. Customize my ad experience.") === 2,
+      "two distinct pieces of consent-dialog copy are still recognised together",
+    );
+    assert(
+      R.consentUiHits("The banner mentions strictly necessary cookies.") === 0,
+      "banner terminology quoted in prose is not treated as dialog copy",
+    );
+  }
+
+  /* ---- review follow-ups, round three (Codex, PR #3) ---- */
+  {
+    const mkv = (inner, url, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml('<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>", url);
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return h;
+    };
+    const prose = "<p>" + "Long enough prose to clear the quality gate and then some more. ".repeat(10) + "</p>";
+    const kvTable =
+      "<table><caption>Quick facts</caption><tr><th>Country</th><td>United States</td></tr>" +
+      "<tr><th>State</th><td>California</td></tr><tr><th>County</th><td>Los Angeles</td></tr>" +
+      "<tr><th>Zip</th><td>91301</td></tr><tr><th>Area</th><td>13 sq mi</td></tr></table>";
+
+    // Folding is for a sidebar of facts, not for a table that IS the article.
+    {
+      const h = mkv(kvTable + prose, "https://x.test/info");
+      assert(h.querySelector(".rt-fold"), "a key/value infobox followed by prose still folds");
+      h.remove();
+    }
+    {
+      const cmp =
+        "<table><tr><th>Plan</th><th>Price</th><th>Seats</th></tr>" +
+        "<tr><td>Free</td><td>0</td><td>1</td></tr><tr><td>Team</td><td>10</td><td>5</td></tr>" +
+        "<tr><td>Pro</td><td>25</td><td>20</td></tr><tr><td>Max</td><td>60</td><td>99</td></tr></table>";
+      const h = mkv(cmp + prose, "https://x.test/cmp");
+      assert(!h.querySelector(".rt-fold"), "a comparison table is never hidden behind \"Quick facts\"");
+      h.remove();
+    }
+    {
+      const h = mkv(kvTable + "<p>Short.</p>", "https://x.test/tbl");
+      assert(!h.querySelector(".rt-fold"), "a table with no article after it is the article, so it stays open");
+      h.remove();
+    }
+
+    // The word mark runs at ~60Hz; it must not sweep the article every frame.
+    {
+      const h = document.createElement("div");
+      h.innerHTML = '<div class="rt-article"><span class="rt-s"><span class="rt-w">a</span><span class="rt-w">b</span></span></div>';
+      document.body.appendChild(h);
+      const flow = h.querySelector(".rt-article");
+      const words = [...flow.querySelectorAll(".rt-w")];
+      let queries = 0;
+      const real = flow.querySelectorAll.bind(flow);
+      flow.querySelectorAll = (sel) => { queries++; return real(sel); };
+      TTS.markWord(flow, words[0]);
+      for (let k = 0; k < 60; k++) TTS.markWord(flow, words[0]);
+      assert(queries <= 1, "holding on one word for a second costs one DOM query, not sixty");
+      TTS.markWord(flow, words[1]);
+      assert(flow.getElementsByClassName("rt-speak-word").length === 1, "moving the mark still leaves exactly one");
+      assert(words[1].classList.contains("rt-speak-word"), "and it is on the current word");
+      h.remove();
+    }
+
+    // Rebuilding the header action would drop focus from the button in use.
+    {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+      v.setMeta({ title: "T", parts: ["x"] });
+      v.setActions([{ label: "Pause", onClick: () => {} }]);
+      const button = h.querySelector(".rt-doc-action");
+      button.focus();
+      v.setActions([{ label: "Resume", onClick: () => {} }]);
+      assert(h.querySelector(".rt-doc-action") === button, "the header action is updated in place, not replaced");
+      assert(document.activeElement === button, "so a keyboard user keeps focus through a pause/resume");
+      assert(button.textContent === "Resume", "and the label still changes");
+      h.remove();
+    }
+
+    // Overlays need an opaque fill or their text stacks on the page beneath.
+    {
+      const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+      assert(/:not\(\[role="dialog"\]/.test(css), "overlays are exempt from the transparent sweep");
+      assert(/\[role="menu"\][\s\S]*background-color: var\(--rt-inpage-bg\)/.test(css), "and are given the tint's own opaque surface");
+    }
+  }
+
+  /* ---- nested tables are read once, not twice ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(
+      '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' +
+        // distinct sentences: identical ones make "same text twice" ambiguous
+        "<p>" + Array.from({ length: 12 }, (_, n) => `Filler sentence number ${n} keeps the quality gate happy.`).join(" ") + "</p>" +
+        "<table><tr><th>Outer</th><td>Outer value</td></tr>" +
+        "<tr><th>Nested</th><td><table><tr><th>Inner</th><td>Inner value</td></tr>" +
+        "<tr><th>Second</th><td>Second value</td></tr></table></td></tr></table>" +
+        "</article></body></html>",
+      "https://x.test/nested",
+    );
+    v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence" });
+    /* Walk every chunk, not a guessed prefix — the table sits after the filler
+       prose, and a short loop silently never reaches it. */
+    const seen = [];
+    for (let k = 0; k < 120; k++) {
+      const t = h.querySelector(".rt-chunk-sentence");
+      const text = t ? t.textContent.trim() : "";
+      if (text) seen.push(text);
+      v.step(1);
+      // stop once stepping stops moving, rather than after a guessed count
+      if (seen.length > 2 && seen[seen.length - 1] === seen[seen.length - 2]) { seen.pop(); break; }
+    }
+    const innerMentions = seen.filter((t) => /Inner value/.test(t)).length;
+    /* Exactly once. "At most once" is satisfied by the content vanishing
+       altogether, which is how the de-duplication fix hid it. */
+    assert(innerMentions === 1, "a nested table's content is read exactly once — not twice, and not zero times");
+    assert(seen.some((t) => /Second value/.test(t)), "every row of a nested table is read");
+    assert(
+      !seen.some((t) => /Nested: Inner/.test(t)),
+      "the outer row does not swallow the nested table's text",
+    );
+    h.remove();
+  }
+
+  /* ---- table ownership: a nested table is never mistaken for its parent ---- */
+  {
+    const filler = "<p>" + Array.from({ length: 12 }, (_, n) => `Filler sentence number ${n} keeps the quality gate happy.`).join(" ") + "</p>";
+    const build = (inner, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        "https://x.test/own",
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return { h, v };
+    };
+
+    /* A two-column table whose own rows are plain data — not key/value — must
+       not be folded because a nested table's th/td rows push it over the 60%
+       infobox threshold. Shaped so the nested rows are the only thing that
+       could tip it: 4 own rows, 0 of them key/value, plus 6 nested ones. */
+    {
+      const nested =
+        "<table>" +
+        Array.from({ length: 6 }, (_, n) => `<tr><th>K${n}</th><td>V${n}</td></tr>`).join("") +
+        "</table>";
+      const { h } = build(
+        "<table><tr><td>Left</td><td>" + nested + "</td></tr>" +
+          "<tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr><tr><td>e</td><td>f</td></tr></table>" +
+          filler,
+        {},
+      );
+      assert(
+        !h.querySelector(".rt-fold"),
+        "a plain two-column table is not folded as an infobox because a nested table's rows tipped the count",
+      );
+      h.remove();
+    }
+
+    /* An outer table with no caption must not borrow its nested table's. */
+    {
+      const { h, v } = build(
+        filler +
+          "<table><tr><th>Outer</th><td>Outer value</td></tr>" +
+          "<tr><th>Holder</th><td><table><caption>Inner caption</caption>" +
+          "<tr><th>Inner</th><td>Inner value</td></tr></table></td></tr></table>",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 120; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        const text = t ? t.textContent.trim() : "";
+        if (text) seen.push(text);
+        v.step(1);
+        if (seen.length > 2 && seen[seen.length - 1] === seen[seen.length - 2]) { seen.pop(); break; }
+      }
+      assert(
+        seen.filter((t) => t === "Inner caption").length === 1,
+        "a nested table's caption is read once, for the table that owns it",
+      );
+      h.remove();
+    }
+
+    /* The scroll box announces its own table, not a nested one. */
+    {
+      const { h } = build(
+        filler +
+          "<table><tr><th>Outer</th><td><table><caption>Inner caption</caption>" +
+          "<tr><th>x</th><td>y</td></tr></table></td></tr></table>",
+        {},
+      );
+      const wraps = [...h.querySelectorAll(".rt-table-wrap")];
+      const outer = wraps.find((w) => w.querySelector("table") && !w.parentElement.closest("td"));
+      assert(
+        outer && outer.getAttribute("aria-label") !== "Inner caption",
+        "a table's scroll box is not labelled with a nested table's caption",
+      );
+      h.remove();
+    }
+  }
 
   /* showcase */
   host.replaceChildren();

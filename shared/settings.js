@@ -71,8 +71,27 @@ export const RANGES = {
   contrast: { min: 78, max: 100, step: 1, unit: "%" },
   rulerHeight: { min: 24, max: 80, step: 2, unit: "px" },
   wpm: { min: 120, max: 700, step: 10 },
-  ttsRate: { min: 0.6, max: 1.8, step: 0.1, unit: "×" },
+  ttsRate: { min: 0.6, max: 1.8, step: 0.05, unit: "×" },
 };
+
+/* The speed pill steps through these and nothing else.
+ *
+ * It used to add 0.2 and wrap at 1.7, which drifts: starting from 1.0 you get
+ * 1.0 1.2 1.4 1.6 1.8 then 0.7 0.9 1.1 1.3 … so the same button never returns
+ * you to the speed you had. The steps are also tighter around 1× where a small
+ * change in rate is most audible, and open up higher where it is not. */
+export const TTS_RATE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.65, 1.8];
+
+/** The next rate on the ladder, wrapping — never a drifting offset. */
+export function nextTtsRate(current) {
+  const now = Number(current) || 1;
+  return TTS_RATE_STEPS.find((v) => v > now + 0.001) ?? TTS_RATE_STEPS[0];
+}
+
+/** 1.5 → "1.5×", 1.35 → "1.35×" — never round a rate into a number we don't use. */
+export function formatRate(v) {
+  return `${Number((Number(v) || 1).toFixed(2))}×`;
+}
 
 const clampNum = (v, lo, hi, dflt) => {
   const n = Number(v);

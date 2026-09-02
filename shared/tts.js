@@ -24,6 +24,29 @@ import { createPiperEngine } from "./piper.js";
 
 const CHUNK_CHARS = 550;
 
+/* The read-aloud word mark.
+ *
+ * There is exactly one at a time, anywhere in the flow. Clearing only inside
+ * the current sentence is what left a trail of stale green marks behind the
+ * reader — every sentence kept its last highlighted word forever. */
+let markedWord = null;
+
+export function markWord(flow, target) {
+  if (!flow) return null;
+  /* This runs from a requestAnimationFrame loop, so it is called at ~60Hz with
+     the same target for most of a word's duration. Sweeping the whole flow
+     every frame made highlighting cost scale with the length of the article.
+     Hold on to the marked node and touch the DOM only when it actually moves. */
+  if (markedWord === target && (!target || target.isConnected)) return target;
+  if (markedWord && markedWord.isConnected) markedWord.classList.remove("rt-speak-word");
+  /* One full sweep whenever we've lost track — first mark of a run, or after a
+     re-render — so a stray mark can never survive. */
+  if (!markedWord) flow.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
+  if (target) target.classList.add("rt-speak-word");
+  markedWord = target || null;
+  return markedWord;
+}
+
 export function createTTS({
   getFlow,
   onState = () => {},
@@ -83,6 +106,7 @@ export function createTTS({
   function clearHighlight() {
     const flow = getFlow();
     if (!flow) return;
+    markedWord = null;
     flow.querySelectorAll(".rt-speak-sentence, .rt-speak-word").forEach((e) =>
       e.classList.remove("rt-speak-sentence", "rt-speak-word")
     );
@@ -92,9 +116,13 @@ export function createTTS({
     const flow = getFlow();
     if (!flow) return;
     flow.querySelectorAll(".rt-speak-sentence").forEach((e) => e.classList.remove("rt-speak-sentence"));
+    markWord(flow, null);
     const s = sentences[idx];
     if (!s) return;
     s.el.classList.add("rt-speak-sentence");
+    /* A folded infobox must open when reading reaches it — otherwise playback
+       carries on inside a collapsed <details> with nothing visible to follow. */
+    for (let d = s.el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
     if (scroll) s.el.scrollIntoView({ block: "center", behavior: "smooth" });
     onState({ playing, index: idx, total: sentences.length });
   }
@@ -140,8 +168,7 @@ export function createTTS({
       if (Number(s.dataset.o) <= charIndex) target = s;
       else break;
     }
-    sentence.el.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
-    if (target) target.classList.add("rt-speak-word");
+    markWord(getFlow() || sentence.el, target);
   }
 
   /* Read-aloud has one on-device engine (Piper). If it can't run, the honest

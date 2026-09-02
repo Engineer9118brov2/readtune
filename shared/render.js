@@ -24,7 +24,101 @@ const DROP_SUBTREE = new Set([
   "SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "NOSCRIPT", "SVG", "MATH",
   "FORM", "INPUT", "BUTTON", "SELECT", "TEXTAREA", "LABEL",
   "LINK", "META", "HEAD", "CANVAS", "AUDIO", "VIDEO", "SOURCE", "TRACK", "MAP", "AREA",
+  "DIALOG",
 ]);
+
+/* Consent / cookie / paywall overlays.
+ *
+ * Readability drops anything with role="dialog", but most consent managers set
+ * no ARIA role at all — so on a page with little continuous prose (a home page,
+ * a feed) the cookie notice is the densest text on the page and Readability
+ * hands it back as "the article". Britannica's home page did exactly that.
+ *
+ * These are matched on the ids and class names the big CMPs actually ship, plus
+ * a narrow set of generic patterns. The generic ones require a second word
+ * (banner / consent / notice / modal …) so an article *about* cookies or
+ * privacy keeps its own markup.
+ */
+const OVERLAY_SELECTORS = [
+  // named consent managers
+  '[id*="onetrust" i]', '[class*="onetrust" i]', '[class*="ot-sdk" i]', '[class*="optanon" i]',
+  '[id*="evidon" i]', '[class*="evidon" i]',
+  '#truste-consent-track', '[id^="truste-" i]', '[class^="truste-" i]', '[class*="trustarc" i]',
+  '[id^="sp_message_container" i]', '[class*="sp-message" i]',
+  '[class*="qc-cmp" i]', '[class*="fc-consent-root" i]', '[class*="osano" i]',
+  '[id*="usercentrics" i]', '[class*="usercentrics" i]', '[id*="didomi" i]', '[class*="didomi" i]',
+  '[id*="cookiebot" i]', '[id="CybotCookiebotDialog"]', '[class*="termly" i]', '[class*="klaro" i]',
+  '[class*="cc-window" i]', '[id*="gdpr-consent" i]', '[class*="gdpr-consent" i]',
+  // generic — two words, so real prose about cookies survives
+  '[id*="cookie" i][id*="banner" i]', '[class*="cookie" i][class*="banner" i]',
+  '[id*="cookie" i][id*="consent" i]', '[class*="cookie" i][class*="consent" i]',
+  '[id*="cookie" i][id*="notice" i]', '[class*="cookie" i][class*="notice" i]',
+  '[class*="cookie" i][class*="popup" i]', '[class*="cookie" i][class*="modal" i]',
+  '[class*="consent" i][class*="banner" i]', '[class*="consent" i][class*="modal" i]',
+  '[class*="privacy" i][class*="banner" i]',
+  // overlays that announce themselves
+  '[role="dialog"]', '[role="alertdialog"]', '[aria-modal="true"]',
+];
+
+/* Belt-and-braces for a CMP whose markup none of the selectors above matches.
+ *
+ * Split in two on purpose. The first list is consent-UI copy — wording that
+ * appears because a dialog is asking you something, not because a writer chose
+ * it. The second list is wording an article about tracking might reasonably
+ * quote, so on its own it is never grounds to throw a page away. Discarding a
+ * real article silently is a worse failure than rendering a banner, which the
+ * reader can at least see and route around. */
+const CONSENT_UI_PHRASES = [
+  /\bdo not sell (?:or share )?my (?:personal )?info(?:rmation)?\b/i,
+  /\bopt[- ]out of the sale or sharing\b/i,
+  /\bcustomi[sz]e my ad experience\b/i,
+  /\byour privacy choices\b/i,
+];
+
+const CONSENT_TOPIC_PHRASES = [
+  /\b(?:accept|allow) all cookies\b/i,
+  /\bwe(?:'| u)se cookies\b/i,
+  /\bmanage (?:your )?(?:cookie )?preferences\b/i,
+  /\binterest[- ]based advertising\b/i,
+  /\bstrictly necessary cookies\b/i,
+];
+
+export function stripOverlays(doc) {
+  let removed = 0;
+  // Query one selector at a time. Joined into a single querySelectorAll, a
+  // single entry the engine dislikes throws the lot away and strips nothing;
+  // per-selector, a bad entry costs only that entry.
+  for (const sel of OVERLAY_SELECTORS) {
+    let hits;
+    try {
+      hits = doc.querySelectorAll(sel);
+    } catch {
+      continue;
+    }
+    for (const node of hits) {
+      // <html>/<body> can carry a cookie class; removing those removes the page.
+      if (node === doc.documentElement || node === doc.body) continue;
+      if (node.isConnected) {
+        node.remove();
+        removed++;
+      }
+    }
+  }
+  return removed;
+}
+
+const countHits = (list, t) => list.reduce((n, re) => n + (re.test(t) ? 1 : 0), 0);
+
+/** How much of this text reads like a cookie/consent notice rather than prose. */
+export function consentPhraseHits(text) {
+  const t = String(text || "");
+  return countHits(CONSENT_UI_PHRASES, t) + countHits(CONSENT_TOPIC_PHRASES, t);
+}
+
+/** Phrases that appear because a dialog is asking, not because a writer chose them. */
+export function consentUiHits(text) {
+  return countHits(CONSENT_UI_PHRASES, String(text || ""));
+}
 
 /* ---------- URL + node sanitizing ---------- */
 
@@ -107,6 +201,7 @@ function runReadability(rawHtml, base) {
     console.warn("[ReadTune] could not parse page HTML:", err);
     return null;
   }
+  stripOverlays(parsed);
   if (base && parsed.head) {
     const b = parsed.createElement("base");
     b.setAttribute("href", base.href);
@@ -140,6 +235,97 @@ function runReadability(rawHtml, base) {
   return null;
 }
 
+/* ---------- table ownership ----------
+ *
+ * Every descendant query on a table also reaches the rows, cells and captions
+ * of any table nested inside it. Getting this wrong has produced, in turn: a
+ * nested table read twice, then not at all, then its caption attributed to its
+ * parent, then its rows counted toward the parent's infobox score. The rule
+ * lives here once so call sites cannot each forget it separately. */
+const ownRows = (table) => Array.from(table.querySelectorAll("tr")).filter((r) => r.closest("table") === table);
+
+const ownCells = (row, table) =>
+  Array.from(row.querySelectorAll("th, td")).filter((c) => c.closest("table") === table);
+
+const ownCaption = (table) => {
+  const c = table.querySelector("caption");
+  return c && c.closest("table") === table ? c : null;
+};
+
+const nestedTables = (table) =>
+  Array.from(table.querySelectorAll("table")).filter(
+    (t) => t.parentElement && t.parentElement.closest("table") === table,
+  );
+
+/* ---------- post-extraction layout repairs ---------- */
+
+/* A wide data table (a climate table, a fixture list) has no reason to widen
+   the whole document, but `table { width: 100% }` alone doesn't stop it: the
+   cells' own content sets a floor. Give every table its own scroll box so the
+   reading column keeps the measure the reader chose. */
+function wrapWideTables(fragment) {
+  for (const table of Array.from(fragment.querySelectorAll("table"))) {
+    if (table.parentElement && table.parentElement.classList.contains("rt-table-wrap")) continue;
+    const box = document.createElement("div");
+    box.className = "rt-table-wrap";
+    box.setAttribute("tabindex", "0");
+    box.setAttribute("role", "region");
+    const caption = ownCaption(table);
+    box.setAttribute("aria-label", (caption && caption.textContent.trim()) || "Table");
+    table.parentNode.insertBefore(box, table);
+    box.appendChild(table);
+  }
+}
+
+/* Wikipedia and friends open with an infobox, so the reader lands on a wall of
+   fact rows and has to scroll past it to reach the first sentence. Fold a
+   leading table away behind a summary the way Wikipedia's own mobile view does.
+   It stays in the document, in order, one click from open. */
+function foldLeadingTable(fragment) {
+  let node = fragment.firstElementChild;
+  while (node && !node.textContent.trim()) node = node.nextElementSibling;
+  if (!node) return;
+  const table = node.classList && node.classList.contains("rt-table-wrap") ? node.querySelector("table") : null;
+  if (!table) return;
+
+  /* Only fold something that is clearly a sidebar of facts about the article.
+     A leading table can just as easily *be* the article — a comparison, a
+     schedule, results, pricing — and the sanitizer has already discarded the
+     class names that would say which. So require the shape instead:
+
+       · key/value rows, never more than two cells wide, most of them th + td
+       · and real prose after it, so the table is not the point of the page. */
+  /* The parent's own rows only: a nested key/value table could otherwise push
+     an ordinary data or layout table over the infobox threshold and collapse
+     the page's real content behind "Quick facts". */
+  const rows = ownRows(table);
+  if (rows.length < 4) return;
+  let widest = 0;
+  let keyValueRows = 0;
+  for (const row of rows) {
+    const cells = ownCells(row, table);
+    widest = Math.max(widest, cells.length);
+    if (cells.length === 2 && cells[0].tagName === "TH") keyValueRows++;
+  }
+  if (widest > 2) return;
+  if (keyValueRows < Math.ceil(rows.length * 0.6)) return;
+
+  let wordsAfter = 0;
+  for (let sib = node.nextElementSibling; sib && wordsAfter < 100; sib = sib.nextElementSibling) {
+    wordsAfter += wordsIn(sib.textContent).length;
+  }
+  if (wordsAfter < 100) return;
+
+  const details = document.createElement("details");
+  details.className = "rt-fold";
+  const summary = document.createElement("summary");
+  const caption = ownCaption(table);
+  summary.textContent = (caption && caption.textContent.trim()) || "Quick facts";
+  details.append(summary);
+  node.parentNode.insertBefore(details, node);
+  details.appendChild(node);
+}
+
 export function buildArticleFragment(rawHtml, baseUrl) {
   let base = null;
   try {
@@ -160,6 +346,8 @@ export function buildArticleFragment(rawHtml, baseUrl) {
     }
   }
   const quality = assessArticleQuality(fragment, meta);
+  wrapWideTables(fragment);
+  foldLeadingTable(fragment);
   return { fragment, meta, extracted: extracted && fragment.textContent.trim().length > 0, quality };
 }
 
@@ -232,6 +420,14 @@ export function assessArticleQuality(fragment, meta = {}) {
   }
 
   const readLength = Math.max(0, Number(meta.length) || 0);
+  /* A consent notice is short, dense prose — it clears every threshold below on
+     its own. Requires at least one phrase that only a consent dialog uses: an
+     article that merely discusses tracking is never thrown away on the strength
+     of the topic words alone. */
+  const text = fragment.textContent;
+  const consentHits = consentPhraseHits(text);
+  const ui = consentUiHits(text);
+  const looksLikeConsent = words.length < 400 && (ui >= 2 || (ui >= 1 && consentHits >= 3));
   const ok =
     words.length >= 30 &&
     (
@@ -240,15 +436,17 @@ export function assessArticleQuality(fragment, meta = {}) {
       meaningfulBlocks >= 3 ||
       longestBlockWords >= 32 ||
       (readLength >= 900 && meaningfulBlocks >= 2)
-    );
+    ) &&
+    !looksLikeConsent;
 
   let reason = "ok";
   if (!words.length) reason = "empty";
+  else if (looksLikeConsent) reason = "consent-notice";
   else if (words.length < 30) reason = "too-short";
   else if (!meaningfulBlocks && !denseBlocks && longestBlockWords < 16) reason = "ui-shell";
   else if (!ok) reason = "thin";
 
-  return { ok, reason, words: words.length, meaningfulBlocks, denseBlocks, longestBlockWords, readLength };
+  return { ok, reason, words: words.length, meaningfulBlocks, denseBlocks, longestBlockWords, readLength, consentHits };
 }
 
 function buildChunks(fragment) {
@@ -256,25 +454,96 @@ function buildChunks(fragment) {
   const push = (text, heading) => {
     for (const s of splitSentences(text)) chunks.push({ text: s, heading: !!heading });
   };
-  for (const node of Array.from(fragment.childNodes)) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      push(node.nodeValue, false);
-      continue;
+
+  /* One list level at a time. A nested list's text is already inside its
+     parent <li>'s textContent, so querySelectorAll("li, dd, dt") over the
+     whole subtree emitted every nested bullet twice — once folded into the
+     parent's run, once on its own. Take each item's own text (minus any
+     sub-list) and recurse into the sub-lists. */
+  const LIST_TAGS = /^(?:UL|OL|DL)$/;
+  const emitList = (list) => {
+    for (const item of list.children) {
+      if (item.tagName !== "LI" && item.tagName !== "DT" && item.tagName !== "DD") continue;
+      let own = "";
+      for (const kid of item.childNodes) {
+        if (kid.nodeType === Node.ELEMENT_NODE && LIST_TAGS.test(kid.tagName)) continue;
+        own += kid.textContent || "";
+      }
+      push(own, false);
+      for (const kid of item.children) if (LIST_TAGS.test(kid.tagName)) emitList(kid);
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-    const tag = node.tagName;
-    if (/^H[1-6]$/.test(tag)) {
-      const t = node.textContent.trim();
-      if (t) chunks.push({ text: t, heading: true });
-    } else if (tag === "UL" || tag === "OL" || tag === "DL") {
-      for (const li of node.querySelectorAll("li, dd, dt")) push(li.textContent, false);
-    } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR" || tag === "TABLE") {
-      /* skipped in chunk mode */
-    } else {
-      push(node.textContent, false);
+  };
+
+  const walk = (parent) => {
+    for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        push(node.nodeValue, false);
+        continue;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      const tag = node.tagName;
+      /* Layout wrappers — the table scroll box, a folded infobox — carry no text
+         of their own. Descend, or their contents arrive here as one undivided
+         run: before this, a wrapped table produced the single "sentence"
+         "CountryUnited StatesStateCalifornia…". */
+      if (tag === "DIV" || tag === "DETAILS" || tag === "SECTION") {
+        walk(node);
+      } else if (tag === "SUMMARY") {
+        const t = node.textContent.trim();
+        if (t) chunks.push({ text: t, heading: true });
+      } else if (/^H[1-6]$/.test(tag)) {
+        const t = node.textContent.trim();
+        if (t) chunks.push({ text: t, heading: true });
+      } else if (tag === "UL" || tag === "OL" || tag === "DL") {
+        emitList(node);
+      } else if (tag === "TABLE") {
+        emitTableInto(node, chunks, push);
+      } else if (tag === "FIGURE" || tag === "IMG" || tag === "HR") {
+        /* skipped in chunk mode */
+      } else {
+        push(node.textContent, false);
+      }
     }
-  }
+  };
+
+  walk(fragment);
   return chunks;
+}
+
+/* One chunk per cell, so a data table reads as the rows it is rather than as a
+   wall of concatenated labels and values.
+ *
+ * Recursive by hand: the generic walker descends into a node's *children*, so
+ * handing it a <table> would skip this branch and dump the whole thing as one
+ * run of text. Excluding nested rows here without recursing is what made a
+ * nested table disappear instead of merely repeat. */
+function emitTableInto(node, chunks, push) {
+  const caption = ownCaption(node);
+  const captionText = caption ? caption.textContent.trim() : "";
+  /* foldLeadingTable copies the caption into the <summary>, which the walker
+     has already emitted — don't say it twice in a row. */
+  const fold = node.closest("details.rt-fold");
+  const summary = fold ? fold.querySelector("summary") : null;
+  const alreadySaid = !!summary && summary.textContent.trim() === captionText;
+  if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
+
+  for (const row of ownRows(node)) {
+    const cells = ownCells(row, node)
+      .map((c) => normalizeText(cellTextWithoutNestedTables(c)))
+      .filter(Boolean);
+    if (cells.length) push(cells.join(": "), false);
+  }
+
+  for (const inner of nestedTables(node)) emitTableInto(inner, chunks, push);
+}
+
+/* A cell's own words, with any table nested inside it left out — that table is
+   walked separately (see the TABLE branch) and would otherwise be read twice. */
+function cellTextWithoutNestedTables(cell) {
+  if (!cell.querySelector("table")) return cell.textContent;
+  const copy = cell.cloneNode(true);
+  copy.querySelectorAll("table").forEach((t) => t.remove());
+  return copy.textContent;
 }
 
 /* ---------- bionic bolding ---------- */
@@ -377,9 +646,14 @@ function applySyllables(scope) {
 
 /* ---------- sentence wrapping (enables highlight + read-aloud) ---------- */
 
+/* Every block that holds readable text. Table cells are in here deliberately:
+   without them read-aloud walks straight past an infobox or a data table while
+   the reader's eye is still on it, and the highlight appears to jump. */
+const SENTENCE_BLOCKS =
+  "p, li, blockquote, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, td, th, caption";
+
 function wrapSentences(root) {
-  let counter = 0;
-  const blocks = root.querySelectorAll("p, li, blockquote, h1, h2, h3, h4, dd, figcaption");
+  const blocks = root.querySelectorAll(SENTENCE_BLOCKS);
   for (const block of blocks) {
     if (block.closest("pre")) continue;
     const kids = Array.from(block.childNodes);
@@ -389,7 +663,6 @@ function wrapSentences(root) {
     const newSpan = () => {
       span = document.createElement("span");
       span.className = "rt-s";
-      span.dataset.i = String(counter++);
       frag.appendChild(span);
     };
     newSpan();
@@ -406,6 +679,21 @@ function wrapSentences(root) {
           if (/[.!?…]["'”’)\]]*\s*$/.test(m[0]) && re.lastIndex < text.length) newSpan();
         }
         if (!any) span.appendChild(document.createTextNode(text));
+      } else if (
+        node.nodeType === Node.ELEMENT_NODE &&
+        (node.matches(SENTENCE_BLOCKS) || node.querySelector(SENTENCE_BLOCKS))
+      ) {
+        /* A block nested inside another block — <li> holding a <ul>, a <td>
+           holding a <p>. It gets its own pass, so hand it through untouched
+           rather than folding it into this block's sentence. Wrapping it here
+           too would nest .rt-s two deep and count those sentences twice — as
+           would folding in a plain <ul> that merely *contains* such blocks; but
+           skipping the whole parent (as an earlier attempt did) silently
+           dropped the parent's own text — "Parent topic" in a nested list was
+           never read aloud at all. */
+        if (span && !span.hasChildNodes()) span.remove();
+        frag.appendChild(node);
+        newSpan();
       } else {
         span.appendChild(node);
       }
@@ -414,7 +702,26 @@ function wrapSentences(root) {
     if (span && !span.hasChildNodes()) span.remove();
     block.replaceChildren(frag);
   }
-  return counter;
+  /* Number only now, walking the finished DOM. Two things a naive
+     number-as-you-wrap gets wrong: wrapping an outer block before its nested
+     blocks gaps the indices, and the split can leave a .rt-s holding only
+     whitespace — source newlines between two nested lists inside one <li>, for
+     instance, land in their own span that the empty-span guards above keep
+     because a whitespace text node still counts as a child. tts.js collect()
+     skips whitespace-only spans, so any that survive to here would put its
+     sentences[] out of step with these data-i values; screen.js addresses a
+     clicked sentence by data-i, so the click would start read-aloud on the
+     wrong sentence (and clicks past the last real one do nothing). Unwrap
+     those — keep the whitespace, drop the span — and number the rest. */
+  let n = 0;
+  for (const span of root.querySelectorAll(".rt-s")) {
+    if (!span.textContent.trim()) {
+      span.replaceWith(...span.childNodes);
+      continue;
+    }
+    span.dataset.i = String(n++);
+  }
+  return n;
 }
 
 /* ---------- reading stats (Flesch–Kincaid grade) ---------- */
@@ -724,25 +1031,50 @@ export function createReadingView(host) {
     setActions(actions = []) {
       const list = Array.isArray(actions) ? actions.filter(Boolean) : [];
       metaActions = list.length;
-      docActions.replaceChildren(
-        ...list.map((a) => {
-          const node = document.createElement(a.href ? "a" : "button");
-          node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
-          node.textContent = a.label || "";
-          if (a.title) node.title = a.title;
-          if (a.href) {
-            node.href = a.href;
-            node.target = "_blank";
-            node.rel = "noopener";
-          } else {
-            node.type = "button";
-            if (typeof a.onClick === "function") node.addEventListener("click", a.onClick);
-          }
-          if (a.disabled) node.setAttribute("disabled", "");
-          if (a.pressed != null) node.setAttribute("aria-pressed", a.pressed ? "true" : "false");
-          return node;
-        })
-      );
+
+      /* Update in place wherever the shape matches.
+         replaceChildren() destroys the node the reader is standing on: a
+         keyboard user who tabs to Pause and presses it loses focus the instant
+         the label becomes Resume, and can't press it again without navigating
+         back. The label is the thing that changes here, not the button. */
+      const existing = Array.from(docActions.children);
+      const sameShape =
+        existing.length === list.length &&
+        list.every((a, i) => existing[i].tagName === (a.href ? "A" : "BUTTON"));
+
+      const dress = (node, a) => {
+        node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
+        if (node.textContent !== (a.label || "")) node.textContent = a.label || "";
+        if (a.title) node.title = a.title;
+        else node.removeAttribute("title");
+        if (a.href) {
+          node.href = a.href;
+          node.target = "_blank";
+          node.rel = "noopener";
+        } else {
+          node.type = "button";
+          node.__rtClick = typeof a.onClick === "function" ? a.onClick : null;
+        }
+        if (a.disabled) node.setAttribute("disabled", "");
+        else node.removeAttribute("disabled");
+        if (a.pressed != null) node.setAttribute("aria-pressed", a.pressed ? "true" : "false");
+        else node.removeAttribute("aria-pressed");
+      };
+
+      if (sameShape) {
+        list.forEach((a, i) => dress(existing[i], a));
+      } else {
+        docActions.replaceChildren(
+          ...list.map((a) => {
+            const node = document.createElement(a.href ? "a" : "button");
+            /* One listener for the life of the node, so re-dressing it below
+               never has to detach and reattach handlers. */
+            if (!a.href) node.addEventListener("click", () => node.__rtClick && node.__rtClick());
+            dress(node, a);
+            return node;
+          })
+        );
+      }
       syncDocHead();
     },
     applyProfile(next) {
