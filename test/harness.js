@@ -794,6 +794,45 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       h.remove();
     }
 
+    // A .rt-s that holds only whitespace — the source newlines between two
+    // nested <ul>s inside one <li> — used to be numbered like any other span
+    // while tts.js collect() skipped it, so tts's sentences[k] and the span
+    // with data-i="k" drifted apart and a sentence click seeked read-aloud to
+    // the wrong line (and clicks past the last real sentence did nothing).
+    {
+      const { h, flow } = mk(
+        filler +
+          "<ul>\n  <li>Lead sentence stands on its own here.\n" +
+          "    <ul>\n      <li>First nested point is written out.</li>\n    </ul>\n" +
+          "    <ul>\n      <li>Second nested point is written out.</li>\n    </ul>\n" +
+          "  </li>\n  <li>A plain sibling item closes the list.</li>\n</ul>",
+        "https://x.test/blank-span",
+        { pacing: "aloud" },
+      );
+      const spans = [...flow.querySelectorAll(".rt-s")];
+      assert(
+        spans.length > 0 && spans.every((s) => s.textContent.trim()),
+        "no whitespace-only sentence span survives wrapping",
+      );
+      assert(
+        spans.every((s, k) => Number(s.dataset.i) === k),
+        "every .rt-s carries its own DOM-order index",
+      );
+      // behavioural: walking read-aloud one sentence at a time must stay on
+      // the matching .rt-s. Before the fix, tts.js skipped the blank span so
+      // from that point on markSentence(k) landed on spans[k + 1].
+      const tts = TTS.createTTS({ getFlow: () => flow });
+      tts.seek(0);
+      let aligned = flow.querySelector(".rt-speak-sentence") === spans[0];
+      for (let k = 1; k < spans.length && aligned; k++) {
+        tts.step(1);
+        aligned = flow.querySelector(".rt-speak-sentence") === spans[k];
+      }
+      assert(aligned, "read-aloud walks the sentences in step with their data-i");
+      tts.destroy();
+      h.remove();
+    }
+
     // The folded infobox summary and the table caption are the same words.
     {
       const { h, v } = mk(

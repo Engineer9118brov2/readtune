@@ -58,7 +58,7 @@ const OVERLAY_SELECTORS = [
   '[class*="privacy" i][class*="banner" i]',
   // overlays that announce themselves
   '[role="dialog"]', '[role="alertdialog"]', '[aria-modal="true"]',
-].join(",");
+];
 
 /* Belt-and-braces for a CMP whose markup none of the selectors above matches.
  *
@@ -85,18 +85,23 @@ const CONSENT_TOPIC_PHRASES = [
 
 export function stripOverlays(doc) {
   let removed = 0;
-  let nodes = [];
-  try {
-    nodes = Array.from(doc.querySelectorAll(OVERLAY_SELECTORS));
-  } catch {
-    return 0; // a selector the engine dislikes must never break extraction
-  }
-  for (const node of nodes) {
-    // <html>/<body> can carry a cookie class; removing those removes the page.
-    if (node === doc.documentElement || node === doc.body) continue;
-    if (node.isConnected) {
-      node.remove();
-      removed++;
+  // Query one selector at a time. Joined into a single querySelectorAll, a
+  // single entry the engine dislikes throws the lot away and strips nothing;
+  // per-selector, a bad entry costs only that entry.
+  for (const sel of OVERLAY_SELECTORS) {
+    let hits;
+    try {
+      hits = doc.querySelectorAll(sel);
+    } catch {
+      continue;
+    }
+    for (const node of hits) {
+      // <html>/<body> can carry a cookie class; removing those removes the page.
+      if (node === doc.documentElement || node === doc.body) continue;
+      if (node.isConnected) {
+        node.remove();
+        removed++;
+      }
     }
   }
   return removed;
@@ -678,15 +683,25 @@ function wrapSentences(root) {
     if (span && !span.hasChildNodes()) span.remove();
     block.replaceChildren(frag);
   }
-  /* Number only now, walking the finished DOM.
-     Wrapping an outer block before its nested blocks means indices handed out
-     during the walk end up gapped — a span reserved next to a nested list may
-     be dropped as empty, and descendants are wrapped after their parent. That
-     matters because screen.js addresses sentences by data-i while tts.js
-     collects them in DOM order, so a gap makes clicking a sentence start
-     speech at a different one. */
+  /* Number only now, walking the finished DOM. Two things a naive
+     number-as-you-wrap gets wrong: wrapping an outer block before its nested
+     blocks gaps the indices, and the split can leave a .rt-s holding only
+     whitespace — source newlines between two nested lists inside one <li>, for
+     instance, land in their own span that the empty-span guards above keep
+     because a whitespace text node still counts as a child. tts.js collect()
+     skips whitespace-only spans, so any that survive to here would put its
+     sentences[] out of step with these data-i values; screen.js addresses a
+     clicked sentence by data-i, so the click would start read-aloud on the
+     wrong sentence (and clicks past the last real one do nothing). Unwrap
+     those — keep the whitespace, drop the span — and number the rest. */
   let n = 0;
-  for (const span of root.querySelectorAll(".rt-s")) span.dataset.i = String(n++);
+  for (const span of root.querySelectorAll(".rt-s")) {
+    if (!span.textContent.trim()) {
+      span.replaceWith(...span.childNodes);
+      continue;
+    }
+    span.dataset.i = String(n++);
+  }
   return n;
 }
 
