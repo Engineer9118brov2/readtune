@@ -834,6 +834,87 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     );
   }
 
+  /* ---- review follow-ups, round three (Codex, PR #3) ---- */
+  {
+    const mkv = (inner, url, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml('<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>", url);
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return h;
+    };
+    const prose = "<p>" + "Long enough prose to clear the quality gate and then some more. ".repeat(10) + "</p>";
+    const kvTable =
+      "<table><caption>Quick facts</caption><tr><th>Country</th><td>United States</td></tr>" +
+      "<tr><th>State</th><td>California</td></tr><tr><th>County</th><td>Los Angeles</td></tr>" +
+      "<tr><th>Zip</th><td>91301</td></tr><tr><th>Area</th><td>13 sq mi</td></tr></table>";
+
+    // Folding is for a sidebar of facts, not for a table that IS the article.
+    {
+      const h = mkv(kvTable + prose, "https://x.test/info");
+      assert(h.querySelector(".rt-fold"), "a key/value infobox followed by prose still folds");
+      h.remove();
+    }
+    {
+      const cmp =
+        "<table><tr><th>Plan</th><th>Price</th><th>Seats</th></tr>" +
+        "<tr><td>Free</td><td>0</td><td>1</td></tr><tr><td>Team</td><td>10</td><td>5</td></tr>" +
+        "<tr><td>Pro</td><td>25</td><td>20</td></tr><tr><td>Max</td><td>60</td><td>99</td></tr></table>";
+      const h = mkv(cmp + prose, "https://x.test/cmp");
+      assert(!h.querySelector(".rt-fold"), "a comparison table is never hidden behind \"Quick facts\"");
+      h.remove();
+    }
+    {
+      const h = mkv(kvTable + "<p>Short.</p>", "https://x.test/tbl");
+      assert(!h.querySelector(".rt-fold"), "a table with no article after it is the article, so it stays open");
+      h.remove();
+    }
+
+    // The word mark runs at ~60Hz; it must not sweep the article every frame.
+    {
+      const h = document.createElement("div");
+      h.innerHTML = '<div class="rt-article"><span class="rt-s"><span class="rt-w">a</span><span class="rt-w">b</span></span></div>';
+      document.body.appendChild(h);
+      const flow = h.querySelector(".rt-article");
+      const words = [...flow.querySelectorAll(".rt-w")];
+      let queries = 0;
+      const real = flow.querySelectorAll.bind(flow);
+      flow.querySelectorAll = (sel) => { queries++; return real(sel); };
+      TTS.markWord(flow, words[0]);
+      for (let k = 0; k < 60; k++) TTS.markWord(flow, words[0]);
+      assert(queries <= 1, "holding on one word for a second costs one DOM query, not sixty");
+      TTS.markWord(flow, words[1]);
+      assert(flow.getElementsByClassName("rt-speak-word").length === 1, "moving the mark still leaves exactly one");
+      assert(words[1].classList.contains("rt-speak-word"), "and it is on the current word");
+      h.remove();
+    }
+
+    // Rebuilding the header action would drop focus from the button in use.
+    {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+      v.setMeta({ title: "T", parts: ["x"] });
+      v.setActions([{ label: "Pause", onClick: () => {} }]);
+      const button = h.querySelector(".rt-doc-action");
+      button.focus();
+      v.setActions([{ label: "Resume", onClick: () => {} }]);
+      assert(h.querySelector(".rt-doc-action") === button, "the header action is updated in place, not replaced");
+      assert(document.activeElement === button, "so a keyboard user keeps focus through a pause/resume");
+      assert(button.textContent === "Resume", "and the label still changes");
+      h.remove();
+    }
+
+    // Overlays need an opaque fill or their text stacks on the page beneath.
+    {
+      const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+      assert(/:not\(\[role="dialog"\]/.test(css), "overlays are exempt from the transparent sweep");
+      assert(/\[role="menu"\][\s\S]*background-color: var\(--rt-inpage-bg\)/.test(css), "and are given the tint's own opaque surface");
+    }
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

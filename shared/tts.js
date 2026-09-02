@@ -29,11 +29,22 @@ const CHUNK_CHARS = 550;
  * There is exactly one at a time, anywhere in the flow. Clearing only inside
  * the current sentence is what left a trail of stale green marks behind the
  * reader — every sentence kept its last highlighted word forever. */
+let markedWord = null;
+
 export function markWord(flow, target) {
   if (!flow) return null;
-  flow.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
+  /* This runs from a requestAnimationFrame loop, so it is called at ~60Hz with
+     the same target for most of a word's duration. Sweeping the whole flow
+     every frame made highlighting cost scale with the length of the article.
+     Hold on to the marked node and touch the DOM only when it actually moves. */
+  if (markedWord === target && (!target || target.isConnected)) return target;
+  if (markedWord && markedWord.isConnected) markedWord.classList.remove("rt-speak-word");
+  /* One full sweep whenever we've lost track — first mark of a run, or after a
+     re-render — so a stray mark can never survive. */
+  if (!markedWord) flow.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
   if (target) target.classList.add("rt-speak-word");
-  return target || null;
+  markedWord = target || null;
+  return markedWord;
 }
 
 export function createTTS({
@@ -95,6 +106,7 @@ export function createTTS({
   function clearHighlight() {
     const flow = getFlow();
     if (!flow) return;
+    markedWord = null;
     flow.querySelectorAll(".rt-speak-sentence, .rt-speak-word").forEach((e) =>
       e.classList.remove("rt-speak-sentence", "rt-speak-word")
     );

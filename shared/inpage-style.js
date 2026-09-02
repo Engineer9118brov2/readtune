@@ -125,7 +125,7 @@ html.rt-inpage body *${READING_GUARD} {
  * a dark fill while the text on top is repainted dark too. The result is
  * unreadable patches scattered through an otherwise tinted page. Media and
  * anything painting with an image keep what they have. */
-html.rt-inpage body *:not(img):not(picture):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(rt-bionic):not(pre):not(code):not(kbd):not(samp):not(blockquote):not(mark):not(button):not(input):not(select):not(textarea):not(option):not(optgroup) {
+html.rt-inpage body *:not(img):not(picture):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(rt-bionic):not(pre):not(code):not(kbd):not(samp):not(blockquote):not(mark):not(button):not(input):not(select):not(textarea):not(option):not(optgroup):not([role="dialog"], [role="alertdialog"], [role="menu"], [role="menubar"], [role="listbox"], [role="combobox"], [role="tooltip"], [role="tabpanel"], [aria-modal="true"], [popover], dialog) {
   background-color: transparent !important;
 }
 /* Controls are excluded from the ink rules above, so give them a surface of
@@ -136,6 +136,13 @@ html.rt-inpage :is(button, input, select, textarea, option, optgroup) {
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;
   border-color: var(--rt-inpage-faint) !important;
 }
+/* A menu, dialog or tooltip is only legible because it is opaque — clearing its
+   fill stacks two layers of similarly coloured text. Give overlays the tint's
+   own surface rather than making them see-through. */
+html.rt-inpage :is([role="dialog"], [role="alertdialog"], [role="menu"], [role="menubar"], [role="listbox"], [role="combobox"], [role="tooltip"], [role="tabpanel"], [aria-modal="true"], [popover], dialog) {
+  background-color: var(--rt-inpage-bg) !important;
+}
+
 /* Blocks that mean something by being set apart keep a faint surface. */
 html.rt-inpage :is(pre, code, kbd, samp, blockquote, mark) {
   background-color: var(--rt-inpage-faint) !important;

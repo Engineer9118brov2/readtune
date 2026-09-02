@@ -260,8 +260,32 @@ function foldLeadingTable(fragment) {
   if (!node) return;
   const table = node.classList && node.classList.contains("rt-table-wrap") ? node.querySelector("table") : null;
   if (!table) return;
-  const rows = table.querySelectorAll("tr").length;
-  if (rows < 4) return; // a small table is not in the way
+
+  /* Only fold something that is clearly a sidebar of facts about the article.
+     A leading table can just as easily *be* the article — a comparison, a
+     schedule, results, pricing — and the sanitizer has already discarded the
+     class names that would say which. So require the shape instead:
+
+       · key/value rows, never more than two cells wide, most of them th + td
+       · and real prose after it, so the table is not the point of the page. */
+  const rows = Array.from(table.querySelectorAll("tr"));
+  if (rows.length < 4) return;
+  let widest = 0;
+  let keyValueRows = 0;
+  for (const row of rows) {
+    const cells = Array.from(row.children).filter((c) => c.tagName === "TH" || c.tagName === "TD");
+    widest = Math.max(widest, cells.length);
+    if (cells.length === 2 && cells[0].tagName === "TH") keyValueRows++;
+  }
+  if (widest > 2) return;
+  if (keyValueRows < Math.ceil(rows.length * 0.6)) return;
+
+  let wordsAfter = 0;
+  for (let sib = node.nextElementSibling; sib && wordsAfter < 100; sib = sib.nextElementSibling) {
+    wordsAfter += wordsIn(sib.textContent).length;
+  }
+  if (wordsAfter < 100) return;
+
   const details = document.createElement("details");
   details.className = "rt-fold";
   const summary = document.createElement("summary");
@@ -927,25 +951,50 @@ export function createReadingView(host) {
     setActions(actions = []) {
       const list = Array.isArray(actions) ? actions.filter(Boolean) : [];
       metaActions = list.length;
-      docActions.replaceChildren(
-        ...list.map((a) => {
-          const node = document.createElement(a.href ? "a" : "button");
-          node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
-          node.textContent = a.label || "";
-          if (a.title) node.title = a.title;
-          if (a.href) {
-            node.href = a.href;
-            node.target = "_blank";
-            node.rel = "noopener";
-          } else {
-            node.type = "button";
-            if (typeof a.onClick === "function") node.addEventListener("click", a.onClick);
-          }
-          if (a.disabled) node.setAttribute("disabled", "");
-          if (a.pressed != null) node.setAttribute("aria-pressed", a.pressed ? "true" : "false");
-          return node;
-        })
-      );
+
+      /* Update in place wherever the shape matches.
+         replaceChildren() destroys the node the reader is standing on: a
+         keyboard user who tabs to Pause and presses it loses focus the instant
+         the label becomes Resume, and can't press it again without navigating
+         back. The label is the thing that changes here, not the button. */
+      const existing = Array.from(docActions.children);
+      const sameShape =
+        existing.length === list.length &&
+        list.every((a, i) => existing[i].tagName === (a.href ? "A" : "BUTTON"));
+
+      const dress = (node, a) => {
+        node.className = "rt-doc-action" + (a.primary ? " rt-doc-action-primary" : "");
+        if (node.textContent !== (a.label || "")) node.textContent = a.label || "";
+        if (a.title) node.title = a.title;
+        else node.removeAttribute("title");
+        if (a.href) {
+          node.href = a.href;
+          node.target = "_blank";
+          node.rel = "noopener";
+        } else {
+          node.type = "button";
+          node.__rtClick = typeof a.onClick === "function" ? a.onClick : null;
+        }
+        if (a.disabled) node.setAttribute("disabled", "");
+        else node.removeAttribute("disabled");
+        if (a.pressed != null) node.setAttribute("aria-pressed", a.pressed ? "true" : "false");
+        else node.removeAttribute("aria-pressed");
+      };
+
+      if (sameShape) {
+        list.forEach((a, i) => dress(existing[i], a));
+      } else {
+        docActions.replaceChildren(
+          ...list.map((a) => {
+            const node = document.createElement(a.href ? "a" : "button");
+            /* One listener for the life of the node, so re-dressing it below
+               never has to detach and reattach handlers. */
+            if (!a.href) node.addEventListener("click", () => node.__rtClick && node.__rtClick());
+            dress(node, a);
+            return node;
+          })
+        );
+      }
       syncDocHead();
     },
     applyProfile(next) {
