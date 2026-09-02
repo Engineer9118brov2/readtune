@@ -24,6 +24,18 @@ import { createPiperEngine } from "./piper.js";
 
 const CHUNK_CHARS = 550;
 
+/* The read-aloud word mark.
+ *
+ * There is exactly one at a time, anywhere in the flow. Clearing only inside
+ * the current sentence is what left a trail of stale green marks behind the
+ * reader — every sentence kept its last highlighted word forever. */
+export function markWord(flow, target) {
+  if (!flow) return null;
+  flow.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
+  if (target) target.classList.add("rt-speak-word");
+  return target || null;
+}
+
 export function createTTS({
   getFlow,
   onState = () => {},
@@ -92,6 +104,7 @@ export function createTTS({
     const flow = getFlow();
     if (!flow) return;
     flow.querySelectorAll(".rt-speak-sentence").forEach((e) => e.classList.remove("rt-speak-sentence"));
+    markWord(flow, null);
     const s = sentences[idx];
     if (!s) return;
     s.el.classList.add("rt-speak-sentence");
@@ -140,8 +153,7 @@ export function createTTS({
       if (Number(s.dataset.o) <= charIndex) target = s;
       else break;
     }
-    sentence.el.querySelectorAll(".rt-speak-word").forEach((e) => e.classList.remove("rt-speak-word"));
-    if (target) target.classList.add("rt-speak-word");
+    markWord(getFlow() || sentence.el, target);
   }
 
   /* Read-aloud has one on-device engine (Piper). If it can't run, the honest

@@ -24,7 +24,80 @@ const DROP_SUBTREE = new Set([
   "SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "NOSCRIPT", "SVG", "MATH",
   "FORM", "INPUT", "BUTTON", "SELECT", "TEXTAREA", "LABEL",
   "LINK", "META", "HEAD", "CANVAS", "AUDIO", "VIDEO", "SOURCE", "TRACK", "MAP", "AREA",
+  "DIALOG",
 ]);
+
+/* Consent / cookie / paywall overlays.
+ *
+ * Readability drops anything with role="dialog", but most consent managers set
+ * no ARIA role at all — so on a page with little continuous prose (a home page,
+ * a feed) the cookie notice is the densest text on the page and Readability
+ * hands it back as "the article". Britannica's home page did exactly that.
+ *
+ * These are matched on the ids and class names the big CMPs actually ship, plus
+ * a narrow set of generic patterns. The generic ones require a second word
+ * (banner / consent / notice / modal …) so an article *about* cookies or
+ * privacy keeps its own markup.
+ */
+const OVERLAY_SELECTORS = [
+  // named consent managers
+  '[id*="onetrust" i]', '[class*="onetrust" i]', '[class*="ot-sdk" i]', '[class*="optanon" i]',
+  '[id*="evidon" i]', '[class*="evidon" i]',
+  '[id*="truste" i]', '[class*="truste" i]',
+  '[id^="sp_message_container" i]', '[class*="sp-message" i]',
+  '[class*="qc-cmp" i]', '[class*="fc-consent-root" i]', '[class*="osano" i]',
+  '[id*="usercentrics" i]', '[class*="usercentrics" i]', '[id*="didomi" i]', '[class*="didomi" i]',
+  '[id*="cookiebot" i]', '[id="CybotCookiebotDialog"]', '[class*="termly" i]', '[class*="klaro" i]',
+  '[class*="cc-window" i]', '[id*="gdpr-consent" i]', '[class*="gdpr-consent" i]',
+  // generic — two words, so real prose about cookies survives
+  '[id*="cookie" i][id*="banner" i]', '[class*="cookie" i][class*="banner" i]',
+  '[id*="cookie" i][id*="consent" i]', '[class*="cookie" i][class*="consent" i]',
+  '[id*="cookie" i][id*="notice" i]', '[class*="cookie" i][class*="notice" i]',
+  '[class*="cookie" i][class*="popup" i]', '[class*="cookie" i][class*="modal" i]',
+  '[class*="consent" i][class*="banner" i]', '[class*="consent" i][class*="modal" i]',
+  '[class*="privacy" i][class*="banner" i]',
+  // overlays that announce themselves
+  '[role="dialog"]', '[role="alertdialog"]', '[aria-modal="true"]',
+].join(",");
+
+/* Text that only a consent notice says. Belt-and-braces for a CMP whose markup
+   none of the selectors above happens to match. */
+const CONSENT_PHRASES = [
+  /\bdo not sell (?:or share )?my (?:personal )?info(?:rmation)?\b/i,
+  /\bopt[- ]out of the sale or sharing\b/i,
+  /\bcustomi[sz]e my ad experience\b/i,
+  /\b(?:accept|allow) all cookies\b/i,
+  /\bwe(?:'| u)se cookies\b/i,
+  /\byour privacy choices\b/i,
+  /\bmanage (?:your )?(?:cookie )?preferences\b/i,
+  /\bstrictly necessary cookies\b/i,
+  /\binterest[- ]based advertising\b/i,
+];
+
+export function stripOverlays(doc) {
+  let removed = 0;
+  let nodes = [];
+  try {
+    nodes = Array.from(doc.querySelectorAll(OVERLAY_SELECTORS));
+  } catch {
+    return 0; // a selector the engine dislikes must never break extraction
+  }
+  for (const node of nodes) {
+    // <html>/<body> can carry a cookie class; removing those removes the page.
+    if (node === doc.documentElement || node === doc.body) continue;
+    if (node.isConnected) {
+      node.remove();
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/** How much of this text reads like a cookie/consent notice rather than prose. */
+export function consentPhraseHits(text) {
+  const t = String(text || "");
+  return CONSENT_PHRASES.reduce((n, re) => n + (re.test(t) ? 1 : 0), 0);
+}
 
 /* ---------- URL + node sanitizing ---------- */
 
@@ -107,6 +180,7 @@ function runReadability(rawHtml, base) {
     console.warn("[ReadTune] could not parse page HTML:", err);
     return null;
   }
+  stripOverlays(parsed);
   if (base && parsed.head) {
     const b = parsed.createElement("base");
     b.setAttribute("href", base.href);
@@ -232,6 +306,11 @@ export function assessArticleQuality(fragment, meta = {}) {
   }
 
   const readLength = Math.max(0, Number(meta.length) || 0);
+  /* A consent notice is short, dense prose — it clears every threshold below on
+     its own. Two distinct consent phrases in a passage this short means we
+     extracted the cookie banner, not the page. */
+  const consentHits = consentPhraseHits(fragment.textContent);
+  const looksLikeConsent = consentHits >= 2 && words.length < 400;
   const ok =
     words.length >= 30 &&
     (
@@ -240,15 +319,17 @@ export function assessArticleQuality(fragment, meta = {}) {
       meaningfulBlocks >= 3 ||
       longestBlockWords >= 32 ||
       (readLength >= 900 && meaningfulBlocks >= 2)
-    );
+    ) &&
+    !looksLikeConsent;
 
   let reason = "ok";
   if (!words.length) reason = "empty";
+  else if (looksLikeConsent) reason = "consent-notice";
   else if (words.length < 30) reason = "too-short";
   else if (!meaningfulBlocks && !denseBlocks && longestBlockWords < 16) reason = "ui-shell";
   else if (!ok) reason = "thin";
 
-  return { ok, reason, words: words.length, meaningfulBlocks, denseBlocks, longestBlockWords, readLength };
+  return { ok, reason, words: words.length, meaningfulBlocks, denseBlocks, longestBlockWords, readLength, consentHits };
 }
 
 function buildChunks(fragment) {
@@ -377,11 +458,21 @@ function applySyllables(scope) {
 
 /* ---------- sentence wrapping (enables highlight + read-aloud) ---------- */
 
+/* Every block that holds readable text. Table cells are in here deliberately:
+   without them read-aloud walks straight past an infobox or a data table while
+   the reader's eye is still on it, and the highlight appears to jump. */
+const SENTENCE_BLOCKS =
+  "p, li, blockquote, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, td, th, caption";
+
 function wrapSentences(root) {
   let counter = 0;
-  const blocks = root.querySelectorAll("p, li, blockquote, h1, h2, h3, h4, dd, figcaption");
+  const blocks = root.querySelectorAll(SENTENCE_BLOCKS);
   for (const block of blocks) {
     if (block.closest("pre")) continue;
+    /* Wrap the innermost block only. A <td> holding a <p>, or a <blockquote>
+       holding paragraphs, would otherwise be wrapped twice and every sentence
+       inside it would be counted — and highlighted — two deep. */
+    if (block.querySelector(SENTENCE_BLOCKS)) continue;
     const kids = Array.from(block.childNodes);
     if (!kids.length) continue;
     const frag = document.createDocumentFragment();

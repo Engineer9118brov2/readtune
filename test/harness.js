@@ -39,6 +39,42 @@ const ARTICLE = `<!doctype html><html><head><title>Tide pools reset twice a day 
 <ul><li>Spring tides: the biggest swing.</li><li>Neap tides: a gentler one, a week later.</li></ul>
 </article><footer>c</footer></body></html>`;
 
+/* A consent modal with no ARIA role — Readability's unlikelyRoles filter misses
+   these, so on a page with no long prose the cookie notice becomes "the article".
+   Britannica's home page rendered exactly this text in Reader View. */
+const CONSENT_PAGE = `<!doctype html><html><head><title>Encyclopedia Britannica | Britannica</title></head><body>
+<header><a href="/">Britannica</a><nav><a href="/games">Games</a><a href="/history">History</a></nav></header>
+<main><div class="grid"><a href="/t1"><h3>You Gotta Be Kitten Me</h3></a><a href="/t2"><h3>Alternative Energies</h3></a></div></main>
+<div id="_evidon-consent-frame" class="evidon-consent-modal">
+<a class="evidon-close" href="#">&times;</a><h2>Do not sell my info</h2>
+<p>You have chosen to opt-out of the sale or sharing of your information from this site and any of its affiliates. To opt back in please click the "Customize my ad experience" link.</p>
+<p>This site collects information through the use of cookies and other tracking tools. Cookies and these tools do not contain any information that personally identifies a user, but personal information that would be stored about you may be linked to the information stored in and obtained from them. This information would be used and shared for Analytics, Ad Serving, Interest Based Advertising, among other purposes.</p>
+<p>For more information please visit this site's Privacy Policy.</p>
+<a href="#">CANCEL</a><a href="#">CONTINUE</a></div></body></html>`;
+
+/* An article that legitimately discusses cookies and privacy: the overlay
+   stripper must not touch it. */
+const COOKIE_ARTICLE = `<!doctype html><html><head><title>How cookie banners got so bad</title></head><body><article>
+<h1>How cookie banners got so bad</h1>
+<p>We use cookies, the banner says, and then it offers you a wall of toggles that nobody reads. The design of consent has drifted a long way from the intent of the law that created it, and the result is a ritual that wastes a little of everyone's attention several times a day.</p>
+<p>Researchers who study these interfaces find that the placement of the reject control matters more than the wording of the notice. When accepting takes one click and declining takes four, most people accept, and the recorded consent tells you almost nothing about what they actually wanted.</p>
+<p>The fix that regulators keep circling is a machine-readable signal the browser sends once, so the negotiation happens without a modal at all. Several jurisdictions now recognise such a signal, and the banners persist anyway.</p>
+</article></body></html>`;
+
+/* A data table: read-aloud has to walk the cells, not step over them. */
+const TABLE_PAGE = `<!doctype html><html><head><title>Calabasas</title></head><body><article>
+<h1>Calabasas</h1>
+<p>Calabasas is a city in Los Angeles County, California, adjacent to the southwestern San Fernando Valley. Situated within the foothills of the Santa Monica mountains, it sits about thirty miles northwest of downtown Los Angeles and keeps a population of roughly twenty three thousand people.</p>
+<table><caption>Calabasas, California</caption>
+<tr><th>Country</th><td>United States</td></tr>
+<tr><th>State</th><td>California</td></tr>
+<tr><th>County</th><td>Los Angeles</td></tr>
+<tr><th>Incorporated</th><td>April 5, 1991</td></tr>
+<tr><th>Elevation</th><td>928 ft</td></tr>
+<tr><th>ZIP codes</th><td>91301, 91302</td></tr></table>
+<p>The name Calabasas is an archaic Californio spelling of the Spanish word for winter squashes, and the city has used it since well before incorporation.</p>
+</article></body></html>`;
+
 const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 <header><button>Search</button><button>New Chat</button><button>Library</button></header>
 <main>
@@ -481,6 +517,89 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     typeof controls.setVoices !== "function" && !controls.panel.querySelector('select[aria-label="Browser voice"]'),
     "controls no longer build a browser-voice picker",
   );
+
+  /* ---- consent / cookie overlays are never the article ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    const res = v.setArticleHtml(CONSENT_PAGE, "https://www.britannica.com/");
+    const text = h.querySelector(".rt-article").textContent;
+    assert(!/do not sell my info/i.test(text), "consent modal never renders as the article");
+    assert(!/Interest Based Advertising/i.test(text), "consent body text is stripped before Readability");
+    assert(!res.quality.ok, "a page whose only prose is a cookie notice fails the quality gate");
+
+    // the stripper must not eat an article that is *about* cookies
+    const h2 = document.createElement("div");
+    document.body.appendChild(h2);
+    const v2 = R.createReadingView(h2);
+    const res2 = v2.setArticleHtml(COOKIE_ARTICLE, "https://example.test/cookie-banners");
+    assert(res2.quality.ok, "an article about cookie banners still extracts");
+    assert(
+      /placement of the reject control/i.test(h2.querySelector(".rt-article").textContent),
+      "prose about consent survives the overlay stripper",
+    );
+    assert(R.consentPhraseHits("We use cookies and this is your privacy choices notice") >= 2, "consent phrases are detected");
+    assert(R.consentPhraseHits("The tide pools reset twice a day.") === 0, "ordinary prose trips no consent phrase");
+    h.remove();
+    h2.remove();
+  }
+
+  /* ---- read-aloud reaches table cells, and wraps each block only once ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(TABLE_PAGE, "https://example.test/calabasas");
+    v.applyProfile({ ...S.DEFAULT_PROFILE });
+    const flow = h.querySelector(".rt-article");
+    const cells = [...flow.querySelectorAll("td, th")].filter((c) => c.textContent.trim());
+    const unreachable = cells.filter((c) => !c.querySelector(".rt-s") && !c.classList.contains("rt-s"));
+    assert(cells.length > 0 && unreachable.length === 0, "every table cell with text is reachable by read-aloud");
+    assert(flow.querySelectorAll(".rt-s .rt-s").length === 0, "sentence spans are never nested");
+    assert(flow.querySelector("caption .rt-s"), "the table caption is read too");
+    h.remove();
+  }
+
+  /* ---- the read-aloud word highlight never leaves a trail ---- */
+  {
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    const v = R.createReadingView(h);
+    v.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+    v.applyProfile({ ...S.DEFAULT_PROFILE, pacing: "aloud" });
+    const flow = h.querySelector(".rt-article");
+    const tts = TTS.createTTS({ getFlow: () => flow });
+    tts.seek(0);
+
+    /* The playback path: each sentence marks a word as the audio moves through
+       it. Before the fix each call cleared only its own sentence, so every
+       sentence read left its last word highlighted permanently. */
+    const spans = [...flow.querySelectorAll(".rt-s")].slice(0, 4);
+    const words = spans.map((s) => {
+      const w = document.createElement("span");
+      w.className = "rt-w";
+      w.textContent = "word";
+      s.appendChild(w);
+      return w;
+    });
+    words.forEach((w) => TTS.markWord(flow, w));
+    assert(
+      flow.querySelectorAll(".rt-speak-word").length === 1,
+      "reading through four sentences leaves exactly one word mark, not four",
+    );
+    assert(words[words.length - 1].classList.contains("rt-speak-word"), "the surviving mark is the current word");
+
+    TTS.markWord(flow, null);
+    assert(flow.querySelectorAll(".rt-speak-word").length === 0, "the word mark can be cleared outright");
+
+    tts.step(1);
+    assert(flow.querySelectorAll(".rt-speak-sentence").length === 1, "exactly one sentence is marked at a time");
+
+    tts.destroy();
+    assert(flow.querySelectorAll(".rt-speak-word, .rt-speak-sentence").length === 0, "stopping clears every highlight");
+    h.remove();
+  }
 
   /* showcase */
   host.replaceChildren();
