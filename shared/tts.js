@@ -399,8 +399,22 @@ export function createTTS({
       const blob = await piper.synthesize(say);
       const url = URL.createObjectURL(blob);
       const one = new Audio(url);
-      one.onended = one.onerror = () => URL.revokeObjectURL(url);
-      await one.play();
+      one.playbackRate = rate;
+      /* play() resolves when playback *starts*. Callers duck the narration
+         around this call, so settling there put the sentence back on top of
+         the word. Settle on ended/error instead. */
+      await new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        one.onended = finish;
+        one.onerror = finish;
+        one.play().catch(finish);
+      });
       return one;
     },
     start(fromIndex) {

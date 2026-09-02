@@ -85,7 +85,12 @@ export function splitWord(word) {
   /* Silent final e: "make", "stone". Fold it back into the previous nucleus
      unless the word ends in consonant + "le", which is its own syllable. */
   const last = spots[spots.length - 1];
-  if (last[1] === w.length && last[1] - last[0] === 1 && w[last[0]] === "e") {
+  /* The silent e is often no longer the last letter: "baked", "loved",
+     "makes", "hoped". Look past a -d/-s/-st inflection, or those come out as
+     "ba-ked" and "ma-kes" and get counted as two syllables. */
+  const tail = w.slice(last[1]);
+  const inflected = /^(d|s|st)$/.test(tail);
+  if ((last[1] === w.length || inflected) && last[1] - last[0] === 1 && w[last[0]] === "e") {
     const beforeE = w[last[0] - 1];
     const twoBefore = w[last[0] - 2];
     const isConsonantLe = beforeE === "l" && twoBefore && !isVowel(twoBefore);

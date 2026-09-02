@@ -670,9 +670,9 @@ body.rt-reading-page > .rt-surface {
    lines. Sized in `lh` so it follows the reader's line-spacing setting. The
    read-aloud marks paint over it with an explicit fill, or they would inherit
    the transparent text and vanish mid-sentence. */
-.rt-surface[data-rt-line-tint="warm"] .rt-article :is(p, li, dd, blockquote, td, th),
-.rt-surface[data-rt-line-tint="cool"] .rt-article :is(p, li, dd, blockquote, td, th),
-.rt-surface[data-rt-line-tint="mono"] .rt-article :is(p, li, dd, blockquote, td, th) {
+.rt-surface[data-rt-line-tint="warm"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence),
+.rt-surface[data-rt-line-tint="cool"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence),
+.rt-surface[data-rt-line-tint="mono"] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence) {
   background-image: repeating-linear-gradient(
     to bottom,
     var(--rt-linetint-a) 0,
@@ -684,13 +684,13 @@ body.rt-reading-page > .rt-surface {
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
-.rt-surface:not([data-rt-line-tint="off"]) .rt-article :is(.rt-speak-word, .rt-speak-sentence, .rt-chunk-sentence, mark) {
+.rt-surface:not([data-rt-line-tint="off"]) .rt-article :is(.rt-speak-word, .rt-speak-sentence, mark) {
   -webkit-text-fill-color: var(--rt-ink);
   color: var(--rt-ink);
 }
 /* Bionic bolding sets its own weight, not its own colour, so it rides along. */
 @media (prefers-reduced-transparency: reduce) {
-  .rt-surface[data-rt-line-tint] .rt-article :is(p, li, dd, blockquote, td, th) {
+  .rt-surface[data-rt-line-tint] :is(.rt-article :is(p, li, dd, blockquote, td, th), .rt-chunk-sentence) {
     -webkit-text-fill-color: currentColor;
     color: var(--rt-ink);
     background-image: none;

@@ -45,6 +45,48 @@ export function isDarkSurface(hex) {
   return r * 0.299 + g * 0.587 + b * 0.114 < 140;
 }
 
+/* WCAG relative luminance and contrast — the line tint replaces the article's
+   ink outright, so its stops have to clear the same bar body text does. */
+function relLuminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+export function contrastRatio(a, b) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(a) || !/^#[0-9a-fA-F]{6}$/.test(b)) return 1;
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Minimum contrast for normal body text. */
+export const MIN_TINT_CONTRAST = 4.5;
+
+/**
+ * The stop pair to use on a given surface, or null when neither pair is
+ * legible there.
+ *
+ * A binary dark/light choice is not enough once custom colours are in play: a
+ * mid-tone surface like #808080 counts as "dark", and the light pair then sits
+ * at about 2.1:1 on it — the gradient makes the article harder to read, which
+ * is the opposite of the point. Measure both pairs and refuse rather than
+ * hand back something unreadable.
+ */
+export function lineTintStops(tintKey, surface) {
+  const tint = LINE_TINTS[tintKey];
+  if (!tint || !tint.stops) return null;
+  const candidates = [tint.stops, tint.darkStops].filter(Boolean);
+  let best = null;
+  for (const pair of candidates) {
+    const worst = Math.min(contrastRatio(pair[0], surface), contrastRatio(pair[1], surface));
+    if (!best || worst > best.worst) best = { pair, worst };
+  }
+  return best && best.worst >= MIN_TINT_CONTRAST ? best.pair : null;
+}
+
 export const OVERLAYS = {
   none: { label: "None", surface: "#fbfaf7", ink: "#242320", faint: "#e7e4dc" },
   cream: { label: "Cream", surface: "#f7f0dc", ink: "#302a1b", faint: "#e6ddc2" },

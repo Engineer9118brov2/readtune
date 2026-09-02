@@ -8,7 +8,7 @@
  * ways to move through the text (flow / sentence / word / auto-scroll / aloud).
  */
 
-import { OVERLAYS, FONTS, LINE_TINTS, isDarkSurface, DEFAULT_PROFILE } from "./settings.js";
+import { OVERLAYS, FONTS, LINE_TINTS, lineTintStops, DEFAULT_PROFILE } from "./settings.js";
 import { hyphenateWord } from "../lib/hyphen.js";
 import { syllabify } from "./syllables.js";
 
@@ -695,18 +695,17 @@ export function applyTypography(host, p) {
   /* The line-tint gradient repeats every two lines, so consecutive lines get
      different colours and the return sweep has something to aim at. Sized in
      `lh` so it re-registers automatically when line spacing changes. */
-  const tint = LINE_TINTS[prof.lineTint];
-  if (tint && tint.stops) {
-    /* The stops replace the article's ink outright, so on a dark reading
-       surface the dark set drops to about 1:1 contrast and the text vanishes.
-       Pick the set that matches the surface actually in use. */
-    const overlay = OVERLAYS[prof.overlay] || OVERLAYS.none;
-    const surface =
-      prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "") ? prof.customTint : overlay.surface;
-    const stops = isDarkSurface(surface) ? tint.darkStops || tint.stops : tint.stops;
+  const overlay = OVERLAYS[prof.overlay] || OVERLAYS.none;
+  const surface =
+    prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "") ? prof.customTint : overlay.surface;
+  const stops = lineTintStops(prof.lineTint, surface);
+  if (stops) {
     s.setProperty("--rt-linetint-a", stops[0]);
     s.setProperty("--rt-linetint-b", stops[1]);
   } else {
+    /* No legible pair for this surface — fall back to ordinary ink rather than
+       painting text the reader cannot see. */
+    host.dataset.rtLineTint = "off";
     s.removeProperty("--rt-linetint-a");
     s.removeProperty("--rt-linetint-b");
   }

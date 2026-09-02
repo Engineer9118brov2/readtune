@@ -1004,7 +1004,37 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const onLight = dh.style.getPropertyValue("--rt-linetint-a").trim();
     assert(onDark && onLight && onDark !== onLight, "the line tint uses different stops on a dark surface than a light one");
     assert(onDark.toLowerCase() === S.LINE_TINTS.warm.darkStops[0].toLowerCase(), "the dark surface gets the light stops");
+
+    /* A mid-tone custom surface has no legible pair: refuse rather than paint
+       text the reader cannot see. */
+    for (const surface of ["#808080", "#8a7f6e"]) {
+      for (const k of Object.keys(S.LINE_TINTS)) {
+        if (k === "off") continue;
+        assert(S.lineTintStops(k, surface) === null, `${k} is switched off on the unreadable surface ${surface}`);
+      }
+    }
+    /* Wherever it does paint, both stops clear the body-text bar. */
+    for (const surface of ["#fbfaf7", "#181a1d", "#f7f0dc", "#404040"]) {
+      for (const k of Object.keys(S.LINE_TINTS)) {
+        if (k === "off") continue;
+        const pair = S.lineTintStops(k, surface);
+        assert(
+          pair && pair.every((c) => S.contrastRatio(c, surface) >= S.MIN_TINT_CONTRAST),
+          `${k} clears ${S.MIN_TINT_CONTRAST}:1 on ${surface}`,
+        );
+      }
+    }
+    R.applyTypography(dh, { ...S.DEFAULT_PROFILE, lineTint: "warm", overlay: "custom", customTint: "#808080" });
+    assert(
+      dh.dataset.rtLineTint === "off" && !dh.style.getPropertyValue("--rt-linetint-a"),
+      "an unreadable surface turns the line tint off rather than painting invisible text",
+    );
     dh.remove();
+
+    /* Inflected silent-e words are one syllable, not two. */
+    for (const [w, want] of Object.entries({ baked: "baked", loved: "loved", makes: "makes", hoped: "hoped", tables: "ta·bles" })) {
+      assert(SY.splitWord(w).join("·") === want, `${w} splits as ${want}`);
+    }
 
     assert(S.LINE_TINTS.off.stops === null, "the line tint is off by default and paints nothing");
     assert(

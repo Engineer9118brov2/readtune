@@ -105,14 +105,18 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     getFlow: () => view.getVisibleTextEl(),
     speak: async (word) => {
       if (!tts) return;
-      /* Duck the narration rather than talking over it, and put it back where
-         it was. Two voices at once is worse than either alone. */
-      const wasPlaying = tts.isPlaying();
-      if (wasPlaying) tts.pause();
+      /* Duck whatever is running, not just narration. RSVP belongs to the
+         view, so tts.isPlaying() is false in word pacing and the words kept
+         advancing under the popup while Piper synthesised. */
+      const narrating = tts.isPlaying();
+      const rsvp = typeof view.isPlaying === "function" && view.isPlaying();
+      if (narrating) tts.pause();
+      if (rsvp) view.pause();
       try {
         await tts.speakOnce(word);
       } finally {
-        if (wasPlaying) tts.toggle();
+        if (narrating) tts.toggle();
+        if (rsvp) view.play();
       }
     },
     onError: (m) => toast(m),
@@ -432,6 +436,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   /* A double-click is two clicks: the first arrives with the selection still
      collapsed, so the seek fired and restarted the sentence before the word
      lookup opened. Hold the seek briefly and drop it if a second click lands. */
+  /* Long enough to cover a slow double-click. Windows' default threshold is
+     500ms and it is user-configurable upward, so a 220ms hold fired the seek
+     before the second click landed. The cost of waiting is a brief delay
+     before the sentence jumps; the cost of not waiting is losing your place. */
+  const DOUBLE_CLICK_GRACE = 550;
   let seekTimer = 0;
   const onFlowClick = (ev) => {
     if (profile.pacing !== "aloud" || !tts || ev.defaultPrevented) return;
@@ -445,7 +454,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     const idx = sentenceIndexFromNode(target);
     if (idx < 0) return;
     clearTimeout(seekTimer);
-    seekTimer = setTimeout(() => startAloudAt(idx, { preserveScroll: true }), 220);
+    seekTimer = setTimeout(() => startAloudAt(idx, { preserveScroll: true }), DOUBLE_CLICK_GRACE);
   };
   view.getFlowEl().addEventListener("click", onFlowClick);
 

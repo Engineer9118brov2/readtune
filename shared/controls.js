@@ -248,7 +248,11 @@ export function buildControls(profile, onChange) {
   secLeg.append(toggle("deItalic", "Remove italics"));
   secLeg.append(field("Line tint", segment("lineTint", LINE_TINT_OPTS, "Line tint")));
   secLeg.append(
-    hint("Colour that shifts from line to line, so your eye has something to follow back to the left margin.", "rt-panel-hint-tight"),
+    hint(
+      "Colour that shifts from line to line, so your eye has something to follow back to the left margin. " +
+        "Reader View and PDFs only — it needs to repaint the text itself, which is not safe to do on a live page.",
+      "rt-panel-hint-tight",
+    ),
   );
 
   /* ---- Colour ---- */

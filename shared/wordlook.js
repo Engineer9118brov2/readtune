@@ -24,6 +24,23 @@ const WORD_RE = /[\p{L}\p{M}'’-]+/u;
 export function wordAtSelection(sel) {
   if (!sel || sel.isCollapsed || !sel.rangeCount) return "";
   const range = sel.getRangeAt(0);
+
+  /* With "Show syllable breaks" on, a word is rendered as text nodes with
+     literal "·" spans between them. Double-clicking then selects one syllable,
+     or a string the word regex truncates at the first dot — either way the
+     lookup and Hear it would act on a fragment. Rebuild from the wrapper. */
+  const node = range.startContainer;
+  const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const wrap = el && typeof el.closest === "function" ? el.closest(".rt-syl-wrap") : null;
+  if (wrap) {
+    const whole = Array.from(wrap.childNodes)
+      .filter((n) => !(n.nodeType === Node.ELEMENT_NODE && n.classList.contains("rt-syl")))
+      .map((n) => n.textContent)
+      .join("");
+    const w = whole.match(WORD_RE);
+    if (w) return w[0];
+  }
+
   const raw = String(range.toString() || sel.toString() || "").trim();
   const m = raw.match(WORD_RE);
   return m ? m[0] : "";
@@ -141,14 +158,18 @@ export function createWordLookup({ getFlow, speak, onError = () => {} } = {}) {
   };
 
   const onKey = (e) => {
-    if (e.key === "Escape") close();
+    if (e.key === "Escape") return close();
+    /* The reading screen binds Space at the document level to step the
+       sentence / toggle RSVP and calls preventDefault(). With focus inside the
+       popup, Space has to activate the button in front of the reader. */
+    if (pop && pop.contains(e.target) && (e.key === " " || e.key === "Enter")) e.stopPropagation();
   };
   const onDown = (e) => {
     if (pop && !pop.contains(e.target)) close();
   };
 
   document.addEventListener("dblclick", onDblClick);
-  document.addEventListener("keydown", onKey);
+  document.addEventListener("keydown", onKey, true);
   document.addEventListener("mousedown", onDown);
 
   return {
@@ -157,7 +178,7 @@ export function createWordLookup({ getFlow, speak, onError = () => {} } = {}) {
     destroy() {
       close();
       document.removeEventListener("dblclick", onDblClick);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("mousedown", onDown);
     },
   };

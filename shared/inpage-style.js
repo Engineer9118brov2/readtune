@@ -136,6 +136,15 @@ html.rt-inpage :is(button, input, select, textarea, option, optgroup) {
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;
   border-color: var(--rt-inpage-faint) !important;
 }
+/* lineTint is deliberately not implemented here.
+ *
+ * The gradient works by painting the text with background-clip:text and a
+ * transparent fill. On a live page that means any element we mis-target loses
+ * its text entirely — and a real page is full of elements whose backgrounds,
+ * pseudo-elements and stacking we do not control. Reader View owns its own
+ * markup and can do this safely; Restyle cannot. The panel says so rather
+ * than letting the setting appear to work and silently do nothing. */
+
 /* A menu, dialog or tooltip is only legible because it is opaque — clearing its
    fill stacks two layers of similarly coloured text. Give overlays the tint's
    own surface rather than making them see-through. */
