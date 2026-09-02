@@ -24,6 +24,7 @@ import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS } from "./tts.js";
+import { createWordLookup } from "./wordlook.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
@@ -93,6 +94,32 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         change({ pacing: "flow" });
       }
     },
+  });
+
+  /* Double-click a word for its syllables and how it sounds. Single click is
+     already taken by "jump read-aloud to this sentence". */
+  const wordLook = createWordLookup({
+    /* Sentence and word pacing hide the flow and show a chunk element instead,
+       so anchoring lookup to the flow alone silently switched it off in both
+       paced modes — the words the reader can actually see are not in it. */
+    getFlow: () => view.getVisibleTextEl(),
+    speak: async (word) => {
+      if (!tts) return;
+      /* Duck whatever is running, not just narration. RSVP belongs to the
+         view, so tts.isPlaying() is false in word pacing and the words kept
+         advancing under the popup while Piper synthesised. */
+      const narrating = tts.isPlaying();
+      const rsvp = typeof view.isPlaying === "function" && view.isPlaying();
+      if (narrating) tts.pause();
+      if (rsvp) view.pause();
+      try {
+        await tts.speakOnce(word);
+      } finally {
+        if (narrating) tts.toggle();
+        if (rsvp) view.play();
+      }
+    },
+    onError: (m) => toast(m),
   });
 
   const transport = createTransport({
@@ -406,8 +433,20 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (ev.type === "playing") transport.setPlaying(ev.value);
   });
 
+  /* A double-click (to look a word up) is two clicks: the first lands with the
+     selection still collapsed, so a bare click handler would seek read-aloud
+     before the lookup opened. Hold the seek and drop it when the second click
+     lands (ev.detail > 1). The hold is a straight trade — long enough that a
+     normal double-click cancels it in time, short enough that a plain click to
+     jump still feels immediate. 300ms covers the great majority of real
+     double-clicks; a deliberately slow one causes a brief jump before the
+     lookup opens, which is harmless (read-aloud simply moved to where you
+     clicked). 550ms, the old value, was a perceptible lag on every jump. */
+  const DOUBLE_CLICK_GRACE = 300;
+  let seekTimer = 0;
   const onFlowClick = (ev) => {
     if (profile.pacing !== "aloud" || !tts || ev.defaultPrevented) return;
+    if (ev.detail > 1) { clearTimeout(seekTimer); return; }
     const target = ev.target;
     if (!target) return;
     const owner = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
@@ -416,7 +455,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (sel && !sel.isCollapsed) return;
     const idx = sentenceIndexFromNode(target);
     if (idx < 0) return;
-    startAloudAt(idx, { preserveScroll: true });
+    clearTimeout(seekTimer);
+    seekTimer = setTimeout(() => startAloudAt(idx, { preserveScroll: true }), DOUBLE_CLICK_GRACE);
   };
   view.getFlowEl().addEventListener("click", onFlowClick);
 
@@ -555,8 +595,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       stopPreview();
       toast.destroy();
       aids.destroy();
+      wordLook.destroy();
       transport.destroy();
       if (tts) tts.destroy();
+      clearTimeout(seekTimer);
       document.removeEventListener("keydown", onKeyDown);
       view.getFlowEl().removeEventListener("click", onFlowClick);
       controls.toggle.remove();

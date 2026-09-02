@@ -26,6 +26,67 @@ export const FONTS = {
 };
 
 /** Reading-tint presets. Deliberately low-contrast and calm. */
+/* A colour that changes from line to line gives the eye something to follow
+   back to the left margin — the return sweep is where a line gets skipped or
+   re-read. Popularised by BeeLine Reader. Evidence is real but modest, so this
+   ships labelled "mixed", off by default, like the other legibility tools. */
+export const LINE_TINTS = {
+  off: { label: "Off", stops: null, darkStops: null },
+  warm: { label: "Warm", stops: ["#1d2b3a", "#7a3312"], darkStops: ["#cfd9e6", "#f0b183"] },
+  cool: { label: "Cool", stops: ["#14313f", "#3c2a63"], darkStops: ["#bfe0ea", "#c3b4ef"] },
+  mono: { label: "Grey", stops: ["#1d1f22", "#5c6169"], darkStops: ["#eceef2", "#a8aeb8"] },
+};
+
+/** True when a reading surface is dark enough to need the light stops. */
+export function isDarkSurface(hex) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(String(hex || ""))) return false;
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 0.299 + g * 0.587 + b * 0.114 < 140;
+}
+
+/* WCAG relative luminance and contrast — the line tint replaces the article's
+   ink outright, so its stops have to clear the same bar body text does. */
+function relLuminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+export function contrastRatio(a, b) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(a) || !/^#[0-9a-fA-F]{6}$/.test(b)) return 1;
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Minimum contrast for normal body text. */
+export const MIN_TINT_CONTRAST = 4.5;
+
+/**
+ * The stop pair to use on a given surface, or null when neither pair is
+ * legible there.
+ *
+ * A binary dark/light choice is not enough once custom colours are in play: a
+ * mid-tone surface like #808080 counts as "dark", and the light pair then sits
+ * at about 2.1:1 on it — the gradient makes the article harder to read, which
+ * is the opposite of the point. Measure both pairs and refuse rather than
+ * hand back something unreadable.
+ */
+export function lineTintStops(tintKey, surface) {
+  const tint = LINE_TINTS[tintKey];
+  if (!tint || !tint.stops) return null;
+  const candidates = [tint.stops, tint.darkStops].filter(Boolean);
+  let best = null;
+  for (const pair of candidates) {
+    const worst = Math.min(contrastRatio(pair[0], surface), contrastRatio(pair[1], surface));
+    if (!best || worst > best.worst) best = { pair, worst };
+  }
+  return best && best.worst >= MIN_TINT_CONTRAST ? best.pair : null;
+}
+
 export const OVERLAYS = {
   none: { label: "None", surface: "#fbfaf7", ink: "#242320", faint: "#e7e4dc" },
   cream: { label: "Cream", surface: "#f7f0dc", ink: "#302a1b", faint: "#e6ddc2" },
@@ -54,6 +115,8 @@ export const DEFAULT_PROFILE = {
   // not only the article text. Kept out of RESEARCH_STARTER_PROFILE so the
   // "research starter" button never flips it.
   dyslexicUiMode: false,
+  // BeeLine-style per-line colour cycle. Off by default; see LINE_TINTS.
+  lineTint: "off",
 };
 
 // Pacing is a mode, not a durable trait. New reading surfaces should always
@@ -71,7 +134,7 @@ export const RANGES = {
   contrast: { min: 78, max: 100, step: 1, unit: "%" },
   rulerHeight: { min: 24, max: 80, step: 2, unit: "px" },
   wpm: { min: 120, max: 700, step: 10 },
-  ttsRate: { min: 0.6, max: 1.8, step: 0.05, unit: "×" },
+  ttsRate: { min: 0.6, max: 3, step: 0.05, unit: "×" },
 };
 
 /* The speed pill steps through these and nothing else.
@@ -80,7 +143,7 @@ export const RANGES = {
  * 1.0 1.2 1.4 1.6 1.8 then 0.7 0.9 1.1 1.3 … so the same button never returns
  * you to the speed you had. The steps are also tighter around 1× where a small
  * change in rate is most audible, and open up higher where it is not. */
-export const TTS_RATE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.65, 1.8];
+export const TTS_RATE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.75, 2.0, 2.5, 3.0];
 
 /** The next rate on the ladder, wrapping — never a drifting offset. */
 export function nextTtsRate(current) {
@@ -121,6 +184,7 @@ export function normalizeProfile(raw) {
   p.hideImages = !!p.hideImages;
   p.freezeMotion = !!p.freezeMotion;
   p.dyslexicUiMode = !!p.dyslexicUiMode;
+  p.lineTint = LINE_TINTS[p.lineTint] ? p.lineTint : "off";
   if (!/^#[0-9a-fA-F]{6}$/.test(String(p.customTint || ""))) p.customTint = DEFAULT_PROFILE.customTint;
 
   p.fontSize = clampNum(p.fontSize, 13, 34, DEFAULT_PROFILE.fontSize);
@@ -132,7 +196,7 @@ export function normalizeProfile(raw) {
   p.contrast = clampNum(p.contrast, 70, 100, 100);
   p.rulerHeight = clampNum(p.rulerHeight, 20, 100, DEFAULT_PROFILE.rulerHeight);
   p.wpm = clampNum(p.wpm, 90, 900, DEFAULT_PROFILE.wpm);
-  p.ttsRate = clampNum(p.ttsRate, 0.5, 2, 1);
+  p.ttsRate = clampNum(p.ttsRate, 0.5, 3, 1);
   const bionic = Number(p.bionic);
   p.bionic = Number.isFinite(bionic) && bionic >= 10 ? Math.min(70, bionic) : 0;
 
