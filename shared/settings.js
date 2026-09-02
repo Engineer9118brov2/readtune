@@ -26,6 +26,17 @@ export const FONTS = {
 };
 
 /** Reading-tint presets. Deliberately low-contrast and calm. */
+/* A colour that changes from line to line gives the eye something to follow
+   back to the left margin — the return sweep is where a line gets skipped or
+   re-read. Popularised by BeeLine Reader. Evidence is real but modest, so this
+   ships labelled "mixed", off by default, like the other legibility tools. */
+export const LINE_TINTS = {
+  off: { label: "Off", stops: null },
+  warm: { label: "Warm", stops: ["#1d2b3a", "#7a3312"] },
+  cool: { label: "Cool", stops: ["#14313f", "#3c2a63"] },
+  mono: { label: "Grey", stops: ["#1d1f22", "#5c6169"] },
+};
+
 export const OVERLAYS = {
   none: { label: "None", surface: "#fbfaf7", ink: "#242320", faint: "#e7e4dc" },
   cream: { label: "Cream", surface: "#f7f0dc", ink: "#302a1b", faint: "#e6ddc2" },
@@ -54,6 +65,8 @@ export const DEFAULT_PROFILE = {
   // not only the article text. Kept out of RESEARCH_STARTER_PROFILE so the
   // "research starter" button never flips it.
   dyslexicUiMode: false,
+  // BeeLine-style per-line colour cycle. Off by default; see LINE_TINTS.
+  lineTint: "off",
 };
 
 // Pacing is a mode, not a durable trait. New reading surfaces should always
@@ -71,7 +84,7 @@ export const RANGES = {
   contrast: { min: 78, max: 100, step: 1, unit: "%" },
   rulerHeight: { min: 24, max: 80, step: 2, unit: "px" },
   wpm: { min: 120, max: 700, step: 10 },
-  ttsRate: { min: 0.6, max: 1.8, step: 0.05, unit: "×" },
+  ttsRate: { min: 0.6, max: 3, step: 0.05, unit: "×" },
 };
 
 /* The speed pill steps through these and nothing else.
@@ -80,7 +93,7 @@ export const RANGES = {
  * 1.0 1.2 1.4 1.6 1.8 then 0.7 0.9 1.1 1.3 … so the same button never returns
  * you to the speed you had. The steps are also tighter around 1× where a small
  * change in rate is most audible, and open up higher where it is not. */
-export const TTS_RATE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.65, 1.8];
+export const TTS_RATE_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.75, 2.0, 2.5, 3.0];
 
 /** The next rate on the ladder, wrapping — never a drifting offset. */
 export function nextTtsRate(current) {
@@ -121,6 +134,7 @@ export function normalizeProfile(raw) {
   p.hideImages = !!p.hideImages;
   p.freezeMotion = !!p.freezeMotion;
   p.dyslexicUiMode = !!p.dyslexicUiMode;
+  p.lineTint = LINE_TINTS[p.lineTint] ? p.lineTint : "off";
   if (!/^#[0-9a-fA-F]{6}$/.test(String(p.customTint || ""))) p.customTint = DEFAULT_PROFILE.customTint;
 
   p.fontSize = clampNum(p.fontSize, 13, 34, DEFAULT_PROFILE.fontSize);
@@ -132,7 +146,7 @@ export function normalizeProfile(raw) {
   p.contrast = clampNum(p.contrast, 70, 100, 100);
   p.rulerHeight = clampNum(p.rulerHeight, 20, 100, DEFAULT_PROFILE.rulerHeight);
   p.wpm = clampNum(p.wpm, 90, 900, DEFAULT_PROFILE.wpm);
-  p.ttsRate = clampNum(p.ttsRate, 0.5, 2, 1);
+  p.ttsRate = clampNum(p.ttsRate, 0.5, 3, 1);
   const bionic = Number(p.bionic);
   p.bionic = Number.isFinite(bionic) && bionic >= 10 ? Math.min(70, bionic) : 0;
 

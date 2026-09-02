@@ -6,7 +6,7 @@
  * a reset is { __reset: true }.
  */
 
-import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi, formatRate } from "./settings.js";
+import { RANGES, OVERLAYS, LINE_TINTS, FONTS, PACING, applyDyslexicUi, formatRate } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
@@ -30,6 +30,8 @@ const CUSTOM_TINTS = [
   { hex: "#ecf6e9", label: "Mint" },      { hex: "#f0f0f2", label: "Cool grey" },
   { hex: "#20242c", label: "Slate (dark)" }, { hex: "#14161a", label: "Ink (dark)" },
 ];
+
+const LINE_TINT_OPTS = Object.entries(LINE_TINTS).map(([val, t]) => ({ val, label: t.label }));
 
 const WIDTH_OPTS = [
   { val: 45, label: "Narrow" },
@@ -244,6 +246,10 @@ export function buildControls(profile, onChange) {
   secLeg.append(toggle("hyphenate", "Hyphenate long words"));
   secLeg.append(toggle("syllables", "Show syllable breaks"));
   secLeg.append(toggle("deItalic", "Remove italics"));
+  secLeg.append(field("Line tint", segment("lineTint", LINE_TINT_OPTS, "Line tint")));
+  secLeg.append(
+    hint("Colour that shifts from line to line, so your eye has something to follow back to the left margin.", "rt-panel-hint-tight"),
+  );
 
   /* ---- Colour ---- */
   const secColour = section(sectionTitle("Colour & distractions", "supported", "Comfort first"), false);

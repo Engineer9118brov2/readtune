@@ -383,6 +383,25 @@ export function createTTS({
   }
 
   return {
+    /* Speak one word or phrase without disturbing playback position.
+       Reuses the engine read-aloud already has, so looking a word up doesn't
+       spin a second Piper worker or re-load the voice model. */
+    async speakOnce(text) {
+      const say = String(text || "").trim();
+      if (!say) return;
+      if (!piper) {
+        piper = createPiperEngine({
+          voiceId: getConfig().piperVoice,
+          onStatus: (status) => onStatus({ provider: "piper", ...status }),
+        });
+      }
+      const blob = await piper.synthesize(say);
+      const url = URL.createObjectURL(blob);
+      const one = new Audio(url);
+      one.onended = one.onerror = () => URL.revokeObjectURL(url);
+      await one.play();
+      return one;
+    },
     start(fromIndex) {
       collect();
       if (!sentences.length) return;

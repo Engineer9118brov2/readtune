@@ -24,6 +24,7 @@ import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS } from "./tts.js";
+import { createWordLookup } from "./wordlook.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
@@ -93,6 +94,14 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         change({ pacing: "flow" });
       }
     },
+  });
+
+  /* Double-click a word for its syllables and how it sounds. Single click is
+     already taken by "jump read-aloud to this sentence". */
+  const wordLook = createWordLookup({
+    getFlow: () => view.getFlowEl(),
+    speak: (word) => tts && tts.speakOnce(word),
+    onError: (m) => toast(m),
   });
 
   const transport = createTransport({
@@ -555,6 +564,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       stopPreview();
       toast.destroy();
       aids.destroy();
+      wordLook.destroy();
       transport.destroy();
       if (tts) tts.destroy();
       document.removeEventListener("keydown", onKeyDown);

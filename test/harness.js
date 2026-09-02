@@ -85,8 +85,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 </body></html>`;
 
 (async () => {
-  const RANGES_MIN = 0.6, RANGES_MAX = 1.8;
   const S = await import("../shared/settings.js");
+  // Derived, never hardcoded: a literal here silently goes stale the moment
+  // the ceiling moves, and then asserts the old ceiling forever.
+  const RANGES_MIN = S.RANGES.ttsRate.min, RANGES_MAX = S.RANGES.ttsRate.max;
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
   const { createReadingScreen } = await import("../shared/screen.js");
@@ -624,6 +626,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(S.nextTtsRate(S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1]) === S.TTS_RATE_STEPS[0], "the top rung wraps to the bottom");
     assert(S.formatRate(1.35) === "1.35×" && S.formatRate(1.5) === "1.5×", "a rate is never rounded to a value the ladder cannot reach");
     assert(S.TTS_RATE_STEPS.every((r) => r >= RANGES_MIN && r <= RANGES_MAX), "every rung is reachable on the slider too");
+    /* normalizeProfile clamps independently of RANGES, so the two can disagree
+       and the top of the ladder gets silently thrown away on save/reload. */
+    const top = S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1];
+    assert(
+      S.normalizeProfile({ ttsRate: top }).ttsRate === top,
+      "the fastest rung survives normalizeProfile — the clamp agrees with the ladder",
+    );
+    assert(
+      S.normalizeProfile({ ttsRate: RANGES_MAX + 5 }).ttsRate <= RANGES_MAX,
+      "a rate beyond the slider is still clamped",
+    );
   }
 
   /* ---- panel: tint picking without the OS colour panel ---- */
@@ -913,6 +926,56 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(/:not\(\[role="dialog"\]/.test(css), "overlays are exempt from the transparent sweep");
       assert(/\[role="menu"\][\s\S]*background-color: var\(--rt-inpage-bg\)/.test(css), "and are given the tint's own opaque surface");
     }
+  }
+
+  /* ---- line tint + word lookup ---- */
+  {
+    const WL = await import("../shared/wordlook.js");
+    const SY = await import("../shared/syllables.js");
+
+    /* The old hyphenation patterns mark safe line-break points, not syllables,
+       and split "Calabasas" as "Cal-abasas". These are the splits a reader is
+       actually taught, so they are pinned exactly. */
+    const known = {
+      calabasas: "ca·la·ba·sas", unbelievable: "un·be·lie·va·ble", photography: "pho·to·gra·phy",
+      table: "ta·ble", computer: "com·pu·ter", syllable: "syl·la·ble", little: "lit·tle",
+      apple: "ap·ple", running: "run·ning", yellow: "yel·low", dictionary: "dic·tio·na·ry",
+      remember: "re·mem·ber", important: "im·por·tant", wonderful: "won·der·ful",
+    };
+    for (const [word, want] of Object.entries(known)) {
+      assert(SY.splitWord(word).join("·") === want, `${word} splits as ${want}`);
+    }
+    // a silent final e is not its own syllable
+    assert(SY.splitWord("make").join("·") === "make", "a silent final e does not become a syllable");
+
+    assert(WL.syllablesOf("cat").join("") === "cat", "a one-syllable word survives intact");
+    assert(WL.syllablesOf("").length === 0, "an empty word yields no syllables");
+    assert(WL.syllablesOf("Calabasas,").join("") === "Calabasas", "trailing punctuation is trimmed before splitting");
+    /* Every split must reassemble exactly — a lossy split would show a reader
+       a word that is not the word on the page. */
+    for (const w of ["photography", "rhythm", "strengths", "onomatopoeia", "queue", "mississippi", "bookkeeper", "the"]) {
+      assert(WL.syllablesOf(w).join("") === w, `${w} reassembles from its syllables`);
+      assert(SY.splitWord(w).join("") === w || SY.splitWord(w).length === 0, `${w} splits losslessly`);
+    }
+    // a word we cannot analyse is returned whole rather than mangled
+    assert(SY.splitWord("42").length === 0, "a non-word is not split");
+    assert(SY.syllabify("don't").join("") === "don't", "an apostrophe survives the split");
+
+    assert(S.LINE_TINTS.off.stops === null, "the line tint is off by default and paints nothing");
+    assert(
+      Object.entries(S.LINE_TINTS).every(([k, t]) => k === "off" || (Array.isArray(t.stops) && t.stops.length === 2)),
+      "every line tint defines exactly two stops to cycle between",
+    );
+    assert(S.normalizeProfile({ lineTint: "nonsense" }).lineTint === "off", "an unknown line tint falls back to off");
+    assert(S.normalizeProfile({ lineTint: "warm" }).lineTint === "warm", "a known line tint round-trips");
+
+    const h = document.createElement("div");
+    document.body.appendChild(h);
+    R.applyTypography(h, { ...S.DEFAULT_PROFILE, lineTint: "cool" });
+    assert(h.dataset.rtLineTint === "cool" && h.style.getPropertyValue("--rt-linetint-a"), "applying a line tint sets its stops");
+    R.applyTypography(h, { ...S.DEFAULT_PROFILE, lineTint: "off" });
+    assert(!h.style.getPropertyValue("--rt-linetint-a"), "turning the line tint off clears its stops");
+    h.remove();
   }
 
   /* showcase */

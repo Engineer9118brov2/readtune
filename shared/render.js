@@ -8,8 +8,9 @@
  * ways to move through the text (flow / sentence / word / auto-scroll / aloud).
  */
 
-import { OVERLAYS, FONTS, DEFAULT_PROFILE } from "./settings.js";
+import { OVERLAYS, FONTS, LINE_TINTS, DEFAULT_PROFILE } from "./settings.js";
 import { hyphenateWord } from "../lib/hyphen.js";
+import { syllabify } from "./syllables.js";
 
 const ALLOWED = new Set([
   "P", "BR", "HR", "H1", "H2", "H3", "H4", "H5", "H6",
@@ -551,7 +552,7 @@ function applySyllables(scope) {
         frag.appendChild(document.createTextNode(tok));
         continue;
       }
-      const parts = hyphenateWord(tok);
+      const parts = syllabify(tok);
       if (parts.length < 2) {
         frag.appendChild(document.createTextNode(tok));
         continue;
@@ -679,6 +680,7 @@ export function applyTypography(host, p) {
   host.dataset.rtFreeze = prof.freezeMotion ? "true" : "false";
   host.dataset.rtDeitalic = prof.deItalic ? "true" : "false";
   host.dataset.rtFocus = prof.focus || "off";
+  host.dataset.rtLineTint = LINE_TINTS[prof.lineTint] ? prof.lineTint : "off";
 
   const s = host.style;
   s.setProperty("--rt-font-size", `${prof.fontSize}px`);
@@ -689,6 +691,18 @@ export function applyTypography(host, p) {
   s.setProperty("--rt-measure", `${prof.columnWidth}ch`);
   s.setProperty("--rt-contrast", String((prof.contrast ?? 100) / 100));
   s.setProperty("--rt-ruler-h", `${prof.rulerHeight || 40}px`);
+
+  /* The line-tint gradient repeats every two lines, so consecutive lines get
+     different colours and the return sweep has something to aim at. Sized in
+     `lh` so it re-registers automatically when line spacing changes. */
+  const tint = LINE_TINTS[prof.lineTint];
+  if (tint && tint.stops) {
+    s.setProperty("--rt-linetint-a", tint.stops[0]);
+    s.setProperty("--rt-linetint-b", tint.stops[1]);
+  } else {
+    s.removeProperty("--rt-linetint-a");
+    s.removeProperty("--rt-linetint-b");
+  }
 
   if (prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "")) {
     const { r, g, b } = hexToRgb(prof.customTint);
