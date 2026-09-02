@@ -28,7 +28,7 @@
       <a class="privacy-back" href="/">← ReadTune home</a>
       <p class="eyebrow"><span class="eyebrow-dot"></span> Plain-language privacy</p>
       <h1>Your reading profile<br /><em>stays yours.</em></h1>
-      <p>ReadTune is designed to work without an account, a server, or analytics. This page explains what the extension stores and when anything can leave your device.</p>
+      <p>The ReadTune <strong>extension</strong> is designed to work without an account, a server, or analytics. This page explains what the extension stores and when anything can leave your device. <a href="#this-website">This website</a> is a separate thing, and it is covered at the bottom.</p>
       <h2>What stays on your device</h2>
       <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and the sites where you explicitly enable automatic behavior. These are saved in Chrome's local extension storage, on your device. There is no ReadTune account and no ReadTune server.</p>
       <p>Reader View, "Restyle this page", and PDF mode read the text of the page or file you are on so they can reformat it. That processing happens on your device. The page text is not sent to ReadTune or anywhere else.</p>
@@ -45,16 +45,15 @@
         <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io): requested only when you choose an extra Piper voice or add an ElevenLabs key, as described above.</li>
       </ul>
       <h2>What ReadTune does not do</h2>
-      <p>ReadTune does not sell or share data, run analytics or telemetry, create an account, or send your browsing history to its creator. It does not use data for advertising, creditworthiness, or lending. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>
+      <p>The extension does not sell or share data, run analytics or telemetry, create an account, or send your browsing history to its creator. It does not use data for advertising, creditworthiness, or lending. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>
+      <h2 id="this-website">This website</h2>
+      <p>These marketing pages (the ones with <code>readtune.app</code> in the address bar) are hosted on Vercel and use <a href="https://vercel.com/docs/analytics/privacy-policy" target="_blank" rel="noreferrer">Vercel Web Analytics</a> and Speed Insights so we can see which pages people read and how fast they load. It is cookieless, it does not follow you between sites, and it does not build a profile of you. It records the page URL, referrer, country, and coarse device type — never your name, email, or IP address, which Vercel discards after deriving those fields.</p>
+      <p>None of this runs inside the extension. Reader View, "Restyle this page", PDF mode, read-aloud, and dictation load no analytics of any kind, and nothing you read is ever visible to this website.</p>
       <h2>Contact</h2>
       <p>For questions or bug reports, use the project's <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub Issues</a>.</p>
       <p class="mono-label">Last updated: September 2026</p>
     </main>
     <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
     <script src="site.js"></script>
-    <script>
-      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
-    <script defer src="/_vercel/insights/script.js"></script>
   </body>
 </html>

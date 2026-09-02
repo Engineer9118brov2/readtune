@@ -10,8 +10,5 @@
     "harness": "node scripts/harness.mjs",
     "test": "npm run check && npm run harness"
   },
-  "license": "MIT",
-  "dependencies": {
-    "@vercel/analytics": "^2.0.1"
-  }
+  "license": "MIT"
 }
