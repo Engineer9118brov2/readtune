@@ -954,6 +954,85 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     h.remove();
   }
 
+  /* ---- table ownership: a nested table is never mistaken for its parent ---- */
+  {
+    const filler = "<p>" + Array.from({ length: 12 }, (_, n) => `Filler sentence number ${n} keeps the quality gate happy.`).join(" ") + "</p>";
+    const build = (inner, prof) => {
+      const h = document.createElement("div");
+      document.body.appendChild(h);
+      const v = R.createReadingView(h);
+      v.setArticleHtml(
+        '<!doctype html><html><head><title>t</title></head><body><article><h1>T</h1>' + inner + "</article></body></html>",
+        "https://x.test/own",
+      );
+      v.applyProfile({ ...S.DEFAULT_PROFILE, ...(prof || {}) });
+      return { h, v };
+    };
+
+    /* A two-column table whose own rows are plain data — not key/value — must
+       not be folded because a nested table's th/td rows push it over the 60%
+       infobox threshold. Shaped so the nested rows are the only thing that
+       could tip it: 4 own rows, 0 of them key/value, plus 6 nested ones. */
+    {
+      const nested =
+        "<table>" +
+        Array.from({ length: 6 }, (_, n) => `<tr><th>K${n}</th><td>V${n}</td></tr>`).join("") +
+        "</table>";
+      const { h } = build(
+        "<table><tr><td>Left</td><td>" + nested + "</td></tr>" +
+          "<tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr><tr><td>e</td><td>f</td></tr></table>" +
+          filler,
+        {},
+      );
+      assert(
+        !h.querySelector(".rt-fold"),
+        "a plain two-column table is not folded as an infobox because a nested table's rows tipped the count",
+      );
+      h.remove();
+    }
+
+    /* An outer table with no caption must not borrow its nested table's. */
+    {
+      const { h, v } = build(
+        filler +
+          "<table><tr><th>Outer</th><td>Outer value</td></tr>" +
+          "<tr><th>Holder</th><td><table><caption>Inner caption</caption>" +
+          "<tr><th>Inner</th><td>Inner value</td></tr></table></td></tr></table>",
+        { pacing: "sentence" },
+      );
+      const seen = [];
+      for (let k = 0; k < 120; k++) {
+        const t = h.querySelector(".rt-chunk-sentence");
+        const text = t ? t.textContent.trim() : "";
+        if (text) seen.push(text);
+        v.step(1);
+        if (seen.length > 2 && seen[seen.length - 1] === seen[seen.length - 2]) { seen.pop(); break; }
+      }
+      assert(
+        seen.filter((t) => t === "Inner caption").length === 1,
+        "a nested table's caption is read once, for the table that owns it",
+      );
+      h.remove();
+    }
+
+    /* The scroll box announces its own table, not a nested one. */
+    {
+      const { h } = build(
+        filler +
+          "<table><tr><th>Outer</th><td><table><caption>Inner caption</caption>" +
+          "<tr><th>x</th><td>y</td></tr></table></td></tr></table>",
+        {},
+      );
+      const wraps = [...h.querySelectorAll(".rt-table-wrap")];
+      const outer = wraps.find((w) => w.querySelector("table") && !w.parentElement.closest("td"));
+      assert(
+        outer && outer.getAttribute("aria-label") !== "Inner caption",
+        "a table's scroll box is not labelled with a nested table's caption",
+      );
+      h.remove();
+    }
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

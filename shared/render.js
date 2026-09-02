@@ -230,6 +230,28 @@ function runReadability(rawHtml, base) {
   return null;
 }
 
+/* ---------- table ownership ----------
+ *
+ * Every descendant query on a table also reaches the rows, cells and captions
+ * of any table nested inside it. Getting this wrong has produced, in turn: a
+ * nested table read twice, then not at all, then its caption attributed to its
+ * parent, then its rows counted toward the parent's infobox score. The rule
+ * lives here once so call sites cannot each forget it separately. */
+const ownRows = (table) => Array.from(table.querySelectorAll("tr")).filter((r) => r.closest("table") === table);
+
+const ownCells = (row, table) =>
+  Array.from(row.querySelectorAll("th, td")).filter((c) => c.closest("table") === table);
+
+const ownCaption = (table) => {
+  const c = table.querySelector("caption");
+  return c && c.closest("table") === table ? c : null;
+};
+
+const nestedTables = (table) =>
+  Array.from(table.querySelectorAll("table")).filter(
+    (t) => t.parentElement && t.parentElement.closest("table") === table,
+  );
+
 /* ---------- post-extraction layout repairs ---------- */
 
 /* A wide data table (a climate table, a fixture list) has no reason to widen
@@ -243,7 +265,7 @@ function wrapWideTables(fragment) {
     box.className = "rt-table-wrap";
     box.setAttribute("tabindex", "0");
     box.setAttribute("role", "region");
-    const caption = table.querySelector("caption");
+    const caption = ownCaption(table);
     box.setAttribute("aria-label", (caption && caption.textContent.trim()) || "Table");
     table.parentNode.insertBefore(box, table);
     box.appendChild(table);
@@ -268,12 +290,15 @@ function foldLeadingTable(fragment) {
 
        · key/value rows, never more than two cells wide, most of them th + td
        · and real prose after it, so the table is not the point of the page. */
-  const rows = Array.from(table.querySelectorAll("tr"));
+  /* The parent's own rows only: a nested key/value table could otherwise push
+     an ordinary data or layout table over the infobox threshold and collapse
+     the page's real content behind "Quick facts". */
+  const rows = ownRows(table);
   if (rows.length < 4) return;
   let widest = 0;
   let keyValueRows = 0;
   for (const row of rows) {
-    const cells = Array.from(row.children).filter((c) => c.tagName === "TH" || c.tagName === "TD");
+    const cells = ownCells(row, table);
     widest = Math.max(widest, cells.length);
     if (cells.length === 2 && cells[0].tagName === "TH") keyValueRows++;
   }
@@ -289,7 +314,7 @@ function foldLeadingTable(fragment) {
   const details = document.createElement("details");
   details.className = "rt-fold";
   const summary = document.createElement("summary");
-  const caption = table.querySelector("caption");
+  const caption = ownCaption(table);
   summary.textContent = (caption && caption.textContent.trim()) || "Quick facts";
   details.append(summary);
   node.parentNode.insertBefore(details, node);
@@ -469,7 +494,7 @@ function buildChunks(fragment) {
  * run of text. Excluding nested rows here without recursing is what made a
  * nested table disappear instead of merely repeat. */
 function emitTableInto(node, chunks, push) {
-  const caption = node.querySelector("caption");
+  const caption = ownCaption(node);
   const captionText = caption ? caption.textContent.trim() : "";
   /* foldLeadingTable copies the caption into the <summary>, which the walker
      has already emitted — don't say it twice in a row. */
@@ -478,20 +503,14 @@ function emitTableInto(node, chunks, push) {
   const alreadySaid = !!summary && summary.textContent.trim() === captionText;
   if (captionText && !alreadySaid) chunks.push({ text: captionText, heading: true });
 
-  const ownRows = Array.from(node.querySelectorAll("tr")).filter((r) => r.closest("table") === node);
-  for (const row of ownRows) {
-    const cells = Array.from(row.querySelectorAll("th, td"))
-      .filter((c) => c.closest("table") === node)
+  for (const row of ownRows(node)) {
+    const cells = ownCells(row, node)
       .map((c) => normalizeText(cellTextWithoutNestedTables(c)))
       .filter(Boolean);
     if (cells.length) push(cells.join(": "), false);
   }
 
-  for (const inner of node.querySelectorAll("table")) {
-    if (inner.parentElement && inner.parentElement.closest("table") === node) {
-      emitTableInto(inner, chunks, push);
-    }
-  }
+  for (const inner of nestedTables(node)) emitTableInto(inner, chunks, push);
 }
 
 /* A cell's own words, with any table nested inside it left out — that table is
