@@ -43,12 +43,6 @@ const TEXT_CONTAINERS = [
 
 const FORM_CONTROLS = ["button", "input", "select", "textarea", "option"].map((s) => `html.rt-inpage ${s}`).join(", ");
 
-const TINT_SURFACES = [
-  "article", "main", "table", "thead", "tbody", "tfoot", "tr", "td", "th",
-  '[class*="content"]', '[class*="article"]', '[class*="post"]', '[class*="story"]',
-  '[class*="prose"]', '[class*="markdown"]', '[itemprop="articleBody"]',
-].map((s) => `html.rt-inpage ${s}`).join(", ");
-
 export function inpageCSS(profile, fontFaceBlock = "") {
   const p = profile || {};
   const stack = IN_PAGE_STACKS[p.font] || IN_PAGE_STACKS.sans;
@@ -124,9 +118,29 @@ html.rt-inpage body *${READING_GUARD} {
   color: var(--rt-inpage-ink) !important;
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;
 }
-${TINT_SURFACES} {
+/* Clear the page's own surfaces, not a hand-picked list of them.
+ *
+ * Naming a few containers left every other opaque box behind — and on a site
+ * already in its own dark theme (Wikipedia's night mode, say) those boxes keep
+ * a dark fill while the text on top is repainted dark too. The result is
+ * unreadable patches scattered through an otherwise tinted page. Media and
+ * anything painting with an image keep what they have. */
+html.rt-inpage body *:not(img):not(picture):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(rt-bionic):not(pre):not(code):not(kbd):not(samp):not(blockquote):not(mark):not(button):not(input):not(select):not(textarea) {
   background-color: transparent !important;
 }
+/* Controls are excluded from the ink rules above, so give them a surface of
+   their own rather than letting them keep a dark fill under dark text. */
+html.rt-inpage :is(button, input, select, textarea) {
+  background-color: var(--rt-inpage-faint) !important;
+  color: var(--rt-inpage-ink) !important;
+  -webkit-text-fill-color: var(--rt-inpage-ink) !important;
+  border-color: var(--rt-inpage-faint) !important;
+}
+/* Blocks that mean something by being set apart keep a faint surface. */
+html.rt-inpage :is(pre, code, kbd, samp, blockquote, mark) {
+  background-color: var(--rt-inpage-faint) !important;
+}
+html.rt-inpage mark { color: var(--rt-inpage-ink) !important; }
 html.rt-inpage :is(a, a:visited, a:hover, a:active)${READING_GUARD} {
   color: var(--rt-inpage-ink) !important;
   -webkit-text-fill-color: var(--rt-inpage-ink) !important;

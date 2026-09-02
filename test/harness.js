@@ -636,6 +636,47 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(widths.includes("Narrow") && widths.includes("Wide"), "line width has named stops, not only a character count");
   }
 
+  /* ---- restyle over a site already in its own dark theme ---- */
+  {
+    /* Wikipedia in night mode paints .vector-toc, .vector-appearance and
+       .infobox-caption dark. Restyle repainted the text dark to match the tint
+       and left those fills alone, so three unreadable dark-on-dark patches sat
+       in the middle of a cream page. */
+    const css = IP.inpageCSS({ font: "sans", fontSize: 19, lineHeight: 1.6, overlay: "cream", contrast: 100 });
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    const host = document.createElement("div");
+    host.innerHTML =
+      '<div class="vector-toc" style="background:#27292d">Contents</div>' +
+      '<div class="infobox-caption" style="background:#27292d">Clockwise: aerial view</div>' +
+      '<button style="background:#202122">Appearance</button>' +
+      '<pre>code block</pre><img alt="" style="background:#27292d">';
+    document.documentElement.classList.add("rt-inpage");
+    document.body.appendChild(host);
+
+    const opaqueDark = (el) => {
+      const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (!m) return false;
+      const [r, g, b, a] = m[1].split(",").map(Number);
+      if (a === 0) return false;
+      return (r * 0.299 + g * 0.587 + b * 0.114) / 255 < 0.35;
+    };
+    assert(!opaqueDark(host.querySelector(".vector-toc")), "a page's own dark panel is cleared by the tint");
+    assert(!opaqueDark(host.querySelector(".infobox-caption")), "a page's own dark caption is cleared by the tint");
+    assert(!opaqueDark(host.querySelector("button")), "a dark control gets a readable surface, not dark-on-dark");
+    assert(
+      getComputedStyle(host.querySelector("pre")).backgroundColor !== "rgba(0, 0, 0, 0)",
+      "blocks that mean something by being set apart keep a faint surface",
+    );
+    assert(getComputedStyle(host.querySelector("img")).backgroundColor !== "rgba(0, 0, 0, 0)", "media keeps its own painting");
+
+    document.documentElement.classList.remove("rt-inpage");
+    host.remove();
+    style.remove();
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

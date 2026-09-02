@@ -18,9 +18,8 @@
           <circle cx="35.5" cy="16.1" r="3.4" fill="#fbf6e9" />
         </svg>
         <div class="pop-head-copy">
-          <span class="pop-kicker">Personal reading lab</span>
           <h1>ReadTune</h1>
-          <p class="pop-tag" id="tagline">Try a few reading settings, then use the ones that feel right everywhere.</p>
+          <p class="pop-tag" id="tagline">Reading settings that follow you around the web.</p>
         </div>
         <div class="pop-signal" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -37,13 +36,38 @@
 
       <div id="status" class="pop-status" hidden></div>
 
+      <div class="pop-actions" id="actions">
+        <button class="rt-btn rt-primary" id="btn-calibrate" type="button">
+          <span class="rt-btn-title" id="calibrate-title">Run the reading calibration</span>
+          <span class="rt-btn-sub" id="calibrate-sub">6 passages · 4 minutes</span>
+        </button>
+        <button class="rt-btn" id="btn-reader" type="button">
+          <span class="rt-btn-title">Open Reader View</span>
+          <span class="rt-btn-sub">Alt+R</span>
+        </button>
+        <button class="rt-btn" id="btn-restyle" type="button">
+          <span class="rt-btn-title">Restyle this page</span>
+          <span class="rt-btn-sub">Alt+Shift+R</span>
+        </button>
+        <button class="rt-btn" id="btn-dictate" type="button">
+          <span class="rt-btn-title">Talk to type</span>
+          <span class="rt-btn-sub">Alt+Shift+D</span>
+        </button>
+        <button class="rt-btn" id="btn-pdf" type="button">
+          <span class="rt-btn-title">Open a PDF</span>
+          <span class="rt-btn-sub">Worksheets and handouts</span>
+        </button>
+        <button class="rt-btn" id="btn-lab" type="button">
+          <span class="rt-btn-title">Open Reading Lab</span>
+          <span class="rt-btn-sub">Repeatability, stability, voices</span>
+        </button>
+      </div>
+
       <div class="pop-onboard" id="onboard" hidden>
         <div class="pop-onboard-copy">
           <strong>Stop guessing your reading settings.</strong>
           <p>
-            Read six short passages. ReadTune changes one variable at a time,
-            keeps the helpful ones, and starts building a profile you can trust.
-          </p>
+Six short passages, one variable at a time. </p>
         </div>
         <div class="pop-steps">
           <article class="pop-step"><b>1</b><span>Read six short passages</span></article>
@@ -88,43 +112,17 @@
         </button>
       </div>
 
-      <div class="pop-actions" id="actions">
-        <button class="rt-btn rt-primary" id="btn-calibrate" type="button">
-          <span class="rt-btn-title" id="calibrate-title">Run the reading calibration</span>
-          <span class="rt-btn-sub" id="calibrate-sub">6 short passages · about 4 minutes</span>
-        </button>
-        <button class="rt-btn" id="btn-reader" type="button">
-          <span class="rt-btn-title">Open Reader View</span>
-          <span class="rt-btn-sub">Pull the current article into a calmer page · Alt+R</span>
-        </button>
-        <button class="rt-btn" id="btn-restyle" type="button">
-          <span class="rt-btn-title">Restyle this page</span>
-          <span class="rt-btn-sub">Apply your settings in place · Alt+Shift+R</span>
-        </button>
-        <button class="rt-btn" id="btn-dictate" type="button">
-          <span class="rt-btn-title">Talk to type</span>
-          <span class="rt-btn-sub">Dictate into any text field · Alt+Shift+D</span>
-        </button>
-        <button class="rt-btn" id="btn-pdf" type="button">
-          <span class="rt-btn-title">Open a PDF</span>
-          <span class="rt-btn-sub">Worksheets &amp; handouts, same reading view</span>
-        </button>
-        <button class="rt-btn" id="btn-lab" type="button">
-          <span class="rt-btn-title">Open Reading Lab</span>
-          <span class="rt-btn-sub">See repeatability, stability, and choose your local voice</span>
-        </button>
-      </div>
 
       <section class="pop-site" id="site-box" hidden>
         <div class="pop-site-copy">
           <strong>Use ReadTune automatically on <span id="auto-host">this site</span></strong>
-          <p>Pick one mode per site. Reader View suits article-heavy pages. Restyle suits denser sites and web apps.</p>
+          <p>Reader View for articles, Restyle for denser sites.</p>
         </div>
         <div class="pop-site-modes" role="radiogroup" aria-label="Automatic mode for this site">
           <label class="pop-auto" id="auto-off-row">
             <span>
               <strong>Manual only</strong>
-              <span class="pop-auto-sub">Keep this site unchanged until you open Reader View or Restyle it yourself</span>
+              <span class="pop-auto-sub">Nothing happens until you ask</span>
             </span>
             <input type="radio" id="site-mode-off" name="site-mode" value="off" />
             <span class="pop-radio" aria-hidden="true"></span>
