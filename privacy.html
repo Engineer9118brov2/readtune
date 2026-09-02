@@ -30,20 +30,25 @@
       <h1>Your reading profile<br /><em>stays yours.</em></h1>
       <p>ReadTune is designed to work without an account, a server, or analytics. This page explains what the extension stores and when anything can leave your device.</p>
       <h2>What stays on your device</h2>
-      <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, and the sites where you explicitly enable automatic behavior. These are saved in Chrome's local extension storage.</p>
+      <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and the sites where you explicitly enable automatic behavior. These are saved in Chrome's local extension storage, on your device. There is no ReadTune account and no ReadTune server.</p>
+      <p>Reader View, "Restyle this page", and PDF mode read the text of the page or file you are on so they can reformat it. That processing happens on your device. The page text is not sent to ReadTune or anywhere else.</p>
       <h2>Read-aloud</h2>
-      <p>The default browser voice uses your device's speech engine. Nothing is sent to ReadTune. If you choose Piper, ReadTune downloads a one-time voice model from Hugging Face and stores it on your device; the passage you read never leaves your device. If you choose the optional ElevenLabs voice, the passage you ask to hear and your own API key are sent directly to <a href="https://elevenlabs.io/privacy" target="_blank" rel="noreferrer">ElevenLabs</a> to generate audio. ReadTune does not receive or store that request on a server.</p>
+      <p>Read-aloud uses <strong>Piper</strong>, a neural voice that runs entirely on your device. The default voice ships inside the extension, so it works offline with nothing to download. If you pick one of the other voices in the Reading Lab, its model file is downloaded once from Hugging Face and cached on your device; the text you have read aloud is never uploaded.</p>
+      <p>If you choose the optional <strong>ElevenLabs</strong> voice, the passage you ask to hear and your own ElevenLabs API key are sent directly from your browser to <a href="https://elevenlabs.io/privacy" target="_blank" rel="noreferrer">ElevenLabs</a> to generate audio. Your key is stored only in Chrome's local storage on your device. ReadTune has no server in this path and never receives your key or your text.</p>
+      <h2>Talk to type (dictation)</h2>
+      <p>If you use the dictation feature, ReadTune turns on Chrome's built-in speech recognition. Chrome sends the audio from your microphone to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you are typing in. ReadTune does not record, store, or transmit the audio or the transcript itself.</p>
       <h2>Permissions</h2>
       <ul>
-        <li><strong>Active tab and scripting:</strong> used after you ask to open Reader View or restyle the current page.</li>
+        <li><strong>Active tab and scripting:</strong> used only when you invoke ReadTune on the current tab — to open Reader View, restyle the page in place, or start dictation. Access ends when you navigate away.</li>
         <li><strong>Local storage:</strong> keeps your settings and progress on your device.</li>
-        <li><strong>Optional site access:</strong> requested only if you turn on automatic behavior for a specific site.</li>
+        <li><strong>Optional site access:</strong> requested only if you turn on automatic Reader View or restyle for a specific site.</li>
+        <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io): requested only when you choose an extra Piper voice or add an ElevenLabs key, as described above.</li>
       </ul>
       <h2>What ReadTune does not do</h2>
-      <p>ReadTune does not sell data, run analytics, create an account, or send browsing history to its creator. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>
+      <p>ReadTune does not sell or share data, run analytics or telemetry, create an account, or send your browsing history to its creator. It does not use data for advertising, creditworthiness, or lending. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>
       <h2>Contact</h2>
       <p>For questions or bug reports, use the project's <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub Issues</a>.</p>
-      <p class="mono-label">Last updated: August 2026</p>
+      <p class="mono-label">Last updated: September 2026</p>
     </main>
     <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
     <script src="site.js"></script>
