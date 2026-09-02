@@ -451,7 +451,7 @@ export function buildControls(profile, onChange) {
       reg.statusLine.textContent = t.note;
       reg.statusLine.dataset.kind = "info";
     } else if (piper) {
-      reg.statusLine.textContent = "Natural voice selected. The first Listen downloads it once, then it stays on this device.";
+      reg.statusLine.textContent = "On-device voice selected. The default voice is built into ReadTune.";
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
       reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";

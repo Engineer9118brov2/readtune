@@ -39,7 +39,16 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let autoScrolling = false;
   let pendingAloudIndex = 0;
   let preserveScrollOnPacingChange = false;
-  let piperStatus = { kind: "", message: "", percent: null };
+  let piperStatus =
+    ttsConfig.provider === "piper"
+      ? {
+          kind: "info",
+          message: piperVoiceNeedsDownload(ttsConfig.piperVoice)
+            ? "Your local voice is selected. Press Listen to prepare the one-time download."
+            : "Your local voice is built in. Press Listen to start.",
+          percent: null,
+        }
+      : { kind: "", message: "", percent: null };
 
   const toast = makeToast();
 
@@ -204,7 +213,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     change({ pacing: "aloud" });
   }
 
-  /* ---- read-aloud engine (browser voice, Piper, or the user's ElevenLabs key) ---- */
+  /* ---- read-aloud engine (on-device Piper, or the user's ElevenLabs key) ---- */
   function pushTTS(extra = {}) {
     const hasKey = !!ttsConfig.apiKey;
     const canList = hasKey && (ttsConfig.voices || []).length > 0;
