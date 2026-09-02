@@ -62,6 +62,8 @@ for (const f of files.filter((f) => extname(f) === ".html")) {
   for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     const ref = m[1];
     if (/^(https?:|data:|#|mailto:)/.test(ref)) continue;
+    // Skip Vercel Analytics path (served by Vercel after deployment)
+    if (ref === "/_vercel/insights/script.js") continue;
     const target = join(dirname(f), ref);
     if (!existsSync(target)) fail(`${f.replace(ROOT + "/", "")} → missing ${ref}`);
   }
