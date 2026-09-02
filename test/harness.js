@@ -959,7 +959,52 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     }
     // a word we cannot analyse is returned whole rather than mangled
     assert(SY.splitWord("42").length === 0, "a non-word is not split");
+
+    /* Adjacent vowels that are two sounds must split; digraphs must not. */
+    const hiatus = { chaos: "cha·os", lion: "li·on", poem: "po·em", poet: "po·et", radio: "ra·di·o", biology: "bi·o·lo·gy" };
+    for (const [word, want] of Object.entries(hiatus)) {
+      assert(SY.splitWord(word).join("·") === want, `${word} splits its vowel run as ${want}`);
+    }
+    for (const [word, want] of Object.entries({ field: "field", meat: "meat", queue: "queue" })) {
+      assert(SY.splitWord(word).join("·") === want, `${word} keeps its vowel digraph whole`);
+    }
+    /* -tion / -sion / -cial are one sound: an "i" after t, s, c or x. */
+    for (const [word, want] of Object.entries({ dictionary: "dic·tio·na·ry", nation: "na·tion", vision: "vi·sion", special: "spe·cial", precious: "pre·cious" })) {
+      assert(SY.splitWord(word).join("·") === want, `${word} keeps its soft-i cluster whole`);
+    }
+
+    /* A separator is not a syllable. "don't" is one syllable, not three, and
+       the popover renders one dot per element. */
     assert(SY.syllabify("don't").join("") === "don't", "an apostrophe survives the split");
+    assert(SY.syllabify("don't").length === 1, "don't counts as one syllable, not three");
+    assert(!SY.syllabify("don't").some((p) => /^[-'’]+$/.test(p)), "a separator is never its own element");
+    assert(SY.syllabify("mother-in-law").join("") === "mother-in-law", "a hyphenated word reassembles exactly");
+    assert(!SY.syllabify("mother-in-law").some((p) => /^[-'’]+$/.test(p)), "hyphens stay attached to their syllable");
+    assert(SY.syllabify("o'clock").join("") === "o'clock", "o'clock reassembles exactly");
+
+    /* Three separate rate clamps existed and disagreed; assert they cannot. */
+    const TTSMOD = await import("../shared/tts.js");
+    assert(typeof TTSMOD.markWord === "function", "tts module loads with the shared range imported");
+    assert(
+      S.RANGES.ttsRate.max >= S.TTS_RATE_STEPS[S.TTS_RATE_STEPS.length - 1],
+      "the shared range covers the whole speed ladder",
+    );
+
+    /* A dark reading surface needs the light stops or the text disappears. */
+    assert(S.isDarkSurface("#181a1d") && !S.isDarkSurface("#fbfaf7"), "surface darkness is detected");
+    assert(
+      Object.entries(S.LINE_TINTS).every(([k, t]) => k === "off" || (Array.isArray(t.darkStops) && t.darkStops.length === 2)),
+      "every line tint carries a light set for dark surfaces",
+    );
+    const dh = document.createElement("div");
+    document.body.appendChild(dh);
+    R.applyTypography(dh, { ...S.DEFAULT_PROFILE, lineTint: "warm", overlay: "dark" });
+    const onDark = dh.style.getPropertyValue("--rt-linetint-a").trim();
+    R.applyTypography(dh, { ...S.DEFAULT_PROFILE, lineTint: "warm", overlay: "none" });
+    const onLight = dh.style.getPropertyValue("--rt-linetint-a").trim();
+    assert(onDark && onLight && onDark !== onLight, "the line tint uses different stops on a dark surface than a light one");
+    assert(onDark.toLowerCase() === S.LINE_TINTS.warm.darkStops[0].toLowerCase(), "the dark surface gets the light stops");
+    dh.remove();
 
     assert(S.LINE_TINTS.off.stops === null, "the line tint is off by default and paints nothing");
     assert(

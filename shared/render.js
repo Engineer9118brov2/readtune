@@ -8,7 +8,7 @@
  * ways to move through the text (flow / sentence / word / auto-scroll / aloud).
  */
 
-import { OVERLAYS, FONTS, LINE_TINTS, DEFAULT_PROFILE } from "./settings.js";
+import { OVERLAYS, FONTS, LINE_TINTS, isDarkSurface, DEFAULT_PROFILE } from "./settings.js";
 import { hyphenateWord } from "../lib/hyphen.js";
 import { syllabify } from "./syllables.js";
 
@@ -697,8 +697,15 @@ export function applyTypography(host, p) {
      `lh` so it re-registers automatically when line spacing changes. */
   const tint = LINE_TINTS[prof.lineTint];
   if (tint && tint.stops) {
-    s.setProperty("--rt-linetint-a", tint.stops[0]);
-    s.setProperty("--rt-linetint-b", tint.stops[1]);
+    /* The stops replace the article's ink outright, so on a dark reading
+       surface the dark set drops to about 1:1 contrast and the text vanishes.
+       Pick the set that matches the surface actually in use. */
+    const overlay = OVERLAYS[prof.overlay] || OVERLAYS.none;
+    const surface =
+      prof.overlay === "custom" && /^#[0-9a-fA-F]{6}$/.test(prof.customTint || "") ? prof.customTint : overlay.surface;
+    const stops = isDarkSurface(surface) ? tint.darkStops || tint.stops : tint.stops;
+    s.setProperty("--rt-linetint-a", stops[0]);
+    s.setProperty("--rt-linetint-b", stops[1]);
   } else {
     s.removeProperty("--rt-linetint-a");
     s.removeProperty("--rt-linetint-b");
@@ -1059,6 +1066,15 @@ export function createReadingView(host) {
       onEvent = typeof cb === "function" ? cb : () => {};
     },
     getFlowEl() {
+      return flow;
+    },
+    /* Whatever the reader is actually looking at. In flow pacing that is the
+       article; in sentence and word pacing the flow is hidden and a chunk
+       element is on screen instead. Anything anchored to the words a reader
+       can see — word lookup, for one — has to ask for this, not the flow. */
+    getVisibleTextEl() {
+      if (sentenceEl && sentenceEl.isConnected && !sentenceEl.hidden && sentenceEl.offsetParent !== null) return sentenceEl;
+      if (rsvpWord && rsvpWord.isConnected && !rsvpWord.hidden && rsvpWord.offsetParent !== null) return rsvpWord;
       return flow;
     },
     isEmpty() {

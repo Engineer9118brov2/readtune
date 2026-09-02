@@ -33,15 +33,43 @@ const isVowel = (c) => "aeiouy".includes(c);
      next to another vowel ("yellow" has one nucleus in "ye", not two).
    - a silent final "e" is not its own syllable ("make" is one syllable), but
      the "-le" in "table" is. */
+/* Vowel pairs that are one sound, not two. Everything not listed splits, so a
+   run like "ao" in "chaos" or "io" in "lion" becomes two nuclei.
+   "ie", "ea" and "ue" stay whole deliberately: they are a digraph far more
+   often than a hiatus ("field", "meat", "blue"), and the cost of being wrong
+   is asymmetric — an unsplit word is merely unhelpful, a wrongly split one
+   teaches the wrong decoding. */
+const DIGRAPHS = new Set([
+  "aa", "ai", "au", "aw", "ay",
+  "ea", "ee", "ei", "eu", "ew", "ey",
+  "ie", "oa", "oi", "oo", "ou", "ow", "oy",
+  "ue", "ui", "uy",
+  "ya", "ye", "yo",
+]);
+
 function nuclei(w) {
   const spots = [];
   let i = 0;
   while (i < w.length) {
     if (!isVowel(w[i])) { i++; continue; }
-    const start = i;
-    while (i < w.length && isVowel(w[i])) i++;
-    spots.push([start, i]); // [start, end)
+    let start = i;
+    i++;
+    while (i < w.length && isVowel(w[i])) {
+      /* Break the run where the pair isn't a digraph — "cha|os", "li|on",
+         "po|em" — rather than swallowing every vowel run whole.
+         Except after t/s/c/x, where an "i" before another vowel is the soft
+         "sh" of -tion, -sion, -cial, -cious: one sound, not two. Without this
+         "dictionary" comes apart as "dic-ti-o-na-ry". */
+      const prev = w[i - 2];
+      const softI = w[i - 1] === "i" && prev && "tscx".includes(prev);
+      if (!DIGRAPHS.has(w[i - 1] + w[i]) && !softI) {
+        spots.push([start, i]);
+        start = i;
+      }
+      i++;
     }
+    spots.push([start, i]);
+  }
   return spots;
 }
 
@@ -114,18 +142,39 @@ export function splitWord(word) {
   return merged.filter(Boolean);
 }
 
-/** Split, keeping any leading/trailing punctuation out of the way. */
+/** Split, keeping any leading/trailing punctuation out of the way.
+ *
+ * A hyphen or apostrophe stays *attached* to the piece before it rather than
+ * becoming an element of its own: the caller renders one dot per element and
+ * counts elements as syllables, so a loose separator turned "don't" into
+ * "don·'·t" and announced it as three syllables. */
 export function syllabify(raw) {
   const s = String(raw || "");
   const m = s.match(/^([^\p{L}]*)(\p{L}[\p{L}'’-]*?)([^\p{L}]*)$/u);
   if (!m) return s ? [s] : [];
   const core = m[2];
-  /* Hyphenated and possessive forms split on their own parts. */
   if (/[-'’]/.test(core)) {
-    return core
-      .split(/([-'’])/)
-      .flatMap((piece) => (/[-'’]/.test(piece) ? [piece] : splitWord(piece).length ? splitWord(piece) : [piece]))
-      .filter(Boolean);
+    const out = [];
+    for (const piece of core.split(/(?<=[-'’])/)) {
+      const sep = (piece.match(/[-'’]+$/) || [""])[0];
+      const body = sep ? piece.slice(0, -sep.length) : piece;
+      const parts = body ? splitWord(body) : [];
+      const list = parts.length ? parts.slice() : body ? [body] : [];
+      if (!list.length) {
+        if (sep && out.length) out[out.length - 1] += sep;
+        continue;
+      }
+      list[list.length - 1] += sep;
+      out.push(...list);
+    }
+    /* A piece with no vowel is not a syllable of its own: "don't" splits into
+       "don'" + "t", which is one syllable spoken, not two. Fold it back. */
+    const merged = [];
+    for (const piece of out.filter(Boolean)) {
+      if (merged.length && !/[aeiouy]/i.test(piece)) merged[merged.length - 1] += piece;
+      else merged.push(piece);
+    }
+    return merged;
   }
   const parts = splitWord(core);
   return parts.length ? parts : [core];

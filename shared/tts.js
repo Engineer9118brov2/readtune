@@ -21,6 +21,7 @@
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 import { createPiperEngine } from "./piper.js";
+import { RANGES } from "./settings.js";
 
 const CHUNK_CHARS = 550;
 
@@ -465,7 +466,11 @@ export function createTTS({
       }
     },
     setRate(r) {
-      rate = Math.max(0.5, Math.min(2, Number(r) || 1));
+      /* Derived from the shared range, never a literal. There were three
+         independent rate clamps — RANGES, normalizeProfile and this one — and
+         raising the ceiling in the first two left playback pinned at 2x while
+         the UI happily reported 3x. */
+      rate = Math.max(RANGES.ttsRate.min, Math.min(RANGES.ttsRate.max, Number(r) || 1));
       if (audio) audio.playbackRate = rate;
     },
     /** ElevenLabs key / voice / provider changed. */

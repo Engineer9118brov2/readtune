@@ -99,8 +99,22 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   /* Double-click a word for its syllables and how it sounds. Single click is
      already taken by "jump read-aloud to this sentence". */
   const wordLook = createWordLookup({
-    getFlow: () => view.getFlowEl(),
-    speak: (word) => tts && tts.speakOnce(word),
+    /* Sentence and word pacing hide the flow and show a chunk element instead,
+       so anchoring lookup to the flow alone silently switched it off in both
+       paced modes — the words the reader can actually see are not in it. */
+    getFlow: () => view.getVisibleTextEl(),
+    speak: async (word) => {
+      if (!tts) return;
+      /* Duck the narration rather than talking over it, and put it back where
+         it was. Two voices at once is worse than either alone. */
+      const wasPlaying = tts.isPlaying();
+      if (wasPlaying) tts.pause();
+      try {
+        await tts.speakOnce(word);
+      } finally {
+        if (wasPlaying) tts.toggle();
+      }
+    },
     onError: (m) => toast(m),
   });
 
@@ -415,8 +429,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (ev.type === "playing") transport.setPlaying(ev.value);
   });
 
+  /* A double-click is two clicks: the first arrives with the selection still
+     collapsed, so the seek fired and restarted the sentence before the word
+     lookup opened. Hold the seek briefly and drop it if a second click lands. */
+  let seekTimer = 0;
   const onFlowClick = (ev) => {
     if (profile.pacing !== "aloud" || !tts || ev.defaultPrevented) return;
+    if (ev.detail > 1) { clearTimeout(seekTimer); return; }
     const target = ev.target;
     if (!target) return;
     const owner = target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement;
@@ -425,7 +444,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (sel && !sel.isCollapsed) return;
     const idx = sentenceIndexFromNode(target);
     if (idx < 0) return;
-    startAloudAt(idx, { preserveScroll: true });
+    clearTimeout(seekTimer);
+    seekTimer = setTimeout(() => startAloudAt(idx, { preserveScroll: true }), 220);
   };
   view.getFlowEl().addEventListener("click", onFlowClick);
 

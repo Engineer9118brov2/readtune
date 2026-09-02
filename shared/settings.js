@@ -31,11 +31,19 @@ export const FONTS = {
    re-read. Popularised by BeeLine Reader. Evidence is real but modest, so this
    ships labelled "mixed", off by default, like the other legibility tools. */
 export const LINE_TINTS = {
-  off: { label: "Off", stops: null },
-  warm: { label: "Warm", stops: ["#1d2b3a", "#7a3312"] },
-  cool: { label: "Cool", stops: ["#14313f", "#3c2a63"] },
-  mono: { label: "Grey", stops: ["#1d1f22", "#5c6169"] },
+  off: { label: "Off", stops: null, darkStops: null },
+  warm: { label: "Warm", stops: ["#1d2b3a", "#7a3312"], darkStops: ["#cfd9e6", "#f0b183"] },
+  cool: { label: "Cool", stops: ["#14313f", "#3c2a63"], darkStops: ["#bfe0ea", "#c3b4ef"] },
+  mono: { label: "Grey", stops: ["#1d1f22", "#5c6169"], darkStops: ["#eceef2", "#a8aeb8"] },
 };
+
+/** True when a reading surface is dark enough to need the light stops. */
+export function isDarkSurface(hex) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(String(hex || ""))) return false;
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 0.299 + g * 0.587 + b * 0.114 < 140;
+}
 
 export const OVERLAYS = {
   none: { label: "None", surface: "#fbfaf7", ink: "#242320", faint: "#e7e4dc" },
