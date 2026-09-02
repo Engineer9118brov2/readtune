@@ -14,11 +14,11 @@ const fail = (m) => {
   failures++;
 };
 
-function walk(dir, out = []) {
+function walk(dir, out = [], { skip = ["node_modules", ".git", ".chrome-ci", ".vercel", "lib", "test"] } = {}) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (["node_modules", ".git", "lib", "test"].includes(e.name)) continue;
+    if (skip.includes(e.name)) continue;
     const p = join(dir, e.name);
-    if (e.isDirectory()) walk(p, out);
+    if (e.isDirectory()) walk(p, out, { skip });
     else out.push(p);
   }
   return out;
@@ -81,8 +81,15 @@ for (const rel of SHIPPED) {
   if (!existsSync(abs)) continue;
   if (/_vercel|site\.js/.test(readFileSync(abs, "utf8"))) fail(`${rel} references site-only analytics — the extension must ship none`);
 }
-for (const abs of walk(join(ROOT, "shared"))) {
-  if (/_vercel/.test(readFileSync(abs, "utf8"))) fail(`${abs.replace(ROOT + "/", "")} references site-only analytics`);
+/* build.mjs copies every SHIP_DIR into the package wholesale, so the beacon
+   must not be referenced from any of them — not just shared/. */
+for (const dir of ["shared", "lib", "icons"]) {
+  for (const abs of walk(join(ROOT, dir), [], { skip: [] })) {
+    if (!/\.(m?js|cjs|html|css|json)$/.test(abs)) continue;
+    if (/_vercel|["'`]\.?\/?site\.js["'`]/.test(readFileSync(abs, "utf8"))) {
+      fail(`${abs.replace(ROOT + "/", "")} references site-only analytics — the extension must ship none`);
+    }
+  }
 }
 
 // 4. lib present — incl. the on-device voice engine and the bundled default voice
