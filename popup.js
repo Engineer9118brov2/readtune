@@ -117,6 +117,7 @@ function configureFirstRun() {
   $("onboard").hidden = false;
   $("profile-box").hidden = true;
   $("setup-box").hidden = true;
+  $("proof-box").hidden = false;
   $("btn-lab").hidden = true;
   $("btn-calibrate").classList.add("rt-primary");
   $("btn-reader").classList.remove("rt-primary");
@@ -131,6 +132,7 @@ function configureReturningUser(profile, insights) {
   $("tagline").textContent = "Your profile is ready. ReadTune starts from the strongest supports, then keeps tuning text and voice to you over time.";
   $("onboard").hidden = true;
   $("profile-box").hidden = false;
+  $("proof-box").hidden = true;
   $("btn-lab").hidden = false;
 
   $("profile-title").textContent = insights.profileTitle || "Your reading profile";

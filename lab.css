@@ -449,6 +449,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  position: sticky;
+  bottom: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--rt-page-bg, #fbfaf7) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--rt-ui-line);
+  border-radius: 14px;
+  box-shadow: var(--rt-ui-shadow);
+  z-index: 5;
 }
 
 .lab-actions .rt-btn {
