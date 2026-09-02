@@ -464,6 +464,27 @@
   width: auto;
 }
 
+.lab-feedback-link {
+  align-self: center;
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--rt-ui-accent);
+  text-decoration: none;
+}
+
+.lab-feedback-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 560px) {
+  .lab-feedback-link {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
+}
+
 .lab-empty {
   text-align: center;
 }

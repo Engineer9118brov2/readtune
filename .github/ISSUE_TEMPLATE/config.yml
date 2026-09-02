@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How ReadTune handles feedback
+    url: https://github.com/Engineer9118brov2/readtune/blob/main/docs/FEEDBACK.md
+    about: Every change we make from feedback is logged in the open. See the trail here.

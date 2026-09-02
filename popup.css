@@ -541,10 +541,24 @@
 }
 
 .pop-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   text-align: center;
   font-size: 0.74rem;
   color: var(--rt-ui-ink-soft);
   padding-top: 2px;
+}
+
+.pop-foot-link {
+  color: var(--rt-ui-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pop-foot-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 340px) {

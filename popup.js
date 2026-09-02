@@ -260,6 +260,13 @@ $("btn-retake").addEventListener("click", () => openPage("calibration.html"));
 $("btn-lab").addEventListener("click", () => openPage("lab.html"));
 $("btn-setup-voice").addEventListener("click", () => openPage("lab.html?focus=voice&source=setup"));
 
+const FEEDBACK_URL = "https://github.com/Engineer9118brov2/readtune/issues/new?template=feedback.yml";
+$("btn-feedback").addEventListener("click", (e) => {
+  e.preventDefault();
+  chrome.tabs.create({ url: FEEDBACK_URL });
+  window.close();
+});
+
 function wireDyslexicToggle(initial) {
   const btn = $("btn-dys");
   if (!btn) return;

@@ -1,0 +1,48 @@
+name: Feedback or a problem
+description: Tell us what's confusing, annoying, or broken. Plain language is fine.
+title: "[feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. You don't need to be technical — just say what
+        happened in your own words. ReadTune collects nothing on its own, so this
+        form is the only way we hear from you.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what would you change?
+      placeholder: e.g. "The reading ruler is too dark and I lose my place" or "I couldn't find how to turn on read-aloud"
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were you using it?
+      multiple: true
+      options:
+        - Reader View
+        - Restyle this page
+        - PDF mode
+        - Read-aloud (Listen)
+        - Talk to type (dictation)
+        - The calibration check
+        - The Reading Lab
+        - The popup
+        - Somewhere else / not sure
+    validations:
+      required: false
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device (optional)
+      placeholder: e.g. Chrome on a Windows laptop, or Chromebook
+    validations:
+      required: false
+  - type: textarea
+    id: anything
+    attributes:
+      label: Anything else? (optional)
+    validations:
+      required: false
