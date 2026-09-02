@@ -11,6 +11,18 @@
   document.head.appendChild(s);
 })();
 
+/* Vercel Speed Insights — the readtune.app marketing site only, same scope
+   and same reasoning as the Web Analytics loader above. */
+(function () {
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+  const s = document.createElement("script");
+  s.defer = true;
+  s.src = "/_vercel/speed-insights/script.js";
+  s.dataset.sdkn = "@vercel/speed-insights";
+  s.dataset.sdkv = "2.0.0";
+  document.head.appendChild(s);
+})();
+
 /* Dyslexia-friendly view — OpenDyslexic + roomier spacing across the whole site.
    Persisted per browser; applied pre-paint by the inline <head> script. */
 const DYS_KEY = "readtune-dys-view";
