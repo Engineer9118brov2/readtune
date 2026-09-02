@@ -282,11 +282,10 @@ async function finish() {
     extra: { overlay: "none", columnWidth: 64 },
   });
   // The calibration measures text formatting only. Carry forward the choices it
-  // never tested — the OpenDyslexic-menus preference and the read-aloud voice —
+  // never tested — the OpenDyslexic-menus preference and the read-aloud rate —
   // so a retake doesn't silently wipe them.
   const prior = await loadProfile();
   profile.dyslexicUiMode = prior.dyslexicUiMode;
-  profile.ttsVoice = prior.ttsVoice;
   profile.ttsRate = prior.ttsRate;
   const saved = (await writeProfile(profile)) || profile;
 

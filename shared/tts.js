@@ -2,147 +2,25 @@
  * ReadTune — read aloud
  *
  * Two backends behind one interface:
- *   • "browser"    — the OS speech synthesis. No key, no network. Word
- *                    highlighting where the voice reports boundaries.
+ *   • "piper"      — an on-device neural voice (default). The default model
+ *                    ships in the extension, so it works offline; other voices
+ *                    download once. Runs in a Web Worker. Word highlighting is a
+ *                    proportional estimate (the model emits no word timings).
  *   • "elevenlabs" — the user's own ElevenLabs key. Sentences are batched into
  *                    short chunks; each chunk's /with-timestamps response gives
  *                    per-character timings, so the spoken word is highlighted
  *                    precisely. Chunks are fetched just-in-time (+1 prefetch) so
  *                    stopping early doesn't spend quota on the rest of the text.
  *
+ * There is no browser-speech (SpeechSynthesis) backend — the plain system
+ * voices are the thing users disliked most. If Piper can't start, read-aloud
+ * reports it rather than dropping to a robotic voice.
+ *
  * Sentence + word highlighting in the page is shared between the two.
  */
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 import { createPiperEngine } from "./piper.js";
-
-const NATURAL_VOICE_RE = /\b(enhanced|natural|neural|premium|studio)\b/i;
-const PLATFORM_VOICE_RE = /\b(siri|apple|google|microsoft)\b/i;
-const BASIC_VOICE_RE = /\b(compact|classic|default|basic|simple)\b/i;
-
-const voiceName = (voice) => String((voice && (voice.name || voice.voiceURI)) || "").trim();
-const voiceLang = (voice) => String((voice && voice.lang) || "").toLowerCase();
-
-export function browserVoiceSource(voice) {
-  return voice && voice.localService === false ? "Online" : "On this device";
-}
-
-export function scoreBrowserVoice(voice) {
-  const name = voiceName(voice);
-  const lang = voiceLang(voice);
-  let score = 0;
-  if (voice && voice.localService !== false) score += 40;
-  if (voice && voice.default) score += 8;
-  if (NATURAL_VOICE_RE.test(name)) score += 18;
-  if (PLATFORM_VOICE_RE.test(name)) score += 10;
-  if (lang === "en-us" || lang === "en-gb") score += 6;
-  else if (lang.startsWith("en")) score += 3;
-  if (BASIC_VOICE_RE.test(name)) score -= 12;
-  return score;
-}
-
-export function rankBrowserVoices(voices) {
-  return [...(Array.isArray(voices) ? voices : [])].sort((a, b) => {
-    const diff = scoreBrowserVoice(b) - scoreBrowserVoice(a);
-    if (diff) return diff;
-    const aLocal = a && a.localService !== false ? 1 : 0;
-    const bLocal = b && b.localService !== false ? 1 : 0;
-    if (aLocal !== bLocal) return bLocal - aLocal;
-    return voiceName(a).localeCompare(voiceName(b));
-  });
-}
-
-export function recommendedBrowserVoices(voices, limit = 3) {
-  const ranked = rankBrowserVoices(voices);
-  const local = ranked.filter((voice) => voice && voice.localService !== false);
-  return (local.length ? local : ranked).slice(0, Math.max(0, limit));
-}
-
-/** True if the device already has a rich local voice (Enhanced / Natural / Neural…). */
-export function hasNaturalVoice(voices) {
-  return (Array.isArray(voices) ? voices : []).some(
-    (voice) => voice && voice.localService !== false && NATURAL_VOICE_RE.test(voiceName(voice))
-  );
-}
-
-/**
- * The plain system voices (Samantha, David…) are the tiring part of free
- * read-aloud. Every desktop OS ships far better voices that just aren't
- * installed by default. Point the user at the right settings screen.
- */
-export function osVoiceTip(ua = (typeof navigator !== "undefined" && navigator.userAgent) || "") {
-  const s = String(ua);
-  if (/CrOS/i.test(s)) {
-    return {
-      os: "ChromeOS",
-      text: "ChromeOS has natural Google voices: Settings → Accessibility → Text-to-Speech → Speech engines, enable the enhanced voices, then re-scan.",
-    };
-  }
-  if (/Mac OS X|Macintosh/i.test(s) && !/(iPhone|iPad|iPod)/i.test(s)) {
-    return {
-      os: "macOS",
-      text: "Your Mac can add much better voices for free: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices, and download an English voice marked (Enhanced) or (Premium) — Ava, Zoe or Allison are good. Then re-scan.",
-    };
-  }
-  if (/Windows NT/i.test(s)) {
-    return {
-      os: "Windows",
-      text: "Windows can add natural voices: Settings → Time & language → Speech → Manage voices → Add voices. Restart Chrome, then re-scan. (Some Windows builds don't expose these to the browser.)",
-    };
-  }
-  return {
-    os: "",
-    text: "Your system may have higher-quality voices you can install from its accessibility or speech settings. Add one, then re-scan.",
-  };
-}
-
-export function formatBrowserVoiceLabel(voice) {
-  const name = voiceName(voice) || "Unnamed voice";
-  return `${name} (${browserVoiceSource(voice)})`;
-}
-
-export function describeBrowserVoice(voice) {
-  if (!voice) {
-    return "Uses your browser's default speech voice. It is the simplest free setup and stays aligned with your device settings.";
-  }
-
-  const name = voiceName(voice);
-  const local = voice.localService !== false;
-
-  if (local && NATURAL_VOICE_RE.test(name)) {
-    return "A strong free local pick. It usually sounds richer than the plain default while keeping speech on this device.";
-  }
-  if (local && PLATFORM_VOICE_RE.test(name)) {
-    return "A polished system voice that stays private on this device. Good if you want free speech that still feels smooth.";
-  }
-  if (local) {
-    return "A free on-device voice. It keeps speech private and is a solid fallback if richer voices do not feel right.";
-  }
-  if (NATURAL_VOICE_RE.test(name)) {
-    return "Likely smoother, but Chrome reports it as an online voice, so spoken text may leave the device.";
-  }
-  return "Available here, but Chrome reports it as an online voice, so spoken text may leave the device.";
-}
-
-export function isTTSAvailable() {
-  return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-}
-
-export function listVoices() {
-  if (!isTTSAvailable()) return [];
-  return rankBrowserVoices(window.speechSynthesis.getVoices().filter((v) => /^en(-|$)/i.test(v.lang)));
-}
-
-export function onVoicesReady(cb) {
-  if (!isTTSAvailable()) return;
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length) return cb(listVoices());
-  const handler = () => {
-    window.speechSynthesis.removeEventListener("voiceschanged", handler);
-    cb(listVoices());
-  };
-  window.speechSynthesis.addEventListener("voiceschanged", handler);
-}
 
 const CHUNK_CHARS = 550;
 
@@ -544,9 +422,6 @@ export function createTTS({
       rate = Math.max(0.5, Math.min(2, Number(r) || 1));
       if (audio) audio.playbackRate = rate;
     },
-    /* No-op: read-aloud voice is the Piper voice in the TTS config, not a
-       browser voice name. Kept so callers don't need to branch. */
-    setVoice() {},
     /** ElevenLabs key / voice / provider changed. */
     reload() {
       const wasPlaying = playing;

@@ -22,7 +22,7 @@ import {
 import { applyTypography, paintPage } from "./render.js";
 import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
-import { createTTS, isTTSAvailable, onVoicesReady, listVoices } from "./tts.js";
+import { createTTS } from "./tts.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
@@ -103,23 +103,19 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   const controls = buildControls(profile, change);
   document.body.append(controls.toggle, controls.panel);
-  onVoicesReady((voices) => controls.setVoices(voices));
 
   function syncHeaderActions() {
     if (typeof view.setActions !== "function") return;
-    const ttsReady = isTTSAvailable();
     view.setActions([
       {
         label: profile.pacing === "aloud" ? "Stop listening" : "Listen here",
         primary: profile.pacing === "aloud",
         pressed: profile.pacing === "aloud",
-        disabled: !ttsReady,
         title:
           profile.pacing === "aloud"
             ? "Stop read-aloud."
             : "Start from the sentence near the middle of the page. While listening, click any sentence to jump there.",
         onClick: () => {
-          if (!ttsReady) return;
           if (profile.pacing === "aloud") change({ pacing: "flow" });
           else startAloudAt(currentSentenceIndex(), { preserveScroll: true });
         },
@@ -199,7 +195,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     preserveScrollOnPacingChange = !!preserveScroll;
     if (profile.pacing === "aloud") {
       tts.setRate(profile.ttsRate);
-      tts.setVoice(profile.ttsVoice);
       tts.start(next);
       syncReadAlong(next);
       syncTransport();
@@ -256,9 +251,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       URL.revokeObjectURL(previewAudioUrl);
       previewAudioUrl = "";
     }
-    try {
-      window.speechSynthesis && window.speechSynthesis.cancel();
-    } catch {}
   }
 
   function stopTransientMode(pacing = profile.pacing) {
@@ -268,7 +260,9 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       clearReadAlong();
     }
   }
-  async function previewVoice(browserVoice = "") {
+  // Only the ElevenLabs rows expose a preview button — the on-device Piper
+  // voice is chosen and previewed in the Reading Lab's Voice Fit.
+  async function previewVoice() {
     const line = "Hi — this is the voice ReadTune will use to read to you.";
     if (tts && tts.isPlaying()) {
       tts.pause();
@@ -292,30 +286,14 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       } catch (e) {
         toast(e && e.message ? e.message : "Couldn't play a preview.");
       }
-    } else if (window.speechSynthesis) {
-      const u = new SpeechSynthesisUtterance(line);
-      u.rate = profile.ttsRate;
-      const activeVoice = browserVoice || profile.ttsVoice;
-      if (activeVoice) {
-        const v = window.speechSynthesis.getVoices().find((x) => x.name === activeVoice);
-        if (v) {
-          u.voice = v;
-          u.lang = v.lang;
-        }
-      }
-      window.speechSynthesis.speak(u);
     } else {
-      toast("Read-aloud isn't available in this browser.");
+      toast("Add your ElevenLabs key to preview that voice, or try voices in the Reading Lab.");
     }
   }
 
   async function handleTTSPatch(t) {
     if (t.preview) {
-      previewVoice(typeof t.browserVoice === "string" ? t.browserVoice : "");
-      return;
-    }
-    if (t.rescan) {
-      controls.setVoices(listVoices());
+      previewVoice();
       return;
     }
     stopPreview();
@@ -454,10 +432,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     view.applyProfile(p);
     aids.apply(p);
     controls.sync(p);
-    if (tts) {
-      tts.setRate(p.ttsRate);
-      tts.setVoice(p.ttsVoice);
-    }
+    if (tts) tts.setRate(p.ttsRate);
     syncTransport();
     syncHeaderActions();
   }
@@ -485,7 +460,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     paintPage(profile);
     view.applyProfile(profile);
     aids.apply(profile);
-    if ("ttsVoice" in patch && tts) tts.setVoice(patch.ttsVoice);
     if ("ttsRate" in patch && tts) tts.setRate(patch.ttsRate);
     controls.sync(profile);
 
@@ -497,7 +471,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       if (profile.pacing === "aloud" && tts) {
         view.applyProfile(profile);
         tts.setRate(profile.ttsRate);
-        tts.setVoice(profile.ttsVoice);
         tts.start(pendingAloudIndex);
         syncReadAlong(pendingAloudIndex);
       }

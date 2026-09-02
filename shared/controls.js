@@ -9,7 +9,6 @@
 import { RANGES, OVERLAYS, FONTS, PACING, applyDyslexicUi } from "./settings.js";
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
-import { formatBrowserVoiceLabel, recommendedBrowserVoices, hasNaturalVoice, osVoiceTip } from "./tts.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
@@ -278,11 +277,6 @@ export function buildControls(profile, onChange) {
   engineSeg.append(...engineBtns);
   reg.engineBtns = engineBtns;
   const engineRow = field("Voice source", engineSeg);
-  const freeHint = el(
-    "p",
-    { class: "rt-panel-hint" },
-    "Free voice uses your browser's built-in speech. No account, no API bill, nothing sent to our servers."
-  );
   const piperHint = el(
     "p",
     { class: "rt-panel-hint" },
@@ -294,28 +288,6 @@ export function buildControls(profile, onChange) {
     b.addEventListener("click", () => onChange({ __tts: patchFactory() }));
     return b;
   };
-
-  const browserVoiceSel = el("select", { class: "rt-select", "aria-label": "Browser voice" });
-  browserVoiceSel.append(el("option", { value: "" }, "Use browser default"));
-  browserVoiceSel.addEventListener("change", () => emit({ ttsVoice: browserVoiceSel.value }));
-  reg.voice = browserVoiceSel;
-  const browserVoiceRow = el("div", { class: "rt-field" }, [
-    el("span", { class: "rt-field-label" }, "Free voice"),
-    el("div", { class: "rt-voice-row" }, [
-      browserVoiceSel,
-      previewBtn("Preview this voice", () => ({
-        preview: true,
-        browserVoice: browserVoiceSel.value || browserVoiceSel.dataset.recommended || "",
-      })),
-    ]),
-  ]);
-  const browserVoiceNote = el("p", { class: "rt-panel-hint rt-panel-hint-tight" });
-  const rescanBtn = el("button", { class: "rt-link", type: "button" }, "Re-scan for new voices");
-  rescanBtn.addEventListener("click", () => onChange({ __tts: { rescan: true } }));
-  const browserVoiceUpgrade = el("div", { class: "rt-panel-hint rt-panel-hint-tight rt-voice-upgrade", hidden: true }, [
-    el("span", { class: "rt-voice-upgrade-text" }),
-    rescanBtn,
-  ]);
 
   const keyInput = el("input", {
     type: "password",
@@ -376,14 +348,10 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, freeHint, piperHint, browserVoiceRow, browserVoiceNote, browserVoiceUpgrade, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, piperHint, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
     engineRow,
-    freeHint,
     piperHint,
-    browserVoiceRow,
-    browserVoiceNote,
-    browserVoiceUpgrade,
     keyRow,
     keyHint,
     elVoiceRow,
@@ -394,7 +362,6 @@ export function buildControls(profile, onChange) {
     piperProgress,
     forgetBtn,
     ttsState,
-    voiceUpgradeRelevant: false,
   });
 
   body.append(
@@ -462,12 +429,8 @@ export function buildControls(profile, onChange) {
     const piper = t.provider === "piper";
     const canList = t.hasKey && t.voices.length > 0;
     reg.engineRow.hidden = !aloud;
-    reg.freeHint.hidden = !aloud || eleven || piper;
     reg.piperHint.hidden = !aloud || !piper;
     reg.rateRow.hidden = !aloud;
-    reg.browserVoiceRow.hidden = !aloud || eleven || piper;
-    reg.browserVoiceNote.hidden = !aloud || eleven || piper;
-    reg.browserVoiceUpgrade.hidden = !aloud || eleven || piper || !reg.voiceUpgradeRelevant;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
@@ -517,47 +480,6 @@ export function buildControls(profile, onChange) {
     sync(next) {
       Object.assign(state, next);
       paint();
-    },
-    setVoices(voices) {
-      const sel = reg.voice;
-      const cur = state.ttsVoice;
-      const ranked = Array.isArray(voices) ? voices : [];
-      const recommended = recommendedBrowserVoices(ranked, 3);
-      const recommendedNames = new Set(recommended.map((voice) => voice.name));
-      const deviceVoices = ranked.filter((voice) => voice.localService !== false && !recommendedNames.has(voice.name));
-      const onlineVoices = ranked.filter((voice) => voice.localService === false && !recommendedNames.has(voice.name));
-      sel.replaceChildren(el("option", { value: "" }, "Use browser default"));
-      sel.dataset.recommended = recommended[0] ? recommended[0].name : "";
-
-      const appendGroup = (label, items) => {
-        if (!items.length) return;
-        const group = el("optgroup", { label });
-        for (const voice of items) group.append(el("option", { value: voice.name }, formatBrowserVoiceLabel(voice)));
-        sel.append(group);
-      };
-
-      appendGroup("Best free voices", recommended);
-      appendGroup("More on this device", deviceVoices);
-      appendGroup("Online voices", onlineVoices);
-      sel.value = cur || "";
-      if (sel.value !== cur) sel.value = "";
-
-      if (!ranked.length) {
-        reg.browserVoiceNote.textContent = "This browser did not expose extra English voices here, so ReadTune will use your default voice.";
-        reg.browserVoiceNote.hidden = false;
-      } else if (recommended[0]) {
-        reg.browserVoiceNote.textContent =
-          recommended[0].localService === false
-            ? `${recommended[0].name} is the strongest free voice Chrome exposed here. It may use an online engine.`
-            : `${recommended[0].name} is the strongest free voice on this device right now.`;
-      }
-
-      // The plain OS voices are the tiring part. If nothing rich is installed,
-      // tell the user exactly where their OS hides the good free voices.
-      const tip = osVoiceTip();
-      reg.voiceUpgradeRelevant = ranked.length > 0 && !hasNaturalVoice(ranked);
-      reg.browserVoiceUpgrade.querySelector(".rt-voice-upgrade-text").textContent = tip.text + " ";
-      paintTTS();
     },
     /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error, note }. */
     setTTS(next) {

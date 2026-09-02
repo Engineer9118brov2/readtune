@@ -209,7 +209,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(!shell.quality.ok && shellView.isEmpty(), "app shell rejected");
 
   let starterPatch = null;
-  const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsVoice: "Samantha", ttsRate: 1.2, rulerLines: 5, rulerHeight: 76 }, (p) => {
+  const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsRate: 1.2, rulerLines: 5, rulerHeight: 76 }, (p) => {
     starterPatch = p;
   });
   assert(/Research-backed starter/.test(starterControls.panel.textContent), "controls surface research-backed starter");
@@ -220,7 +220,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       starterPatch.columnWidth === RS.RESEARCH_STARTER_PROFILE.columnWidth &&
       starterPatch.rulerLines === 5 &&
       starterPatch.rulerHeight === 76 &&
-      starterPatch.ttsVoice === "Samantha" &&
       starterPatch.ttsRate === 1.2,
     "starter button emits starter profile"
   );
@@ -291,22 +290,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(document.querySelector(".rt-ruler").hidden, "ruler hidden in word mode");
   aids.destroy();
 
-  assert(typeof TTS.isTTSAvailable === "function" && typeof TTS.createTTS === "function", "tts exports");
-  const rankedVoices = TTS.rankBrowserVoices([
-    { name: "Cloud Natural", localService: false, lang: "en-US" },
-    { name: "Compact Voice", localService: true, lang: "en-US" },
-    { name: "Samantha Enhanced", localService: true, lang: "en-US" },
-  ]);
-  assert(rankedVoices[0].name === "Samantha Enhanced", "local enhanced voice ranks first");
-  assert(TTS.recommendedBrowserVoices(rankedVoices, 2)[0].name === "Samantha Enhanced", "recommended browser voice prefers local natural voices");
-  assert(TTS.formatBrowserVoiceLabel({ name: "Samantha", localService: true }) === "Samantha (On this device)", "browser voice label explains source");
-  assert(/strong free local pick/i.test(TTS.describeBrowserVoice({ name: "Samantha Enhanced", localService: true, lang: "en-US" })), "browser voice copy explains strong local picks");
+  assert(typeof TTS.createTTS === "function", "tts exports createTTS");
   assert(
-    TTS.hasNaturalVoice([{ name: "Samantha", localService: true }]) === false &&
-      TTS.hasNaturalVoice([{ name: "Ava (Premium)", localService: true }]) === true,
-    "hasNaturalVoice detects a rich local voice"
+    !("rankBrowserVoices" in TTS) && !("listVoices" in TTS) && !("isTTSAvailable" in TTS),
+    "tts.js no longer carries the removed browser-speech surface",
   );
-  assert(/System Settings/i.test(TTS.osVoiceTip("Mac OS X").text) && TTS.osVoiceTip("Windows NT 10.0").os === "Windows", "osVoiceTip is OS-specific");
   assert(RU.measuredLineHeight({ lineHeight: "normal", fontSize: "20px" }, 30) === 27, "normal line-height expands from font size");
   assert(RU.adaptiveRulerHeight({ lineHeightPx: 34, fontSizePx: 22, baseHeight: 40 }) > RU.adaptiveRulerHeight({ lineHeightPx: 20, fontSizePx: 14, baseHeight: 40 }), "ruler height tracks text metrics");
   assert(
@@ -489,16 +477,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(patch && patch.__mode === "skim", "quick mode emits bundle patch");
   controls.sync({ ...S.DEFAULT_PROFILE, pacing: "sentence", focus: "off", hideImages: true, freezeMotion: true, columnWidth: 52 });
   assert(controls.panel.querySelector('.rt-mode[data-mode="skim"]').getAttribute("aria-pressed") === "true", "quick mode reflects matching profile");
-  controls.setVoices([
-    { name: "Compact Voice", localService: true, lang: "en-US" },
-    { name: "Samantha Enhanced", localService: true, lang: "en-US" },
-    { name: "Cloud Natural", localService: false, lang: "en-US" },
-  ]);
-  const browserSel = controls.panel.querySelector('select[aria-label="Browser voice"]');
-  assert(browserSel && browserSel.options.length === 4, "setVoices populates grouped browser voices");
-  assert(browserSel.querySelector('optgroup[label="Best free voices"]'), "browser voices surface recommended free voices first");
-  assert(browserSel.dataset.recommended === "Samantha Enhanced", "best free browser voice is exposed for preview");
-  assert(/strongest free voice/i.test(controls.panel.textContent), "browser voice guidance explains the recommendation");
+  assert(
+    typeof controls.setVoices !== "function" && !controls.panel.querySelector('select[aria-label="Browser voice"]'),
+    "controls no longer build a browser-voice picker",
+  );
 
   /* showcase */
   host.replaceChildren();

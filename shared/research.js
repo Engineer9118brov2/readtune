@@ -37,7 +37,6 @@ export const RESEARCH_STARTER_PROFILE = Object.freeze({
   rulerHeight: 40,
   pacing: "flow",
   wpm: 300,
-  ttsVoice: "",
   ttsRate: 1,
 });
 
@@ -107,7 +106,6 @@ export function researchStarterPatch(current = {}) {
     ...RESEARCH_STARTER_PROFILE,
     rulerLines: normalizeRulerLines(next.rulerLines, RESEARCH_STARTER_PROFILE.rulerLines),
     rulerHeight: Number.isFinite(rulerHeight) ? rulerHeight : RESEARCH_STARTER_PROFILE.rulerHeight,
-    ttsVoice: next.ttsVoice || RESEARCH_STARTER_PROFILE.ttsVoice,
     ttsRate: Number.isFinite(rate) ? rate : RESEARCH_STARTER_PROFILE.ttsRate,
   };
 }
