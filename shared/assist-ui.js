@@ -194,12 +194,10 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     try {
       const { text, clipped } = await assistant.summarize({ signal, onProgress: (p) => w.progress(p) });
       if (signal.aborted) return;
-      body.replaceChildren(
-        clipped ? el("p", { class: "rt-assist-sub" }, "From the start of a long article.") : document.createComment(""),
-        resultBlock(text),
-        disclaimer(),
-        actions(() => text, signal),
-      );
+      const kids = [];
+      if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
+      kids.push(resultBlock(text), disclaimer(), actions(() => text, signal));
+      body.replaceChildren(...kids);
     } catch (err) {
       if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
     }
@@ -270,9 +268,10 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       if (!rect.width && !rect.height) return hide();
       show(rect);
     };
+    let debounce = 0;
     const onSelectionChange = () => {
-      clearTimeout(sync._t);
-      sync._t = setTimeout(sync, 180);
+      clearTimeout(debounce);
+      debounce = setTimeout(sync, 180);
     };
     const onDown = (e) => {
       if (pill && !pill.contains(e.target)) hide();
@@ -283,7 +282,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     window.addEventListener("resize", hide);
     return () => {
       hide();
-      clearTimeout(sync._t);
+      clearTimeout(debounce);
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("mousedown", onDown, true);
       window.removeEventListener("scroll", hide, true);
