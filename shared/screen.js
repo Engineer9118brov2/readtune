@@ -16,6 +16,8 @@ import {
   loadTTSConfig,
   saveTTSConfig,
   forgetTTSKey,
+  loadAssistConfig,
+  saveAssistConfig,
   applyDyslexicUi,
   nextTtsRate,
   DEFAULT_PROFILE,
@@ -25,6 +27,8 @@ import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS } from "./tts.js";
 import { createWordLookup } from "./wordlook.js";
+import { createAssistant, geminiKeyWorks, hasGeminiPermission, requestGeminiPermission } from "./assist.js";
+import { createAssistUi } from "./assist-ui.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
@@ -35,6 +39,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
   applyDyslexicUi(profile.dyslexicUiMode);
   let ttsConfig = await loadTTSConfig();
+  let assistConfig = await loadAssistConfig();
   let memory = { scroll: 0, highlights: [] };
   let saveTimer = 0;
   let autoRAF = 0;
@@ -96,6 +101,24 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
   });
 
+  /* Speak a word or passage on demand (word lookup, the assistant's "Hear it")
+     without losing playback position. Duck whatever is running, not just
+     narration: RSVP belongs to the view, so tts.isPlaying() is false in word
+     pacing and the words kept advancing under the popup while Piper synthesised. */
+  async function speakDucked(text) {
+    if (!tts || !text) return;
+    const narrating = tts.isPlaying();
+    const rsvp = typeof view.isPlaying === "function" && view.isPlaying();
+    if (narrating) tts.pause();
+    if (rsvp) view.pause();
+    try {
+      await tts.speakOnce(text);
+    } finally {
+      if (narrating) tts.toggle();
+      if (rsvp) view.play();
+    }
+  }
+
   /* Double-click a word for its syllables and how it sounds. Single click is
      already taken by "jump read-aloud to this sentence". */
   const wordLook = createWordLookup({
@@ -103,24 +126,45 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
        so anchoring lookup to the flow alone silently switched it off in both
        paced modes — the words the reader can actually see are not in it. */
     getFlow: () => view.getVisibleTextEl(),
-    speak: async (word) => {
-      if (!tts) return;
-      /* Duck whatever is running, not just narration. RSVP belongs to the
-         view, so tts.isPlaying() is false in word pacing and the words kept
-         advancing under the popup while Piper synthesised. */
-      const narrating = tts.isPlaying();
-      const rsvp = typeof view.isPlaying === "function" && view.isPlaying();
-      if (narrating) tts.pause();
-      if (rsvp) view.pause();
-      try {
-        await tts.speakOnce(word);
-      } finally {
-        if (narrating) tts.toggle();
-        if (rsvp) view.play();
+    speak: speakDucked,
+    onError: (m) => toast(m),
+  });
+
+  /* Optional AI help: a plain-language rewrite of a passage you select, and a
+     "what is this about" for the whole article. On-device (Chrome built-in AI)
+     first, the reader's own Gemini key second, nothing ReadTune-hosted ever. */
+  const assistant = createAssistant({
+    getArticleText: () => view.getPlainText(),
+    getConfig: () => assistConfig,
+    onError: (m) => toast(m),
+  });
+  const assist = createAssistUi({
+    assistant,
+    getSelectionText: () => {
+      const s = window.getSelection();
+      return s && !s.isCollapsed ? String(s.toString() || "").trim() : "";
+    },
+    speak: speakDucked,
+    onSaveKey: async (key) => {
+      if (!(await hasGeminiPermission())) {
+        const granted = await requestGeminiPermission();
+        if (!granted) {
+          toast("ReadTune needs permission to reach Google to check the key.");
+          return false;
+        }
       }
+      const check = await geminiKeyWorks(key);
+      if (!check.ok) {
+        toast(check.reason || "That key didn't work.");
+        return false;
+      }
+      assistConfig = (await saveAssistConfig({ key })) || { ...assistConfig, key };
+      toast("Gemini key saved — it stays in this browser.");
+      return true;
     },
     onError: (m) => toast(m),
   });
+  const unmountAssistTrigger = assist.mountSelectionTrigger(() => view.getFlowEl());
 
   const transport = createTransport({
     onExit: () => change({ pacing: "flow" }),
@@ -182,6 +226,12 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
             syncHeaderActions();
           }
         },
+      },
+      {
+        label: "Summary",
+        title:
+          "Key points for this article before you commit to it. Runs on your device where the browser supports it; otherwise a free Gemini key (Reading Lab) turns it on. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
+        onClick: () => assist.openSummary(),
       },
     ]);
   }
@@ -596,6 +646,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       toast.destroy();
       aids.destroy();
       wordLook.destroy();
+      assist.destroy();
+      unmountAssistTrigger();
       transport.destroy();
       if (tts) tts.destroy();
       clearTimeout(seekTimer);

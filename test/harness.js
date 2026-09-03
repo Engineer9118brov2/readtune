@@ -86,9 +86,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
 (async () => {
   const S = await import("../shared/settings.js");
-  // Derived, never hardcoded: a literal here silently goes stale the moment
-  // the ceiling moves, and then asserts the old ceiling forever.
-  const RANGES_MIN = S.RANGES.ttsRate.min, RANGES_MAX = S.RANGES.ttsRate.max;
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
   const { createReadingScreen } = await import("../shared/screen.js");
@@ -487,6 +484,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
+  assert(
+    [...document.querySelectorAll(".rt-doc-action")].some((b) => b.textContent === "Summary"),
+    "the reading screen offers the assistant's Summary action",
+  );
   document.querySelector(".rt-reset").click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(
@@ -1234,6 +1235,106 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     R.applyTypography(h, { ...S.DEFAULT_PROFILE, lineTint: "off" });
     assert(!h.style.getPropertyValue("--rt-linetint-a"), "turning the line tint off clears its stops");
     h.remove();
+  }
+
+  /* ---- reading assistant ---- */
+  {
+    const A = await import("../shared/assist.js");
+    const AUI = await import("../shared/assist-ui.js");
+
+    /* Control the built-in-AI globals so the tests don't depend on whether this
+       Chrome ships them. Each entry is null (absent) or an availability string. */
+    const realAI = { Summarizer: self.Summarizer, Rewriter: self.Rewriter, LanguageModel: self.LanguageModel };
+    const setAI = (spec) => {
+      for (const name of ["Summarizer", "Rewriter", "LanguageModel"]) {
+        const v = spec[name];
+        if (!v) { delete self[name]; continue; }
+        self[name] = {
+          availability: async () => v.state,
+          create: async () => v.instance,
+        };
+      }
+    };
+    const restoreAI = () => {
+      for (const name of ["Summarizer", "Rewriter", "LanguageModel"]) {
+        if (realAI[name] === undefined) delete self[name];
+        else self[name] = realAI[name];
+      }
+    };
+
+    try {
+      // config round-trips through storage, key stays out of the profile
+      await S.saveAssistConfig({ key: "test-gemini-key" });
+      assert((await S.loadAssistConfig()).key === "test-gemini-key", "the assistant's Gemini key round-trips through local storage");
+      assert(!("key" in (await S.loadProfile())), "the assistant key is never written into the reading profile");
+      await S.forgetAssistKey();
+      assert((await S.loadAssistConfig()).key === "", "forgetAssistKey clears it");
+
+      // no built-in AI, no key → the assistant says how to turn it on
+      setAI({});
+      const st = await A.onDeviceStatus();
+      assert(
+        st.summarizer === "unavailable" && st.rewriter === "unavailable" && st.prompt === "unavailable",
+        "on-device status is 'unavailable' for every API the browser doesn't expose",
+      );
+      const none = await A.describeAvailability(false);
+      assert(none.mode === "none" && !none.ready && /Gemini/.test(none.text), "no on-device AI and no key → the assistant explains how to enable it");
+      assert((await A.describeAvailability(true)).mode === "byok", "no on-device AI but a key saved → bring-your-own-key");
+      assert((await A.geminiKeyWorks("")).ok === false, "an empty key is rejected without a network call");
+
+      // it refuses cleanly rather than hanging when it has nothing to run on
+      let sawError = "";
+      const stuck = A.createAssistant({
+        getArticleText: () => "Tide pools reset twice a day and shelter small crabs.",
+        getConfig: () => ({ key: "" }),
+        onError: (m) => { sawError = m; },
+      });
+      let threw = false;
+      try { await stuck.summarize(); } catch { threw = true; }
+      assert(threw && /on-device AI|Gemini key/.test(sawError), "summarize with no engine and no key fails with a message that explains why");
+      let threw2 = false;
+      try { await stuck.simplify(""); } catch { threw2 = true; }
+      assert(threw2, "simplify with an empty selection is rejected");
+
+      // a downloadable on-device model still counts as usable
+      setAI({ Summarizer: { state: "downloadable" } });
+      assert((await A.describeAvailability(false)).mode === "on-device", "a model that only needs downloading is still 'on-device'");
+      assert((await A.describeAvailability(false)).needsDownload === true, "and it flags that a one-time download is needed");
+
+      // routing: a task-specific API is used ahead of the Prompt API and any key
+      setAI({
+        Summarizer: { state: "available", instance: { summarize: async (t) => "KEY POINTS: " + t.slice(0, 20), destroy() {} } },
+        LanguageModel: { state: "available", instance: { prompt: async () => "PROMPT FALLBACK", destroy() {} } },
+      });
+      const sOut = await A.createAssistant({ getArticleText: () => "Tide pools reset twice a day. Crabs shelter there." }).summarize();
+      assert(/^KEY POINTS:/.test(sOut.text), "summarize uses the Summarizer API when the browser has one");
+
+      setAI({ LanguageModel: { state: "available", instance: { prompt: async (p) => "SIMPLE: " + p.slice(-10), destroy() {} } } });
+      const rOut = await A.createAssistant({}).simplify("The tide pool's ecosystem exhibits diurnal periodicity in its hydration.");
+      assert(/^SIMPLE:/.test(rOut.text), "simplify falls back to the Prompt API when there is no Rewriter");
+
+      // the UI degrades to a readable error and tears down cleanly
+      setAI({});
+      const ui = AUI.createAssistUi({
+        assistant: A.createAssistant({ getArticleText: () => "Some text.", getConfig: () => ({ key: "" }) }),
+        getSelectionText: () => "",
+        onError: (m) => { sawError = m; },
+      });
+      assert(typeof ui.openSummary === "function" && typeof ui.mountSelectionTrigger === "function", "the assistant UI exposes its actions");
+      ui.simplifySelection();
+      assert(/Select a sentence or paragraph/.test(sawError), "Simplify with nothing selected asks you to select something");
+      await ui.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const cardEl = document.querySelector(".rt-assist-card");
+      assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
+      ui.destroy();
+      assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
+      const teardown = ui.mountSelectionTrigger(() => document.body);
+      assert(typeof teardown === "function", "the selection trigger returns a teardown");
+      teardown();
+    } finally {
+      restoreAI();
+    }
   }
 
   /* showcase */
