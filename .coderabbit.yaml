@@ -1,0 +1,13 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/guides/configure-coderabbit
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: assertive
+  auto_review:
+    enabled: true
+    drafts: false
+  # Codex is the primary reviewer; CodeRabbit is a second pass. Keep it terse.
+  high_level_summary: true
+  poem: false
+chat:
+  auto_reply: true
