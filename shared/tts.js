@@ -386,10 +386,12 @@ export function createTTS({
   return {
     /* Speak one word or phrase without disturbing playback position.
        Reuses the engine read-aloud already has, so looking a word up doesn't
-       spin a second Piper worker or re-load the voice model. */
-    async speakOnce(text) {
+       spin a second Piper worker or re-load the voice model. Pass a `signal`
+       to stop it early — the assistant's "Hear it" does when its card closes,
+       so a minute-long summary read doesn't outlive the card. */
+    async speakOnce(text, { signal } = {}) {
       const say = String(text || "").trim();
-      if (!say) return;
+      if (!say || (signal && signal.aborted)) return;
       if (!piper) {
         piper = createPiperEngine({
           voiceId: getConfig().piperVoice,
@@ -398,8 +400,9 @@ export function createTTS({
       }
       /* The caller ducks narration around this and restores it in a finally,
          and the "Hear it" button re-enables itself the same way, so this must
-         always settle. A synth that never resolves or an <audio> that never
-         fires ended/error would otherwise freeze read-aloud permanently. */
+         always settle. A synth that never resolves, an <audio> that never
+         fires ended/error, or a caller that walks away would otherwise freeze
+         read-aloud permanently. */
       const withTimeout = (p, ms, onExpire) => {
         let timer;
         const expiry = new Promise((_, reject) => {
@@ -408,7 +411,22 @@ export function createTTS({
             reject(new Error("speakOnce timed out"));
           }, ms);
         });
-        return Promise.race([p, expiry]).finally(() => clearTimeout(timer));
+        const racers = [p, expiry];
+        if (signal) {
+          racers.push(
+            new Promise((_, reject) => {
+              signal.addEventListener(
+                "abort",
+                () => {
+                  if (onExpire) onExpire();
+                  reject(new DOMException("Aborted", "AbortError"));
+                },
+                { once: true },
+              );
+            }),
+          );
+        }
+        return Promise.race(racers).finally(() => clearTimeout(timer));
       };
       /* The ceilings scale with length. A word lookup keeps the old 30 s / 15 s
          floors; a whole summary or a simplified paragraph from the assistant

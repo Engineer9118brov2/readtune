@@ -850,6 +850,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         aligned = flow.querySelector(".rt-speak-sentence") === spans[k];
       }
       assert(aligned, "read-aloud walks the sentences in step with their data-i");
+
+      // speakOnce (word lookup, the assistant's "Hear it") settles when its
+      // signal aborts, instead of holding the caller until the stall timeout —
+      // synthesis never completes in the harness, so a hang here would wedge.
+      const ac = new AbortController();
+      const spoke = tts.speakOnce("A passage long enough to want stopping.", { signal: ac.signal });
+      ac.abort();
+      let hung = true;
+      await Promise.race([spoke.then(() => { hung = false; }), new Promise((r) => setTimeout(r, 2000))]);
+      assert(!hung, "speakOnce returns promptly when its signal is aborted");
+
       tts.destroy();
       h.remove();
     }

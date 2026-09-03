@@ -147,7 +147,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     return box;
   }
 
-  function actions(getText) {
+  function actions(getText, signal) {
     const row = el("div", { class: "rt-assist-actions" });
 
     const copy = el("button", { type: "button", class: "rt-assist-btn" }, "Copy");
@@ -169,9 +169,11 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
         const was = hear.textContent;
         hear.textContent = "…";
         try {
-          await speak(getText());
+          /* Pass the card's signal so closing the card stops the read — a
+             full-summary read can run a minute. */
+          await speak(getText(), signal);
         } catch (err) {
-          onError((err && err.message) || "The voice couldn't read that.");
+          if (!(signal && signal.aborted)) onError((err && err.message) || "The voice couldn't read that.");
         } finally {
           hear.textContent = was;
           hear.disabled = false;
@@ -196,7 +198,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
         clipped ? el("p", { class: "rt-assist-sub" }, "From the start of a long article.") : document.createComment(""),
         resultBlock(text),
         disclaimer(),
-        actions(() => text),
+        actions(() => text, signal),
       );
     } catch (err) {
       if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
@@ -221,7 +223,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
           el("div", { class: "rt-assist-col" }, [el("h4", {}, "In plainer words"), resultBlock(text)]),
         ]),
         disclaimer(),
-        actions(() => text),
+        actions(() => text, signal),
       );
     } catch (err) {
       if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be rewritten.", () => simplifySelection(passage));

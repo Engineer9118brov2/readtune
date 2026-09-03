@@ -105,14 +105,14 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
      without losing playback position. Duck whatever is running, not just
      narration: RSVP belongs to the view, so tts.isPlaying() is false in word
      pacing and the words kept advancing under the popup while Piper synthesised. */
-  async function speakDucked(text) {
+  async function speakDucked(text, signal) {
     if (!tts || !text) return;
     const narrating = tts.isPlaying();
     const rsvp = typeof view.isPlaying === "function" && view.isPlaying();
     if (narrating) tts.pause();
     if (rsvp) view.pause();
     try {
-      await tts.speakOnce(text);
+      await tts.speakOnce(text, { signal });
     } finally {
       if (narrating) tts.toggle();
       if (rsvp) view.play();
