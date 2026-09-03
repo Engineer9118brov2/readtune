@@ -37,26 +37,27 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   let card = null;
   let controller = null;
 
-  const stop = () => {
+  /* Declared as hoisted functions: close() references onKey/onDown and they
+     reference close() back, so no declaration order works as `const`. */
+  function stop() {
     if (controller) {
       try { controller.abort(); } catch {}
       controller = null;
     }
-  };
-  const close = () => {
+  }
+  function close() {
     stop();
     if (card) card.remove();
     card = null;
     document.removeEventListener("keydown", onKey, true);
     document.removeEventListener("mousedown", onDown, true);
-  };
-
-  const onKey = (e) => {
+  }
+  function onKey(e) {
     if (e.key === "Escape") { e.stopPropagation(); close(); }
-  };
-  const onDown = (e) => {
+  }
+  function onDown(e) {
     if (card && !card.contains(e.target)) close();
-  };
+  }
 
   function frame(title) {
     close();
@@ -256,17 +257,19 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       pill.style.top = `${Math.round(top)}px`;
     };
     const sync = () => {
-      if (card) return hide(); // the card is already open
-      const flow = typeof getFlowEl === "function" ? getFlowEl() : null;
       const sel = window.getSelection();
-      if (!flow || !sel || sel.isCollapsed || !sel.rangeCount) return hide();
-      const range = sel.getRangeAt(0);
-      if (!flow.contains(range.commonAncestorContainer)) return hide();
-      const text = String(range.toString() || "").trim();
-      if (text.length < 12) return hide(); // not worth it for a word or two
+      const flow = typeof getFlowEl === "function" ? getFlowEl() : null;
+      const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+      const text = range ? String(range.toString() || "").trim() : "";
+      const inFlow = range && flow && flow.contains(range.commonAncestorContainer);
+      // card open, nothing selected, selection outside the flow, or too short
+      if (card || !sel || sel.isCollapsed || !inFlow || text.length < 12) {
+        hide();
+        return;
+      }
       const rect = range.getBoundingClientRect();
-      if (!rect.width && !rect.height) return hide();
-      show(rect);
+      if (!rect.width && !rect.height) hide();
+      else show(rect);
     };
     let debounce = 0;
     const onSelectionChange = () => {
