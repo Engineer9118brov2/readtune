@@ -547,7 +547,7 @@ async function init() {
   paintPage(profile);
 
   initVoiceFit();
-  initAssist();
+  void initAssist(); // paints itself when the availability check resolves; nothing waits on it
   applyLaunchState();
 }
 
