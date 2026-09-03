@@ -73,3 +73,102 @@ document.querySelector(".play-button")?.addEventListener("click", (event) => {
   button.setAttribute("aria-label", playing ? "Pause preview" : "Play preview");
   button.innerHTML = playing ? "<span class=\"pause-icon\"></span>" : "<span></span>";
 });
+
+/* ---- Read this page aloud ------------------------------------------------
+   Marketing-site only. Drives window.speechSynthesis — a browser/system voice,
+   not the extension's on-device Piper engine. Two triggers, one controller:
+   the nav "Listen" button and the O of "Stop" in the hero headline. */
+(function readAloud() {
+  const triggers = Array.from(document.querySelectorAll("[data-say]"));
+  if (!triggers.length) return;
+
+  const synth = window.speechSynthesis;
+  const heroO = document.querySelector(".say-o");
+  if (!synth || typeof window.SpeechSynthesisUtterance !== "function") {
+    if (heroO) heroO.replaceWith(document.createTextNode("o")); // keep the word "Stop" whole
+    triggers.forEach((t) => t !== heroO && t.remove());
+    return;
+  }
+
+  // Build the reading list from the page's real prose, in document order.
+  const root = document.querySelector("main") || document.body;
+  const SKIP = '.specimen, .audio-card, .section-label, .eyebrow, .mono-label, .card-label, .hero-proof, .voice-note, [aria-hidden="true"]';
+  const readText = (node) => {
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll("br").forEach((br) => br.replaceWith(" ")); // <br> is a word break, not a join
+    return clone.textContent.replace(/\s+/g, " ").replace(/([.!?])(?=[A-Za-z])/g, "$1 ").trim();
+  };
+  const lines = [];
+  root.querySelectorAll("h1, h2, h3, p, li").forEach((node) => {
+    if (node.closest(SKIP)) return;
+    const text = readText(node);
+    if (text.length < 2) return;
+    // Headings read whole; body text splits on sentence ends so no single
+    // utterance is long enough to trip Chrome's ~15s speechSynthesis cut-off.
+    if (/^H[1-3]$/.test(node.tagName)) lines.push(text);
+    else text.split(/(?<=[.!?])\s+/).forEach((s) => s.trim() && lines.push(s.trim()));
+  });
+  if (!lines.length) return;
+
+  const bar = document.body.appendChild(Object.assign(document.createElement("div"), { className: "say-progress" }));
+
+  let playing = false;
+  let at = 0;
+  let run = 0;
+  let voice = null;
+  let keepAlive = 0;
+
+  const pickVoice = () => {
+    const all = synth.getVoices() || [];
+    const en = all.filter((v) => /^en\b/i.test(v.lang));
+    return en.find((v) => v.localService && /US|GB/i.test(v.lang)) || en.find((v) => v.localService) || en[0] || all[0] || null;
+  };
+  voice = pickVoice();
+  synth.addEventListener && synth.addEventListener("voiceschanged", () => { voice = pickVoice(); });
+
+  const paint = () => {
+    bar.classList.toggle("is-on", playing);
+    bar.style.transform = `scaleX(${playing ? at / lines.length : 0})`;
+    triggers.forEach((t) => {
+      t.classList.toggle("is-playing", playing);
+      t.setAttribute("aria-label", playing ? "Stop reading this page" : "Read this page aloud");
+    });
+  };
+
+  const stop = () => {
+    run++;
+    playing = false;
+    at = 0;
+    clearInterval(keepAlive);
+    try { synth.cancel(); } catch (e) { /* ignore */ }
+    paint();
+  };
+
+  const step = (mine) => {
+    if (!playing || mine !== run) return;
+    if (at >= lines.length) { stop(); return; }
+    paint();
+    const u = new SpeechSynthesisUtterance(lines[at]);
+    if (voice) u.voice = voice;
+    u.rate = 1;
+    u.onend = () => { if (playing && mine === run) { at += 1; step(mine); } };
+    u.onerror = () => { if (playing && mine === run) { at += 1; step(mine); } };
+    try { synth.speak(u); } catch (e) { stop(); }
+  };
+
+  const start = () => {
+    try { synth.cancel(); } catch (e) { /* ignore */ }
+    run++;
+    playing = true;
+    at = 0;
+    // Chrome stops speaking after ~15s of a backgrounded tab; a periodic
+    // resume keeps a long read going and is a no-op when nothing is paused.
+    clearInterval(keepAlive);
+    keepAlive = setInterval(() => { try { synth.resume(); } catch (e) { /* ignore */ } }, 9000);
+    step(run);
+  };
+
+  triggers.forEach((t) => t.addEventListener("click", () => (playing ? stop() : start())));
+  document.addEventListener("keydown", (e) => e.key === "Escape" && playing && stop());
+  window.addEventListener("pagehide", stop);
+})();
