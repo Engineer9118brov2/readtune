@@ -163,10 +163,11 @@ document.querySelector(".play-button")?.addEventListener("click", (event) => {
     run++;
     playing = true;
     at = 0;
-    // Chrome stops speaking after ~15s of a backgrounded tab; a periodic
-    // resume keeps a long read going and is a no-op when nothing is paused.
+    // Chrome quietly pauses synthesis after ~15s; nudge it back if that happens.
     clearInterval(keepAlive);
-    keepAlive = setInterval(() => { try { synth.resume(); } catch (e) { /* ignore */ } }, 9000);
+    keepAlive = setInterval(() => {
+      try { if (synth.paused && playing) synth.resume(); } catch (e) { /* ignore */ }
+    }, 5000);
     step(run);
   };
 
