@@ -1286,19 +1286,66 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert((await A.describeAvailability(true)).mode === "byok", "no on-device AI but a key saved → bring-your-own-key");
       assert((await A.geminiKeyWorks("")).ok === false, "an empty key is rejected without a network call");
 
-      // it refuses cleanly rather than hanging when it has nothing to run on
-      let sawError = "";
+      // it refuses cleanly rather than hanging when it has nothing to run on —
+      // the reason rides on the rejection, not a side-channel callback
       const stuck = A.createAssistant({
         getArticleText: () => "Tide pools reset twice a day and shelter small crabs.",
         getConfig: () => ({ key: "" }),
-        onError: (m) => { sawError = m; },
       });
-      let threw = false;
-      try { await stuck.summarize(); } catch { threw = true; }
-      assert(threw && /on-device AI|Gemini key/.test(sawError), "summarize with no engine and no key fails with a message that explains why");
+      let stuckErr = "";
+      try { await stuck.summarize(); } catch (e) { stuckErr = (e && e.message) || ""; }
+      assert(/on-device AI|Gemini key/.test(stuckErr), "summarize with no engine and no key rejects with a message that explains why");
       let threw2 = false;
       try { await stuck.simplify(""); } catch { threw2 = true; }
       assert(threw2, "simplify with an empty selection is rejected");
+
+      // a cancelled request rejects AS an abort — never remapped to a network
+      // error, so the UI's signal.aborted check keeps it quiet
+      const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
+      setAI({
+        LanguageModel: {
+          state: "available",
+          instance: {
+            prompt: (_ask, opts) =>
+              new Promise((_res, rej) => {
+                const s = opts && opts.signal;
+                if (s && s.aborted) return rej(abortErr());
+                if (s) s.addEventListener("abort", () => rej(abortErr()));
+              }),
+            destroy() {},
+          },
+        },
+      });
+      const ac = new AbortController();
+      const pending = A.createAssistant({ getArticleText: () => "A long article about tide pools and the creatures in them." })
+        .summarize({ signal: ac.signal });
+      ac.abort();
+      let abortName = "";
+      try { await pending; } catch (e) { abortName = (e && e.name) || ""; }
+      assert(abortName === "AbortError", "a cancelled summary rejects as AbortError, not a masked network error");
+
+      // BYOK: the Gemini path also preserves an abort rather than reporting it
+      {
+        const realPerm = chrome.permissions;
+        const realFetch = self.fetch;
+        chrome.permissions = { contains: async () => true, request: async () => true };
+        self.fetch = () => Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        try {
+          setAI({});
+          const ac2 = new AbortController();
+          const p2 = A.createAssistant({
+            getArticleText: () => "Article text for the summary.",
+            getConfig: () => ({ key: "test-key" }),
+          }).summarize({ signal: ac2.signal });
+          ac2.abort();
+          let n2 = "";
+          try { await p2; } catch (e) { n2 = (e && e.name) || ""; }
+          assert(n2 === "AbortError", "geminiGenerate rethrows AbortError instead of 'couldn't reach Google'");
+        } finally {
+          chrome.permissions = realPerm;
+          self.fetch = realFetch;
+        }
+      }
 
       // a downloadable on-device model still counts as usable
       setAI({ Summarizer: { state: "downloadable" } });
@@ -1319,20 +1366,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
       // the UI degrades to a readable error and tears down cleanly
       setAI({});
+      let uiError = "";
       const ui = AUI.createAssistUi({
         assistant: A.createAssistant({ getArticleText: () => "Some text.", getConfig: () => ({ key: "" }) }),
         getSelectionText: () => "",
-        onError: (m) => { sawError = m; },
+        onSaveKey: async () => false,
+        onError: (m) => { uiError = m; },
       });
       assert(typeof ui.openSummary === "function" && typeof ui.mountSelectionTrigger === "function", "the assistant UI exposes its actions");
       ui.simplifySelection();
-      assert(/Select a sentence or paragraph/.test(sawError), "Simplify with nothing selected asks you to select something");
+      assert(/Select a sentence or paragraph/.test(uiError), "Simplify with nothing selected asks you to select something");
       await ui.openSummary();
       await new Promise((r) => setTimeout(r, 0));
       const cardEl = document.querySelector(".rt-assist-card");
       assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
+      assert(cardEl.querySelector('input[type="password"]'), "with no engine and no key the error card offers the key form");
       ui.destroy();
       assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
+
+      // an engine that fails transiently gets a plain "Try again", not the key form
+      setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });
+      const ui2 = AUI.createAssistUi({
+        assistant: A.createAssistant({ getArticleText: () => "Some article text to summarize." }),
+        getSelectionText: () => "",
+      });
+      await ui2.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const card2 = document.querySelector(".rt-assist-card");
+      assert(card2 && /Try again/.test(card2.textContent) && !card2.querySelector('input[type="password"]'), "a transient engine failure offers a retry, not the key form");
+      ui2.destroy();
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();

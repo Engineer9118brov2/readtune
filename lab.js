@@ -417,8 +417,9 @@ async function initAssist() {
   const badge = $("lab-assist-badge");
   const keyRow = $("lab-assist-key-row");
   const keyInput = $("lab-assist-key");
+  const save = $("lab-assist-key-save");
   const forget = $("lab-assist-key-forget");
-  if (!status || !keyRow || !keyInput) return;
+  if (!status || !badge || !keyRow || !keyInput || !save || !forget) return;
 
   async function paint() {
     let assist = { key: "" };
@@ -440,8 +441,7 @@ async function initAssist() {
     forget.hidden = !assist.key;
   }
 
-  $("lab-assist-key-save").addEventListener("click", async () => {
-    const save = $("lab-assist-key-save");
+  save.addEventListener("click", async () => {
     const v = keyInput.value.trim();
     if (!v) return;
     save.disabled = true;
@@ -466,7 +466,7 @@ async function initAssist() {
       save.textContent = "Save key";
     }
   });
-  keyInput.addEventListener("keydown", (e) => e.key === "Enter" && $("lab-assist-key-save").click());
+  keyInput.addEventListener("keydown", (e) => e.key === "Enter" && save.click());
   forget.addEventListener("click", async () => {
     await forgetAssistKey();
     await paint();

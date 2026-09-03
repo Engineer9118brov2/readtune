@@ -27,6 +27,12 @@ export const GEMINI_ORIGIN = "https://generativelanguage.googleapis.com/*";
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
+/* A request the user cancelled (card closed, Escape, "Cancel") aborts the
+   fetch / on-device call, which rejects with an AbortError. That is not a
+   failure to report — the caller checks `signal.aborted` and stays quiet — so
+   it must reach them AS an AbortError, never remapped to a network message. */
+const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutError");
+
 /* A summary reads the top of the article; a rewrite acts on a selection the
    reader made. Both are capped so a pathological page can't wedge the model. */
 const MAX_SUMMARY_INPUT = 12000;
@@ -137,17 +143,21 @@ export async function requestGeminiPermission() {
 async function geminiGenerate(key, system, user, signal) {
   let res;
   try {
-    res = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(key)}`, {
+    /* Key goes in the header, not the query string — a URL turns up in far more
+       logs, proxies and error reports than a header does. Same choice as the
+       ElevenLabs path (xi-api-key). */
+    res = await fetch(GEMINI_URL, {
       method: "POST",
       signal,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: { temperature: 0.3, maxOutputTokens: 800 },
       }),
     });
-  } catch {
+  } catch (e) {
+    if (isAbort(e)) throw e;
     throw new Error("Couldn't reach Google. Check your connection.");
   }
   if (!res.ok) {
@@ -175,25 +185,29 @@ export async function geminiKeyWorks(key) {
 
 /* ---------- the assistant ---------- */
 
+/* Normalise whitespace and cap the length. Returns whether it actually had to
+   cut — sniffing the result for a trailing "…" gets it wrong when the source
+   text ends with one of its own. */
 const clip = (s, n) => {
   const t = String(s || "").replace(/\s+/g, " ").trim();
-  return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, "") + " …" : t;
+  if (t.length <= n) return { text: t, clipped: false };
+  return { text: t.slice(0, n).replace(/\s+\S*$/, "") + " …", clipped: true };
 };
 
 /**
  * @param {object}   opts
  * @param {() => string}        opts.getArticleText  full reading text, for summaries
  * @param {() => {key:string}}  opts.getConfig       the saved BYOK config
- * @param {(m:string) => void}  opts.onError
  */
 const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
-export function createAssistant({ getArticleText = () => "", getConfig = () => ({ key: "" }), onError = () => {} } = {}) {
+export function createAssistant({ getArticleText = () => "", getConfig = () => ({ key: "" }) } = {}) {
   /* Route one request. Prefer on-device; fall back to the key if there is one.
      There is deliberately NO `await` before the first `.create()`: it must run
      while the click that started this is still a live user gesture, or Chrome
      refuses to begin the one-time model download ("Requires a user gesture"). */
   async function run({ kind, text, onProgress, signal }) {
+    if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
     const key = (getConfig() || {}).key || "";
 
     const monitor = (m) => {
@@ -202,15 +216,19 @@ export function createAssistant({ getArticleText = () => "", getConfig = () => (
       });
     };
     /* Try to stand up a built-in-AI session. null = the browser doesn't offer
-       this one, or the gesture has lapsed and a download can't start — fall
-       through. A genuine failure (out of memory, etc.) is re-thrown. */
+       this one, the gesture has lapsed and a download can't start, or the
+       option shape doesn't match this browser's build of the API (Rewriter is
+       still moving) — in every case, fall through to the next tier. A genuine
+       resource failure (out of memory) is re-thrown. */
     const make = async (name, opts) => {
       const API = globalApi(name);
       if (!API) return null;
       try {
         return await API.create({ ...opts, monitor });
       } catch (e) {
-        if (e && (e.name === "NotAllowedError" || e.name === "NotSupportedError" || e.name === "UnknownError")) return null;
+        // absent/disabled/gesture-lapsed, or an option this build rejects
+        const soft = ["NotAllowedError", "NotSupportedError", "UnknownError", "TypeError"];
+        if (e && soft.includes(e.name)) return null;
         throw e;
       }
     };
@@ -220,7 +238,7 @@ export function createAssistant({ getArticleText = () => "", getConfig = () => (
       const s = await make("Summarizer", { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM });
       if (s) {
         try {
-          return await s.summarize(text, { context: "Deciding whether to read this." });
+          return await s.summarize(text, { context: "Deciding whether to read this.", signal });
         } finally {
           safeDestroy(s);
         }
@@ -230,7 +248,7 @@ export function createAssistant({ getArticleText = () => "", getConfig = () => (
       const r = await make("Rewriter", { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM });
       if (r) {
         try {
-          return await r.rewrite(text, { context: "Put this in plainer words for a struggling reader." });
+          return await r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal });
         } finally {
           safeDestroy(r);
         }
@@ -247,7 +265,7 @@ export function createAssistant({ getArticleText = () => "", getConfig = () => (
           kind === "summary"
             ? `Main points of this article:\n\n${text}`
             : `Rewrite this passage in plain language:\n\n${text}`;
-        return await lm.prompt(ask, signal ? { signal } : undefined);
+        return await lm.prompt(ask, { signal });
       } finally {
         safeDestroy(lm);
       }
@@ -273,28 +291,20 @@ export function createAssistant({ getArticleText = () => "", getConfig = () => (
   return {
     describe: () => describeAvailability(!!((getConfig() || {}).key)),
 
-    /** Key points for the whole article (its opening, if it's long). */
+    /** Key points for the whole article (its opening, if it's long). Rejects on
+        failure — including an AbortError when the caller cancels — for the UI to
+        present; nothing is reported here. */
     async summarize({ onProgress, signal } = {}) {
-      const text = clip(getArticleText(), MAX_SUMMARY_INPUT);
+      const { text, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
       if (!text) throw new Error("There's no article text to summarize.");
-      try {
-        return { text: await run({ kind: "summary", text, onProgress, signal }), clipped: text.endsWith("…") };
-      } catch (err) {
-        onError((err && err.message) || "The summary couldn't be generated.");
-        throw err;
-      }
+      return { text: await run({ kind: "summary", text, onProgress, signal }), clipped };
     },
 
     /** Plain-language rewrite of a passage the reader selected. */
     async simplify(passage, { onProgress, signal } = {}) {
-      const text = clip(passage, MAX_SIMPLIFY_INPUT);
+      const { text, clipped } = clip(passage, MAX_SIMPLIFY_INPUT);
       if (!text) throw new Error("Select a sentence or paragraph first.");
-      try {
-        return { text: await run({ kind: "simplify", text, onProgress, signal }), clipped: text.endsWith("…") };
-      } catch (err) {
-        onError((err && err.message) || "That passage couldn't be rewritten.");
-        throw err;
-      }
+      return { text: await run({ kind: "simplify", text, onProgress, signal }), clipped };
     },
   };
 }

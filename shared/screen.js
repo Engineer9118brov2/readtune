@@ -136,7 +136,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   const assistant = createAssistant({
     getArticleText: () => view.getPlainText(),
     getConfig: () => assistConfig,
-    onError: (m) => toast(m),
   });
   const assist = createAssistUi({
     assistant,

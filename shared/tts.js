@@ -410,9 +410,17 @@ export function createTTS({
         });
         return Promise.race([p, expiry]).finally(() => clearTimeout(timer));
       };
+      /* The ceilings scale with length. A word lookup keeps the old 30 s / 15 s
+         floors; a whole summary or a simplified paragraph from the assistant
+         needs room to synthesise and play in full. They still exist to break a
+         wedged synth or a stalled <audio>, not to cut a long passage off —
+         ~11 chars/s of speech, with generous slack and a hard cap. */
+      const audioMs = (say.length / 11) * 1000;
+      const synthMs = Math.min(Math.max(30000, audioMs * 1.5 + 5000), 240000);
+      const playMs = Math.min(Math.max(15000, audioMs * 1.5), 300000);
       let url;
       try {
-        const blob = await withTimeout(piper.synthesize(say), 30000);
+        const blob = await withTimeout(piper.synthesize(say), synthMs);
         url = URL.createObjectURL(blob);
         const one = new Audio(url);
         /* A looked-up word is for clarity, not pace — never faster than 1×,
@@ -427,7 +435,7 @@ export function createTTS({
             one.onerror = finish;
             one.play().catch(finish);
           }),
-          15000,
+          playMs,
           () => { try { one.pause(); } catch {} },
         );
         return one;

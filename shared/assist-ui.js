@@ -129,6 +129,12 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
         el("p", { class: "rt-assist-sub" }, "Get a free key at aistudio.google.com/apikey — it stays in this browser and is sent only to Google."),
         el("div", { class: "rt-assist-actions" }, [input, save]),
       );
+    } else if (typeof retry === "function") {
+      /* An engine is set up — this was a transient failure (a network blip, a
+         model that was busy). One button to run it again. */
+      const again = el("button", { type: "button", class: "rt-assist-btn" }, "Try again");
+      again.addEventListener("click", () => retry());
+      parts.push(el("div", { class: "rt-assist-actions" }, [again]));
     }
     body.replaceChildren(...parts);
   }
