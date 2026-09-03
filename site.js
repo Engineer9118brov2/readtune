@@ -98,6 +98,8 @@ document.querySelector(".play-button")?.addEventListener("click", (event) => {
     clone.querySelectorAll("br").forEach((br) => br.replaceWith(" ")); // <br> is a word break, not a join
     return clone.textContent.replace(/\s+/g, " ").replace(/([.!?])(?=[A-Za-z])/g, "$1 ").trim();
   };
+  // "one. two." -> ["one.", "two."] without a lookbehind (Safari < 16.4)
+  const sentences = (t) => (t.match(/[^.!?]+[.!?]*\s*/g) || [t]).map((s) => s.trim()).filter(Boolean);
   const lines = [];
   root.querySelectorAll("h1, h2, h3, p, li").forEach((node) => {
     if (node.closest(SKIP)) return;
@@ -106,7 +108,7 @@ document.querySelector(".play-button")?.addEventListener("click", (event) => {
     // Headings read whole; body text splits on sentence ends so no single
     // utterance is long enough to trip Chrome's ~15s speechSynthesis cut-off.
     if (/^H[1-3]$/.test(node.tagName)) lines.push(text);
-    else text.split(/(?<=[.!?])\s+/).forEach((s) => s.trim() && lines.push(s.trim()));
+    else sentences(text).forEach((s) => lines.push(s));
   });
   if (!lines.length) return;
 
