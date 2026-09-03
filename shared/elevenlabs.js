@@ -4,8 +4,8 @@
  * Optional, opt-in read-aloud backend. The user pastes their OWN ElevenLabs API
  * key into ReadTune's settings; it is stored only in chrome.storage.local and
  * sent only to api.elevenlabs.io. Nothing here runs unless the user chooses the
- * ElevenLabs voice — the default read-aloud uses the browser's built-in speech
- * and makes no network requests.
+ * ElevenLabs voice — the default read-aloud is the bundled on-device Piper voice
+ * (see piper.js) and makes no network requests.
  *
  * The /with-timestamps endpoint returns per-character start times, which is what
  * lets ReadTune highlight the exact word as the audio plays.

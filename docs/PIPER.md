@@ -5,7 +5,7 @@ the user's device — no key, no account, no per-sentence network call. This is 
 one thing no competitor in the space does (Speechify/NaturalReader paywall their
 good voices; Immersive Reader's are cloud; the OS voices are hit-or-miss).
 
-## As shipped (v0.8.0)
+## As shipped (v0.9.0)
 
 Piper is **the only read-aloud engine** (ElevenLabs stays as an optional
 bring-your-own-key path). There is no browser-speech fallback: if Piper can't
@@ -26,7 +26,7 @@ run, read-aloud shows a clear message rather than a robotic system voice.
   `loadTTSConfig()` migrates anyone previously on them to Linden.
 - Extra (non-bundled) voices download once from Hugging Face (~60 MB) and need
   the `huggingface.co` optional permission, requested at that moment.
-- **Zip size: ~60 MB** (`readtune-0.8.0.zip` = 60.04 MB). The bundled voice is
+- **Zip size: ~60 MB** (`readtune-0.9.0.zip`). The bundled voice is
   ~63 MB compressed to ~60; ORT SIMD wasm ~10.6 MB; espeak-ng data trimmed to
   ~0.94 MB (English only). Already done: dropped the non-SIMD `ort-wasm.wasm`,
   English-only espeak repack. Remaining trim path: host the model on our own

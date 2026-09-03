@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReadTune",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A quick check suggests reading settings to try, then applies them to any article, PDF, or web page. On-device read-aloud.",
   "action": {
     "default_popup": "popup.html",

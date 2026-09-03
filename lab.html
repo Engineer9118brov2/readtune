@@ -102,6 +102,32 @@
         </div>
       </section>
 
+      <section class="lab-panel" id="lab-assist-panel">
+        <div class="lab-panel-head">
+          <div>
+            <span class="lab-overline">Reading help</span>
+            <h2>An AI hand with a hard passage</h2>
+          </div>
+          <span class="lab-badge" id="lab-assist-badge">Optional</span>
+        </div>
+        <p id="lab-assist-body">
+          In Reader View, "Summary" gives the key points of an article, and a
+          "Simplify" button over any text you select rewrites that passage in
+          plainer words next to the original. It runs on your device where the
+          browser supports it — no key, nothing uploaded. Otherwise a free
+          Google&nbsp;AI&nbsp;Studio (Gemini) key turns it on; the key stays in
+          this browser and the passage goes only to Google.
+        </p>
+        <p class="lab-assist-status" id="lab-assist-status">Checking what this browser can do…</p>
+        <div class="rt-key-row" id="lab-assist-key-row" hidden>
+          <input id="lab-assist-key" class="rt-input" type="password" autocomplete="off" spellcheck="false"
+            placeholder="Gemini key (aistudio.google.com/apikey)" aria-label="Gemini API key" />
+          <button id="lab-assist-key-save" class="rt-btn" type="button" style="width:auto">Save key</button>
+        </div>
+        <button id="lab-assist-key-forget" class="rt-link" type="button" hidden>Remove the saved key</button>
+        <p class="lab-assist-note">A rewrite is an aid, not a substitute for the words on the page — it can be wrong, so it is always shown beside the original.</p>
+      </section>
+
       <section class="lab-grid" id="lab-evidence-grid">
         <article class="lab-panel">
           <div class="lab-panel-head">

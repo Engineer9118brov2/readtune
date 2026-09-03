@@ -180,6 +180,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/Linden/.test(labVoiceText) && /Joe/.test(labVoiceText) && /Kristin/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
   assert(/Built in/.test(labVoiceText), "Voice Fit Lab marks the bundled default voice as built in");
   assert(!/Browser default|Best free voices|Re-scan/i.test(labVoiceText), "Voice Fit Lab does not surface browser voice clutter");
+  assert(
+    !!labDoc.getElementById("lab-assist-panel") && /Simplify|Summary/.test(labDoc.getElementById("lab-assist-panel").textContent),
+    "the Reading Lab has an assistant panel describing Summary + Simplify",
+  );
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
