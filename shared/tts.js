@@ -402,7 +402,14 @@ export function createTTS({
          and the "Hear it" button re-enables itself the same way, so this must
          always settle. A synth that never resolves, an <audio> that never
          fires ended/error, or a caller that walks away would otherwise freeze
-         read-aloud permanently. */
+         read-aloud permanently. One abort listener for the whole call, removed
+         in the finally below; each withTimeout also races a per-step stall. */
+      let onAbort;
+      const aborted = new Promise((_, reject) => {
+        onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+      });
+      aborted.catch(() => {}); // a racer — may settle between the two races below
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
       const withTimeout = (p, ms, onExpire) => {
         let timer;
         const expiry = new Promise((_, reject) => {
@@ -411,22 +418,7 @@ export function createTTS({
             reject(new Error("speakOnce timed out"));
           }, ms);
         });
-        const racers = [p, expiry];
-        if (signal) {
-          racers.push(
-            new Promise((_, reject) => {
-              signal.addEventListener(
-                "abort",
-                () => {
-                  if (onExpire) onExpire();
-                  reject(new DOMException("Aborted", "AbortError"));
-                },
-                { once: true },
-              );
-            }),
-          );
-        }
-        return Promise.race(racers).finally(() => clearTimeout(timer));
+        return Promise.race([p, expiry, aborted]).finally(() => clearTimeout(timer));
       };
       /* The ceilings scale with length. A word lookup keeps the old 30 s / 15 s
          floors; a whole summary or a simplified paragraph from the assistant
@@ -437,10 +429,11 @@ export function createTTS({
       const synthMs = Math.min(Math.max(30000, audioMs * 1.5 + 5000), 240000);
       const playMs = Math.min(Math.max(15000, audioMs * 1.5), 300000);
       let url;
+      let one;
       try {
         const blob = await withTimeout(piper.synthesize(say), synthMs);
         url = URL.createObjectURL(blob);
-        const one = new Audio(url);
+        one = new Audio(url);
         /* A looked-up word is for clarity, not pace — never faster than 1×,
            but honour a reader who has slowed everything down. */
         one.playbackRate = Math.min(rate, 1);
@@ -460,6 +453,8 @@ export function createTTS({
       } catch {
         /* a silent "Hear it" beats one stuck on "…" */
       } finally {
+        if (signal) signal.removeEventListener("abort", onAbort);
+        if (one) { try { one.pause(); } catch {} } // stop a timed-out / aborted read
         if (url) URL.revokeObjectURL(url);
       }
     },
