@@ -17,7 +17,7 @@ const EMBED_HOSTS =
 // Accessible name / visible text that clearly means "listen to the words on
 // this page" — not a video, a music track, or a game.
 const LISTEN_RE =
-  /(listen to (?:this|the) (?:article|story|post|page|piece)|listen to this(?:\s+(?:article|story|post))?\b|audio version|hear this (?:article|story|post)|read (?:this )?(?:article |story |page )?aloud|play(?: the)? audio(?: version)?|narrated by|listen \d+ min)/i;
+  /(\blisten to (?:this|the) (?:article|story|post|page|piece)|\blisten to this(?:\s+(?:article|story|post))?\b|\baudio version\b|\bhear this (?:article|story|post)|\bread (?:this )?(?:article |story |page )?aloud\b|\bplay(?: the)? audio(?: version)?\b|\bnarrated by\b|\blisten \d+ min)/i;
 
 // Kill switches: if any of these show up in the name it's almost certainly
 // video / music / navigation, not article narration.
@@ -84,7 +84,7 @@ export function findPageNarration(root) {
 
   // 3 — a visible "Listen to this article" control we can click.
   for (const el of scope.querySelectorAll(
-    'button, a[href], [role="button"], input[type="button"], input[type="submit"]',
+    'button, a[href], [role="button"], input[type="button"]',
   )) {
     if (inReadTune(el)) continue;
     const name = accessibleName(el);

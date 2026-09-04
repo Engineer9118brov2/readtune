@@ -502,8 +502,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.body.appendChild(bench);
   const ctrlHit = PA.findPageNarration(document);
   assert(ctrlHit && ctrlHit.kind === "control" && ctrlHit.el.id === "pa-listen", "page-audio: a visible 'Listen to this article' button is found, 'Play video' is skipped");
-  bench.querySelector("#pa-listen").textContent = "Listen to the playlist";
-  assert(PA.findPageNarration(document) === null, "page-audio: 'playlist' in the label disqualifies a control");
+  bench.querySelector("#pa-listen").textContent = "Listen to this article trailer";
+  assert(PA.findPageNarration(document) === null, "page-audio: a deny-word ('trailer') in the label disqualifies a matched control");
   bench.remove();
   const own = document.createElement("div");
   own.innerHTML = '<div data-say><button>Read this page aloud</button></div>';
