@@ -220,6 +220,7 @@ function setEmptyState() {
   $("lab-evidence-grid").hidden = true;
   $("lab-detail-grid").hidden = true;
   $("lab-voice-panel").hidden = true;
+  $("lab-assist-panel").hidden = true;
   $("lab-history-panel").hidden = true;
   $("lab-trust-panel").hidden = true;
   $("lab-retake").textContent = "Start the calibration";

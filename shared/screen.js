@@ -114,8 +114,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     try {
       await tts.speakOnce(text, { signal });
     } finally {
-      if (narrating) tts.toggle();
-      if (rsvp) view.play();
+      /* Resume only what we ducked, and only if the reader didn't take over
+         while we spoke — a summary read can run a minute, and Stop / leaving
+         aloud pacing during it must stick, not get undone here. */
+      if (narrating && profile.pacing === "aloud" && !tts.isPlaying()) tts.toggle();
+      if (rsvp && profile.pacing === "word" && !view.isPlaying()) view.play();
     }
   }
 

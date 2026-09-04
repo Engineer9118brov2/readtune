@@ -184,6 +184,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     !!labDoc.getElementById("lab-assist-panel") && /Simplify|Summary/.test(labDoc.getElementById("lab-assist-panel").textContent),
     "the Reading Lab has an assistant panel describing Summary + Simplify",
   );
+  assert(
+    labDoc.getElementById("lab-assist-status").getAttribute("role") === "status",
+    "the Lab's assistant status line is a live region (announces key-check failures)",
+  );
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -1352,6 +1356,22 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
           let n2 = "";
           try { await p2; } catch (e) { n2 = (e && e.name) || ""; }
           assert(n2 === "AbortError", "geminiGenerate rethrows AbortError instead of 'couldn't reach Google'");
+
+          // a 400 that isn't about the key must not tell the reader to replace it
+          const jsonRes = (status, body) => ({ ok: false, status, json: async () => body });
+          self.fetch = async () => jsonRes(400, { error: { code: 400, status: "INVALID_ARGUMENT", message: "Request contains an invalid argument." } });
+          let m3 = "";
+          try {
+            await A.createAssistant({ getArticleText: () => "x".repeat(50), getConfig: () => ({ key: "good-key" }) }).summarize();
+          } catch (e) { m3 = e.message; }
+          assert(!/rejected/i.test(m3) && /process|too long|invalid/i.test(m3), "a non-key 400 reads as a request problem, not a bad key");
+
+          self.fetch = async () => jsonRes(400, { error: { status: "INVALID_ARGUMENT", message: "API key not valid. Please pass a valid API key." } });
+          let m4 = "";
+          try {
+            await A.createAssistant({ getArticleText: () => "x".repeat(50), getConfig: () => ({ key: "bad-key" }) }).summarize();
+          } catch (e) { m4 = e.message; }
+          assert(/rejected/i.test(m4), "a 400 whose message is about the API key still reads as a bad key");
         } finally {
           chrome.permissions = realPerm;
           self.fetch = realFetch;
@@ -1387,13 +1407,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(typeof ui.openSummary === "function" && typeof ui.mountSelectionTrigger === "function", "the assistant UI exposes its actions");
       ui.simplifySelection();
       assert(/Select a sentence or paragraph/.test(uiError), "Simplify with nothing selected asks you to select something");
+
+      // focus moves into the card on open and back to the opener on close
+      const opener = document.body.appendChild(Object.assign(document.createElement("button"), { textContent: "open" }));
+      opener.focus();
       await ui.openSummary();
       await new Promise((r) => setTimeout(r, 0));
       const cardEl = document.querySelector(".rt-assist-card");
+      assert(cardEl && cardEl.contains(document.activeElement), "opening the assistant card moves focus into it");
+      assert(cardEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the card body is a polite live region");
       assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
       assert(cardEl.querySelector('input[type="password"]'), "with no engine and no key the error card offers the key form");
       ui.destroy();
       assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
+      assert(document.activeElement === opener, "closing the card hands focus back to whatever opened it");
+      opener.remove();
 
       // an engine that fails transiently gets a plain "Try again", not the key form
       setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });

@@ -160,12 +160,25 @@ async function geminiGenerate(key, system, user, signal) {
     if (isAbort(e)) throw e;
     throw new Error("Couldn't reach Google. Check your connection.");
   }
-  if (!res.ok) {
-    if (res.status === 400 || res.status === 403) throw new Error("That Gemini key was rejected. Check it and paste it again.");
-    if (res.status === 429) throw new Error("Gemini's free quota is used up for now. Try again later.");
-    throw new Error(`Gemini error (${res.status}).`);
-  }
   const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    /* A bad key is 400 INVALID_ARGUMENT with an "API key not valid" message, or
+       403 PERMISSION_DENIED / 401. A 400 for any *other* reason (input too long,
+       a generation field this model rejects) is a request problem, not the key —
+       telling the reader to replace a working key would be wrong. */
+    const err = (data && data.error) || {};
+    const emsg = String(err.message || "");
+    const status = String(err.status || "");
+    const keyBad =
+      res.status === 401 ||
+      status === "PERMISSION_DENIED" ||
+      status === "UNAUTHENTICATED" ||
+      /api[\s_-]?key|permission|unauthenticated/i.test(emsg);
+    if (res.status === 429 || status === "RESOURCE_EXHAUSTED") throw new Error("Gemini's free quota is used up for now. Try again later.");
+    if (keyBad) throw new Error("That Gemini key was rejected. Check it and paste it again.");
+    if (res.status === 400) throw new Error("Gemini couldn't process that request. The passage may be too long.");
+    throw new Error(emsg ? `Gemini: ${emsg}` : `Gemini error (${res.status}).`);
+  }
   const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
   const text = (parts || []).map((p) => p && p.text).filter(Boolean).join("").trim();
   if (!text) throw new Error("Gemini returned nothing for that passage.");

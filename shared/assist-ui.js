@@ -36,6 +36,7 @@ function el(tag, attrs, kids) {
 export function createAssistUi({ assistant, getSelectionText = () => "", speak, onSaveKey, onError = () => {} } = {}) {
   let card = null;
   let controller = null;
+  let lastFocus = null;
 
   /* Declared as hoisted functions: close() references onKey/onDown and they
      reference close() back, so no declaration order works as `const`. */
@@ -45,12 +46,19 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       controller = null;
     }
   }
-  function close() {
+  function close(restoreFocus = true) {
     stop();
     if (card) card.remove();
     card = null;
     document.removeEventListener("keydown", onKey, true);
     document.removeEventListener("mousedown", onDown, true);
+    /* Hand focus back to whatever opened the card (header button, the pill) so a
+       keyboard user isn't dropped at the top of the document. frame() passes
+       false — it's about to open a new card and set focus itself. */
+    if (restoreFocus && lastFocus && document.contains(lastFocus) && typeof lastFocus.focus === "function") {
+      lastFocus.focus({ preventScroll: true });
+    }
+    if (restoreFocus) lastFocus = null;
   }
   function onKey(e) {
     if (e.key === "Escape") { e.stopPropagation(); close(); }
@@ -60,23 +68,36 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   }
 
   function frame(title) {
-    close();
+    /* Remember the real opener (header button, the pill), not a button inside a
+       card we're replacing on retry. */
+    const active = document.activeElement;
+    const opener = card && card.contains(active) ? lastFocus : active;
+    close(false);
+    lastFocus = opener && opener !== document.body && document.contains(opener) ? opener : null;
     controller = new AbortController();
 
     const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Close" }, "×");
     closeBtn.addEventListener("click", close);
 
-    const body = el("div", { class: "rt-assist-body" });
+    const body = el("div", { class: "rt-assist-body", "aria-live": "polite", "aria-busy": "true" });
     card = el(
       "div",
-      { class: "rt-assist-card", role: "dialog", "aria-label": title, "aria-modal": "false" },
+      { class: "rt-assist-card", role: "dialog", "aria-label": title, "aria-modal": "false", tabindex: "-1" },
       [el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, title), closeBtn]), body],
     );
     document.body.appendChild(card);
+    card.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("mousedown", onDown, true);
     return body;
   }
+
+  /* Put the final content in the body and let a screen reader announce it
+     (aria-live) now that it's no longer "busy". */
+  const fill = (body, ...kids) => {
+    body.replaceChildren(...kids);
+    body.setAttribute("aria-busy", "false");
+  };
 
   function working(body, label) {
     const note = el("p", { class: "rt-assist-working" }, label);
@@ -137,7 +158,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       again.addEventListener("click", () => retry());
       parts.push(el("div", { class: "rt-assist-actions" }, [again]));
     }
-    body.replaceChildren(...parts);
+    fill(body, ...parts);
   }
 
   function resultBlock(text) {
@@ -198,7 +219,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       const kids = [];
       if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
       kids.push(resultBlock(text), disclaimer(), actions(() => text, signal));
-      body.replaceChildren(...kids);
+      fill(body, ...kids);
     } catch (err) {
       if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
     }
@@ -216,7 +237,8 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     try {
       const { text } = await assistant.simplify(passage, { signal, onProgress: (p) => w.progress(p) });
       if (signal.aborted) return;
-      body.replaceChildren(
+      fill(
+        body,
         el("div", { class: "rt-assist-pair" }, [
           el("div", { class: "rt-assist-col" }, [el("h4", {}, "Original"), el("p", { class: "rt-assist-orig" }, passage)]),
           el("div", { class: "rt-assist-col" }, [el("h4", {}, "In plainer words"), resultBlock(text)]),
