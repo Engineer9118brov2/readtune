@@ -61,31 +61,53 @@ if (!CHROME) {
   process.exit(1);
 }
 
-const dbgPort = 9222 + Math.floor(Math.random() * 500);
-const chrome = spawn(CHROME, [
+const CHROME_FLAGS = [
   "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
-  `--remote-debugging-port=${dbgPort}`, "--user-data-dir=" + join(ROOT, ".chrome-ci"),
+  // /dev/shm is tiny on CI containers; without this Chrome crashes on startup
+  // intermittently ("DevTools endpoint never came up").
+  "--disable-dev-shm-usage", "--disable-software-rasterizer",
+  "--user-data-dir=" + join(ROOT, ".chrome-ci"),
   "about:blank",
-], { stdio: "ignore" });
+];
+
+let chrome;
+let chromeErr = "";
+function launchChrome(dbgPort) {
+  const c = spawn(CHROME, [...CHROME_FLAGS, `--remote-debugging-port=${dbgPort}`], {
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  chromeErr = "";
+  c.stderr.on("data", (d) => { chromeErr = (chromeErr + d).slice(-2000); });
+  return c;
+}
 
 function cleanup(code) {
-  try { chrome.kill("SIGKILL"); } catch {}
+  try { chrome && chrome.kill("SIGKILL"); } catch {}
   server.close();
   process.exit(code);
 }
 
-try {
-  // wait for CDP
-  let ver;
-  for (let i = 0; i < 50; i++) {
-    try {
-      ver = await fetch(`http://127.0.0.1:${dbgPort}/json/version`).then((r) => r.json());
-      break;
-    } catch {
-      await new Promise((r) => setTimeout(r, 200));
+// Wait up to ~12s for the DevTools endpoint; retry the whole spawn once if it
+// never appears (cold CI runners occasionally lose the first Chrome).
+async function startChrome() {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const dbgPort = 9222 + Math.floor(Math.random() * 500);
+    chrome = launchChrome(dbgPort);
+    for (let i = 0; i < 60; i++) {
+      try {
+        return await fetch(`http://127.0.0.1:${dbgPort}/json/version`).then((r) => r.json());
+      } catch {
+        await new Promise((r) => setTimeout(r, 200));
+      }
     }
+    try { chrome.kill("SIGKILL"); } catch {}
+    if (attempt === 1) console.error("harness: Chrome didn't come up, retrying once…");
   }
-  if (!ver) throw new Error("Chrome DevTools endpoint never came up");
+  throw new Error("Chrome DevTools endpoint never came up" + (chromeErr ? `\n--- chrome stderr ---\n${chromeErr}` : ""));
+}
+
+try {
+  const ver = await startChrome();
 
   const ws = new WebSocket(ver.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
