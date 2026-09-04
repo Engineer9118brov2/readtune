@@ -38,6 +38,9 @@
   white-space: nowrap;
   line-height: 1;
 }
+.bar button[hidden] {
+  display: none;
+}
 .bar button:hover {
   background: #eef3f0;
 }
