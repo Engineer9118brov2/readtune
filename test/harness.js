@@ -526,6 +526,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     PA.findPageNarration(document) === null,
     "page-audio: 'Listen Live' (a radio stream, verified live against npr.org) is excluded, not article narration",
   );
+  bench.innerHTML = '<button id="pa-live-class" class="audio-module-listen live">Listen</button>';
+  assert(
+    PA.findPageNarration(document) === null,
+    "page-audio: a live marker hiding in the class (not the name) still disqualifies a bare 'Listen'",
+  );
+  bench.innerHTML = '<button id="pa-strong-live">Listen to this article — live updates</button>';
+  const strongLiveHit = PA.findPageNarration(document);
+  assert(
+    strongLiveHit && strongLiveHit.kind === "control" && strongLiveHit.el.id === "pa-strong-live",
+    "page-audio: 'live' elsewhere in a strong-phrase label doesn't sink an explicit 'listen to this article'",
+  );
   bench.innerHTML = '<button id="pa-listen">Listen to this article trailer</button>';
   assert(PA.findPageNarration(document) === null, "page-audio: a deny-word ('trailer') in the label disqualifies a matched control");
   bench.innerHTML =

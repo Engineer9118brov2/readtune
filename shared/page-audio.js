@@ -31,14 +31,22 @@ const AUDIO_CLASS_HINT_RE = /(audio|listen|player|narrat|podcast)/i;
 // Kill switches: if any of these show up in the name it's almost certainly
 // video / music / navigation / a live stream, not recorded article narration.
 const DENY_RE =
-  /\b(video|trailer|watch|playlist|song|album|track \d|music|episode list|live stream|livestream|live|radio station|mute|volume|subscribe|sign in|newsletter)\b/i;
+  /\b(video|trailer|watch|playlist|song|album|track \d|music|episode list|listen\s+live|live stream|livestream|radio station|mute|volume|subscribe|sign in|newsletter)\b/i;
+
+// A live marker can also hide in the *evidence*, not the name — e.g. a radio
+// widget marked up as class="audio-module-listen live" with the visible text
+// just "Listen". Word "live" is scoped to this evidence-only check, since the
+// name path already has its own live handling (LISTEN_WEAK_RE, DENY_RE above).
+const LIVE_EVIDENCE_RE = /\blive(?:[-_ ]?stream)?\b/i;
 
 function matchesListenControl(el, name) {
   if (DENY_RE.test(name)) return false;
   if (LISTEN_STRONG_RE.test(name)) return true;
   if (!LISTEN_WEAK_RE.test(name)) return false;
   if (DURATION_RE.test(name)) return true;
-  return AUDIO_CLASS_HINT_RE.test(`${el.id} ${el.className}`);
+  const evidence = `${el.id} ${el.className}`;
+  if (LIVE_EVIDENCE_RE.test(evidence)) return false;
+  return AUDIO_CLASS_HINT_RE.test(evidence);
 }
 
 // Something in an <audio>'s own markup or its immediate surroundings that ties
