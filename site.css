@@ -174,6 +174,78 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .a11y-toggle[aria-pressed="true"] { background: var(--mint-deep); border-color: var(--mint-deep); color: var(--ink); }
 .a11y-toggle-mark { font-family: "OpenDyslexic", var(--body); font-size: 0.85rem; letter-spacing: 0; }
 
+/* ---- Read this page aloud (browser voice) ------------------------------- */
+/* The nav "Listen" button and the play-button hiding in the O of "Stop".
+   Both drive window.speechSynthesis — a system voice, not the extension's
+   Piper. site.js removes them where speechSynthesis is missing. */
+.say-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 13px 8px 12px; border: 1px solid var(--mint-deep); border-radius: 99px;
+  background: transparent; color: var(--ink); cursor: pointer;
+  font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.09em;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.say-btn:hover { background: var(--mint-deep); color: var(--ink); }
+.say-btn:focus-visible { outline: 3px solid var(--mint-deep); outline-offset: 2px; }
+.say-btn.is-playing { background: var(--mint-deep); border-color: var(--mint-deep); }
+.say-btn-glyph {
+  display: block; width: 0; height: 0;
+  border-left: 8px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+.say-btn.is-playing .say-btn-glyph {
+  width: 3px; height: 11px; border: 0; background: currentColor;
+  box-shadow: 6px 0 0 currentColor; margin-right: 6px;
+}
+.say-btn.is-loading .say-btn-glyph { animation: say-blink 1s steps(2) infinite; }
+
+/* The O of "Stop" — a real play control sitting exactly where the letter is.
+   The letter stays in normal flow; the ring and glyph overlay it. */
+.say-o {
+  position: relative; display: inline-block; padding: 0; margin: 0;
+  border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+}
+.say-o > span { display: inline-block; transition: opacity .18s ease; }
+.say-o::after { /* ring: reads as the letter at rest, as a target on hover */
+  content: ""; position: absolute; left: 50%; top: 47%;
+  width: 0.82em; height: 0.82em; transform: translate(-50%, -50%) scale(0.72);
+  border-radius: 50%; border: 0.07em solid currentColor;
+  opacity: 0; transition: opacity .18s ease, transform .18s ease, border-color .18s ease;
+}
+.say-o::before { /* play triangle */
+  content: ""; position: absolute; left: 50%; top: 47%; opacity: 0;
+  width: 0; height: 0; transform: translate(-38%, -50%);
+  border-left: 0.28em solid currentColor;
+  border-top: 0.17em solid transparent; border-bottom: 0.17em solid transparent;
+  transition: opacity .18s ease;
+}
+.say-o:hover > span, .say-o:focus-visible > span { opacity: 0.22; }
+.say-o:hover::after, .say-o:focus-visible::after { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+.say-o:hover::before, .say-o:focus-visible::before { opacity: 0.6; }
+.say-o:focus-visible { outline: none; }
+.say-o:focus-visible::after { opacity: 0.8; border-color: var(--mint-deep); }
+.say-o.is-playing > span { opacity: 0; }
+.say-o.is-playing::after {
+  opacity: 1; transform: translate(-50%, -50%) scale(1);
+  border-color: var(--mint-deep); animation: say-pulse 1.6s ease-out infinite;
+}
+.say-o.is-playing::before { /* pause bars */
+  opacity: 1; width: 0.1em; height: 0.32em; transform: translate(-50%, -50%);
+  border: 0; background: var(--mint-deep); box-shadow: 0.17em 0 0 var(--mint-deep);
+}
+h1 em .say-o::after { border-color: var(--mint-deep); }
+
+/* Reading progress — a hairline at the very top of the viewport while playing. */
+.say-progress {
+  position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 30;
+  background: var(--coral); transform: scaleX(0); transform-origin: left;
+  opacity: 0; transition: transform .3s ease, opacity .3s ease;
+}
+.say-progress.is-on { opacity: 1; }
+
+@keyframes say-pulse { from { box-shadow: 0 0 0 0 rgba(110,162,141,.5); } to { box-shadow: 0 0 0 0.5em rgba(110,162,141,0); } }
+@keyframes say-blink { 50% { opacity: 0.35; } }
+
 html.dys-mode {
   --body: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
   --display: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
@@ -225,8 +297,8 @@ html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.sk
   .brand-mark, .site-header .brand-mark { width: 34px; height: 34px; border-radius: 9px; }
   .nav { gap: 12px; }
   .nav a:not(.nav-cta) { display: none; }
-  .a11y-toggle-text { display: none; }
-  .a11y-toggle { padding: 7px 10px; }
+  .a11y-toggle-text, .say-btn-text { display: none; }
+  .a11y-toggle, .say-btn { padding: 7px 10px; }
   .nav-cta { padding: 7px 10px; font-size: .76rem; }
   h1 { font-size: clamp(3.25rem, 16vw, 5rem); }
   .hero { padding-block: 65px 90px; }
