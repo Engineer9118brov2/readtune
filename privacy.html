@@ -37,12 +37,15 @@
       <p>If you choose the optional <strong>ElevenLabs</strong> voice, the passage you ask to hear and your own ElevenLabs API key are sent directly from your browser to <a href="https://elevenlabs.io/privacy" target="_blank" rel="noreferrer">ElevenLabs</a> to generate audio. Your key is stored only in Chrome's local storage on your device. ReadTune has no server in this path and never receives your key or your text.</p>
       <h2>Talk to type (dictation)</h2>
       <p>If you use the dictation feature, ReadTune turns on Chrome's built-in speech recognition. Chrome sends the audio from your microphone to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you are typing in. ReadTune does not record, store, or transmit the audio or the transcript itself.</p>
+      <h2>AI reading help</h2>
+      <p>Reader View has two optional helpers: "Summary" (key points for the article) and "Simplify" (a plain-language rewrite of a passage you select). Where your browser provides on-device AI — Chrome's built-in Summarizer, Rewriter, or Prompt API — they run there: the model is downloaded and kept by Chrome, shared across every site, and neither the article nor your selection leaves your device. ReadTune adds no network access for this path.</p>
+      <p>If your browser has no on-device AI, you can add a free <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio (Gemini)</a> key. Then the text you ask about — the article's opening for a summary, or the passage you selected for a rewrite — is sent, with your key, directly from your browser to Google's Gemini endpoint. Your key is stored only in Chrome's local storage on your device. ReadTune has no server in this path and never receives your key or your text. A rewrite can be wrong, so it is always shown beside the original, never in its place.</p>
       <h2>Permissions</h2>
       <ul>
         <li><strong>Active tab and scripting:</strong> used only when you invoke ReadTune on the current tab — to open Reader View, restyle the page in place, or start dictation. Access ends when you navigate away.</li>
         <li><strong>Local storage:</strong> keeps your settings and progress on your device.</li>
         <li><strong>Optional site access:</strong> requested only if you turn on automatic Reader View or restyle for a specific site.</li>
-        <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io): requested only when you choose an extra Piper voice or add an ElevenLabs key, as described above.</li>
+        <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io, generativelanguage.googleapis.com): requested only when you choose an extra Piper voice, add an ElevenLabs key, or add a Gemini key, as described above.</li>
       </ul>
       <h2>What ReadTune does not do</h2>
       <p>The extension does not sell or share data, run analytics or telemetry, create an account, or send your browsing history to its creator. It does not use data for advertising, creditworthiness, or lending. The extension is open source and can be inspected on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a>.</p>

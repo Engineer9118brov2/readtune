@@ -86,9 +86,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
 (async () => {
   const S = await import("../shared/settings.js");
-  // Derived, never hardcoded: a literal here silently goes stale the moment
-  // the ceiling moves, and then asserts the old ceiling forever.
-  const RANGES_MIN = S.RANGES.ttsRate.min, RANGES_MAX = S.RANGES.ttsRate.max;
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
   const { createReadingScreen } = await import("../shared/screen.js");
@@ -183,6 +180,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/Linden/.test(labVoiceText) && /Joe/.test(labVoiceText) && /Kristin/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
   assert(/Built in/.test(labVoiceText), "Voice Fit Lab marks the bundled default voice as built in");
   assert(!/Browser default|Best free voices|Re-scan/i.test(labVoiceText), "Voice Fit Lab does not surface browser voice clutter");
+  assert(
+    !!labDoc.getElementById("lab-assist-panel") && /Simplify|Summary/.test(labDoc.getElementById("lab-assist-panel").textContent),
+    "the Reading Lab has an assistant panel describing Summary + Simplify",
+  );
+  assert(
+    labDoc.getElementById("lab-assist-status").getAttribute("role") === "status",
+    "the Lab's assistant status line is a live region (announces key-check failures)",
+  );
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");
@@ -487,6 +492,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
+  assert(
+    [...document.querySelectorAll(".rt-doc-action")].some((b) => b.textContent === "Summary"),
+    "the reading screen offers the assistant's Summary action",
+  );
   document.querySelector(".rt-reset").click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(
@@ -845,6 +854,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         aligned = flow.querySelector(".rt-speak-sentence") === spans[k];
       }
       assert(aligned, "read-aloud walks the sentences in step with their data-i");
+
+      // speakOnce (word lookup, the assistant's "Hear it") settles when its
+      // signal aborts, instead of holding the caller until the stall timeout —
+      // synthesis never completes in the harness, so a hang here would wedge.
+      const ac = new AbortController();
+      const spoke = tts.speakOnce("A passage long enough to want stopping.", { signal: ac.signal });
+      ac.abort();
+      let hung = true;
+      await Promise.race([spoke.then(() => { hung = false; }), new Promise((r) => setTimeout(r, 2000))]);
+      assert(!hung, "speakOnce returns promptly when its signal is aborted");
+
       tts.destroy();
       h.remove();
     }
@@ -1234,6 +1254,192 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     R.applyTypography(h, { ...S.DEFAULT_PROFILE, lineTint: "off" });
     assert(!h.style.getPropertyValue("--rt-linetint-a"), "turning the line tint off clears its stops");
     h.remove();
+  }
+
+  /* ---- reading assistant ---- */
+  {
+    const A = await import("../shared/assist.js");
+    const AUI = await import("../shared/assist-ui.js");
+
+    /* Control the built-in-AI globals so the tests don't depend on whether this
+       Chrome ships them. Each entry is null (absent) or an availability string. */
+    const realAI = { Summarizer: self.Summarizer, Rewriter: self.Rewriter, LanguageModel: self.LanguageModel };
+    const setAI = (spec) => {
+      for (const name of ["Summarizer", "Rewriter", "LanguageModel"]) {
+        const v = spec[name];
+        if (!v) { delete self[name]; continue; }
+        self[name] = {
+          availability: async () => v.state,
+          create: async () => v.instance,
+        };
+      }
+    };
+    const restoreAI = () => {
+      for (const name of ["Summarizer", "Rewriter", "LanguageModel"]) {
+        if (realAI[name] === undefined) delete self[name];
+        else self[name] = realAI[name];
+      }
+    };
+
+    try {
+      // config round-trips through storage, key stays out of the profile
+      await S.saveAssistConfig({ key: "test-gemini-key" });
+      assert((await S.loadAssistConfig()).key === "test-gemini-key", "the assistant's Gemini key round-trips through local storage");
+      assert(!("key" in (await S.loadProfile())), "the assistant key is never written into the reading profile");
+      await S.forgetAssistKey();
+      assert((await S.loadAssistConfig()).key === "", "forgetAssistKey clears it");
+
+      // no built-in AI, no key → the assistant says how to turn it on
+      setAI({});
+      const st = await A.onDeviceStatus();
+      assert(
+        st.summarizer === "unavailable" && st.rewriter === "unavailable" && st.prompt === "unavailable",
+        "on-device status is 'unavailable' for every API the browser doesn't expose",
+      );
+      const none = await A.describeAvailability(false);
+      assert(none.mode === "none" && !none.ready && /Gemini/.test(none.text), "no on-device AI and no key → the assistant explains how to enable it");
+      assert((await A.describeAvailability(true)).mode === "byok", "no on-device AI but a key saved → bring-your-own-key");
+      assert((await A.geminiKeyWorks("")).ok === false, "an empty key is rejected without a network call");
+
+      // it refuses cleanly rather than hanging when it has nothing to run on —
+      // the reason rides on the rejection, not a side-channel callback
+      const stuck = A.createAssistant({
+        getArticleText: () => "Tide pools reset twice a day and shelter small crabs.",
+        getConfig: () => ({ key: "" }),
+      });
+      let stuckErr = "";
+      try { await stuck.summarize(); } catch (e) { stuckErr = (e && e.message) || ""; }
+      assert(/on-device AI|Gemini key/.test(stuckErr), "summarize with no engine and no key rejects with a message that explains why");
+      let threw2 = false;
+      try { await stuck.simplify(""); } catch { threw2 = true; }
+      assert(threw2, "simplify with an empty selection is rejected");
+
+      // a cancelled request rejects AS an abort — never remapped to a network
+      // error, so the UI's signal.aborted check keeps it quiet
+      const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
+      setAI({
+        LanguageModel: {
+          state: "available",
+          instance: {
+            prompt: (_ask, opts) =>
+              new Promise((_res, rej) => {
+                const s = opts && opts.signal;
+                if (s && s.aborted) return rej(abortErr());
+                if (s) s.addEventListener("abort", () => rej(abortErr()));
+              }),
+            destroy() {},
+          },
+        },
+      });
+      const ac = new AbortController();
+      const pending = A.createAssistant({ getArticleText: () => "A long article about tide pools and the creatures in them." })
+        .summarize({ signal: ac.signal });
+      ac.abort();
+      let abortName = "";
+      try { await pending; } catch (e) { abortName = (e && e.name) || ""; }
+      assert(abortName === "AbortError", "a cancelled summary rejects as AbortError, not a masked network error");
+
+      // BYOK: the Gemini path also preserves an abort rather than reporting it
+      {
+        const realPerm = chrome.permissions;
+        const realFetch = self.fetch;
+        chrome.permissions = { contains: async () => true, request: async () => true };
+        self.fetch = () => Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        try {
+          setAI({});
+          const ac2 = new AbortController();
+          const p2 = A.createAssistant({
+            getArticleText: () => "Article text for the summary.",
+            getConfig: () => ({ key: "test-key" }),
+          }).summarize({ signal: ac2.signal });
+          ac2.abort();
+          let n2 = "";
+          try { await p2; } catch (e) { n2 = (e && e.name) || ""; }
+          assert(n2 === "AbortError", "geminiGenerate rethrows AbortError instead of 'couldn't reach Google'");
+
+          // a 400 that isn't about the key must not tell the reader to replace it
+          const jsonRes = (status, body) => ({ ok: false, status, json: async () => body });
+          self.fetch = async () => jsonRes(400, { error: { code: 400, status: "INVALID_ARGUMENT", message: "Request contains an invalid argument." } });
+          let m3 = "";
+          try {
+            await A.createAssistant({ getArticleText: () => "x".repeat(50), getConfig: () => ({ key: "good-key" }) }).summarize();
+          } catch (e) { m3 = e.message; }
+          assert(!/rejected/i.test(m3) && /process|too long|invalid/i.test(m3), "a non-key 400 reads as a request problem, not a bad key");
+
+          self.fetch = async () => jsonRes(400, { error: { status: "INVALID_ARGUMENT", message: "API key not valid. Please pass a valid API key." } });
+          let m4 = "";
+          try {
+            await A.createAssistant({ getArticleText: () => "x".repeat(50), getConfig: () => ({ key: "bad-key" }) }).summarize();
+          } catch (e) { m4 = e.message; }
+          assert(/rejected/i.test(m4), "a 400 whose message is about the API key still reads as a bad key");
+        } finally {
+          chrome.permissions = realPerm;
+          self.fetch = realFetch;
+        }
+      }
+
+      // a downloadable on-device model still counts as usable
+      setAI({ Summarizer: { state: "downloadable" } });
+      assert((await A.describeAvailability(false)).mode === "on-device", "a model that only needs downloading is still 'on-device'");
+      assert((await A.describeAvailability(false)).needsDownload === true, "and it flags that a one-time download is needed");
+
+      // routing: a task-specific API is used ahead of the Prompt API and any key
+      setAI({
+        Summarizer: { state: "available", instance: { summarize: async (t) => "KEY POINTS: " + t.slice(0, 20), destroy() {} } },
+        LanguageModel: { state: "available", instance: { prompt: async () => "PROMPT FALLBACK", destroy() {} } },
+      });
+      const sOut = await A.createAssistant({ getArticleText: () => "Tide pools reset twice a day. Crabs shelter there." }).summarize();
+      assert(/^KEY POINTS:/.test(sOut.text), "summarize uses the Summarizer API when the browser has one");
+
+      setAI({ LanguageModel: { state: "available", instance: { prompt: async (p) => "SIMPLE: " + p.slice(-10), destroy() {} } } });
+      const rOut = await A.createAssistant({}).simplify("The tide pool's ecosystem exhibits diurnal periodicity in its hydration.");
+      assert(/^SIMPLE:/.test(rOut.text), "simplify falls back to the Prompt API when there is no Rewriter");
+
+      // the UI degrades to a readable error and tears down cleanly
+      setAI({});
+      let uiError = "";
+      const ui = AUI.createAssistUi({
+        assistant: A.createAssistant({ getArticleText: () => "Some text.", getConfig: () => ({ key: "" }) }),
+        getSelectionText: () => "",
+        onSaveKey: async () => false,
+        onError: (m) => { uiError = m; },
+      });
+      assert(typeof ui.openSummary === "function" && typeof ui.mountSelectionTrigger === "function", "the assistant UI exposes its actions");
+      ui.simplifySelection();
+      assert(/Select a sentence or paragraph/.test(uiError), "Simplify with nothing selected asks you to select something");
+
+      // focus moves into the card on open and back to the opener on close
+      const opener = document.body.appendChild(Object.assign(document.createElement("button"), { textContent: "open" }));
+      opener.focus();
+      await ui.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const cardEl = document.querySelector(".rt-assist-card");
+      assert(cardEl && cardEl.contains(document.activeElement), "opening the assistant card moves focus into it");
+      assert(cardEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the card body is a polite live region");
+      assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
+      assert(cardEl.querySelector('input[type="password"]'), "with no engine and no key the error card offers the key form");
+      ui.destroy();
+      assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
+      assert(document.activeElement === opener, "closing the card hands focus back to whatever opened it");
+      opener.remove();
+
+      // an engine that fails transiently gets a plain "Try again", not the key form
+      setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });
+      const ui2 = AUI.createAssistUi({
+        assistant: A.createAssistant({ getArticleText: () => "Some article text to summarize." }),
+        getSelectionText: () => "",
+      });
+      await ui2.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const card2 = document.querySelector(".rt-assist-card");
+      assert(card2 && /Try again/.test(card2.textContent) && !card2.querySelector('input[type="password"]'), "a transient engine failure offers a retry, not the key form");
+      ui2.destroy();
+      const teardown = ui.mountSelectionTrigger(() => document.body);
+      assert(typeof teardown === "function", "the selection trigger returns a teardown");
+      teardown();
+    } finally {
+      restoreAI();
+    }
   }
 
   /* showcase */

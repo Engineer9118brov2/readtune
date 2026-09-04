@@ -1,0 +1,5 @@
+# Vendored / generated third-party code — not ours to lint.
+lib/
+shared/piper/piper-o91UDS6e.js
+shared/piper/piper-tts-web.js
+shared/piper/voices_static-D_OtJDHM.js

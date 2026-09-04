@@ -22,6 +22,7 @@ ReadTune is built so there is nothing to collect. There is no ReadTune account a
 - **Read-aloud** uses Piper, a neural voice that runs entirely on your device. The default voice ships inside the extension. If you pick one of the other voices in the Reading Lab, its model file is downloaded once from Hugging Face (`huggingface.co`) and cached on your device; the text you have read aloud is never uploaded.
 - **Talk to type (dictation):** if you use it, ReadTune turns on Chrome's built-in speech recognition. Chrome sends your microphone audio to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you're typing in. ReadTune does not record, store, or transmit the audio or the transcript.
 - **ElevenLabs voice (optional):** only if you enter your own API key — the passage being read aloud and your key are sent from your browser to `https://api.elevenlabs.io` to generate audio and word timings. Nothing else is sent, nowhere else. ElevenLabs' handling of that request is covered by ElevenLabs' own privacy policy. Remove the key any time with "Remove key" in the settings panel.
+- **AI reading help (optional):** the "Summary" and "Simplify" helpers in Reader View. Where your browser has on-device AI (Chrome's built-in Summarizer / Rewriter / Prompt API), they run there and nothing leaves your device — ReadTune adds no network access. Otherwise, if you add a free Google AI Studio (Gemini) key, the text you ask about — the article's opening, or the passage you selected — is sent with your key from your browser to `https://generativelanguage.googleapis.com`. The key is stored only on your device; ReadTune has no server in this path. A rewrite can be wrong and is always shown beside the original.
 
 ## Permissions
 
@@ -31,6 +32,7 @@ ReadTune is built so there is nothing to collect. There is no ReadTune account a
 | `storage` | To save your settings and reading position on your device |
 | host access to `huggingface.co` (optional) | Only if you select one of the extra on-device voices, to download its model once |
 | host access to `api.elevenlabs.io` (optional) | Only if you enable the ElevenLabs voice |
+| host access to `generativelanguage.googleapis.com` (optional) | Only if you add a Gemini key for the AI reading helpers |
 | host access to a specific site (optional) | Only if you turn on "auto-open" / "auto-restyle" for that site |
 
 ## What ReadTune does not do

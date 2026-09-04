@@ -550,7 +550,7 @@ function cellTextWithoutNestedTables(cell) {
 /* ---------- bionic bolding ---------- */
 
 function splitToken(token, pct) {
-  const m = token.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}][\p{L}\p{N}’'’·-]*)(.*)$/u);
+  const m = token.match(/^([^\p{L}\p{N}]*)([\p{L}\p{N}][\p{L}\p{N}’'·-]*)(.*)$/u);
   if (!m) return null;
   const core = m[2];
   let n;

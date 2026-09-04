@@ -386,10 +386,12 @@ export function createTTS({
   return {
     /* Speak one word or phrase without disturbing playback position.
        Reuses the engine read-aloud already has, so looking a word up doesn't
-       spin a second Piper worker or re-load the voice model. */
-    async speakOnce(text) {
+       spin a second Piper worker or re-load the voice model. Pass a `signal`
+       to stop it early — the assistant's "Hear it" does when its card closes,
+       so a minute-long summary read doesn't outlive the card. */
+    async speakOnce(text, { signal } = {}) {
       const say = String(text || "").trim();
-      if (!say) return;
+      if (!say || (signal && signal.aborted)) return;
       if (!piper) {
         piper = createPiperEngine({
           voiceId: getConfig().piperVoice,
@@ -398,8 +400,16 @@ export function createTTS({
       }
       /* The caller ducks narration around this and restores it in a finally,
          and the "Hear it" button re-enables itself the same way, so this must
-         always settle. A synth that never resolves or an <audio> that never
-         fires ended/error would otherwise freeze read-aloud permanently. */
+         always settle. A synth that never resolves, an <audio> that never
+         fires ended/error, or a caller that walks away would otherwise freeze
+         read-aloud permanently. One abort listener for the whole call, removed
+         in the finally below; each withTimeout also races a per-step stall. */
+      let onAbort;
+      const aborted = new Promise((_, reject) => {
+        onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+      });
+      aborted.catch(() => {}); // a racer — may settle between the two races below
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
       const withTimeout = (p, ms, onExpire) => {
         let timer;
         const expiry = new Promise((_, reject) => {
@@ -408,13 +418,22 @@ export function createTTS({
             reject(new Error("speakOnce timed out"));
           }, ms);
         });
-        return Promise.race([p, expiry]).finally(() => clearTimeout(timer));
+        return Promise.race([p, expiry, aborted]).finally(() => clearTimeout(timer));
       };
+      /* The ceilings scale with length. A word lookup keeps the old 30 s / 15 s
+         floors; a whole summary or a simplified paragraph from the assistant
+         needs room to synthesise and play in full. They still exist to break a
+         wedged synth or a stalled <audio>, not to cut a long passage off —
+         ~11 chars/s of speech, with generous slack and a hard cap. */
+      const audioMs = (say.length / 11) * 1000;
+      const synthMs = Math.min(Math.max(30000, audioMs * 1.5 + 5000), 240000);
+      const playMs = Math.min(Math.max(15000, audioMs * 1.5), 300000);
       let url;
+      let one;
       try {
-        const blob = await withTimeout(piper.synthesize(say), 30000);
+        const blob = await withTimeout(piper.synthesize(say), synthMs);
         url = URL.createObjectURL(blob);
-        const one = new Audio(url);
+        one = new Audio(url);
         /* A looked-up word is for clarity, not pace — never faster than 1×,
            but honour a reader who has slowed everything down. */
         one.playbackRate = Math.min(rate, 1);
@@ -427,13 +446,15 @@ export function createTTS({
             one.onerror = finish;
             one.play().catch(finish);
           }),
-          15000,
+          playMs,
           () => { try { one.pause(); } catch {} },
         );
         return one;
       } catch {
         /* a silent "Hear it" beats one stuck on "…" */
       } finally {
+        if (signal) signal.removeEventListener("abort", onAbort);
+        if (one) { try { one.pause(); } catch {} } // stop a timed-out / aborted read
         if (url) URL.revokeObjectURL(url);
       }
     },
