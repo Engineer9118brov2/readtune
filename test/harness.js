@@ -510,7 +510,34 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.body.appendChild(bench);
   const ctrlHit = PA.findPageNarration(document);
   assert(ctrlHit && ctrlHit.kind === "control" && ctrlHit.el.id === "pa-listen", "page-audio: a visible 'Listen to this article' button is found, 'Play video' is skipped");
-  bench.querySelector("#pa-listen").textContent = "Listen to this article trailer";
+  bench.innerHTML = '<button id="npr-style" class="audio-module-listen">Listen· 12:01</button>';
+  const nprHit = PA.findPageNarration(document);
+  assert(
+    nprHit && nprHit.kind === "control" && nprHit.el.id === "npr-style",
+    "page-audio: real-world NPR markup — bare 'Listen· 12:01' with an audio-flavoured class — is found (verified live against npr.org)",
+  );
+  bench.innerHTML = '<button id="pa-bare">Listen</button>';
+  assert(
+    PA.findPageNarration(document) === null,
+    "page-audio: a bare 'Listen' with no duration and no audio-flavoured class is NOT enough on its own",
+  );
+  bench.innerHTML = '<button id="pa-live" class="audio-module-listen">Listen Live</button>';
+  assert(
+    PA.findPageNarration(document) === null,
+    "page-audio: 'Listen Live' (a radio stream, verified live against npr.org) is excluded, not article narration",
+  );
+  bench.innerHTML = '<button id="pa-live-class" class="audio-module-listen live">Listen</button>';
+  assert(
+    PA.findPageNarration(document) === null,
+    "page-audio: a live marker hiding in the class (not the name) still disqualifies a bare 'Listen'",
+  );
+  bench.innerHTML = '<button id="pa-strong-live">Listen to this article — live updates</button>';
+  const strongLiveHit = PA.findPageNarration(document);
+  assert(
+    strongLiveHit && strongLiveHit.kind === "control" && strongLiveHit.el.id === "pa-strong-live",
+    "page-audio: 'live' elsewhere in a strong-phrase label doesn't sink an explicit 'listen to this article'",
+  );
+  bench.innerHTML = '<button id="pa-listen">Listen to this article trailer</button>';
   assert(PA.findPageNarration(document) === null, "page-audio: a deny-word ('trailer') in the label disqualifies a matched control");
   bench.innerHTML =
     '<iframe src="https://player.simplecast.com/xyz"></iframe>' +

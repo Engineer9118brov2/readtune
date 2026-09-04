@@ -14,15 +14,40 @@
 const EMBED_HOSTS =
   /(?:open\.spotify\.com\/embed\/episode|podcasts\.apple\.com|player\.simplecast\.com|w\.soundcloud\.com|players\.brightcove\.net\/.*audio|audioboom\.com\/posts|megaphone\.fm|omny\.fm|art19\.com|iframe\.acast\.com|podbean\.com\/player|player\.fm|spreaker\.com\/player|transistor\.fm)/i;
 
-// Accessible name / visible text that clearly means "listen to the words on
-// this page" — not a video, a music track, or a game.
-const LISTEN_RE =
-  /(\blisten to (?:this|the) (?:article|story|post|page|piece)|\blisten to this(?:\s+(?:article|story|post))?\b|\baudio version\b|\bhear this (?:article|story|post)|\bread (?:this )?(?:article |story |page )?aloud\b|\bplay(?: the)? audio(?: version)?\b|\bnarrated by\b|\blisten \d+ min)/i;
+// Accessible name / visible text that, on its own, clearly means "listen to
+// the words on this page" — not a video, a music track, or a game.
+const LISTEN_STRONG_RE =
+  /(\blisten to (?:this|the) (?:article|story|post|page|piece)|\blisten to this(?:\s+(?:article|story|post))?\b|\baudio version\b|\bhear this (?:article|story|post)|\bread (?:this )?(?:article |story |page )?aloud\b|\bplay(?: the)? audio(?: version)?\b|\bnarrated by\b)/i;
+
+// Real newsrooms (NPR chief among them) label the per-story control just
+// "Listen" plus a duration — "Listen· 12:01", "Listen 4 min" — with nothing
+// tying it to "article" in the name itself. That bare word needs a second
+// piece of evidence before it counts: a duration in the name, or an
+// audio-flavoured class/id on the element.
+const LISTEN_WEAK_RE = /\blisten\b(?!\s+live)/i;
+const DURATION_RE = /\b\d{1,2}:\d{2}\b|\b\d+[\s-]?(?:minute|min)\b/i;
+const AUDIO_CLASS_HINT_RE = /(audio|listen|player|narrat|podcast)/i;
 
 // Kill switches: if any of these show up in the name it's almost certainly
-// video / music / navigation, not article narration.
+// video / music / navigation / a live stream, not recorded article narration.
 const DENY_RE =
-  /\b(video|trailer|watch|playlist|song|album|track \d|music|episode list|live stream|livestream|radio station|mute|volume|subscribe|sign in|newsletter)\b/i;
+  /\b(video|trailer|watch|playlist|song|album|track \d|music|episode list|listen\s+live|live stream|livestream|radio station|mute|volume|subscribe|sign in|newsletter)\b/i;
+
+// A live marker can also hide in the *evidence*, not the name — e.g. a radio
+// widget marked up as class="audio-module-listen live" with the visible text
+// just "Listen". Word "live" is scoped to this evidence-only check, since the
+// name path already has its own live handling (LISTEN_WEAK_RE, DENY_RE above).
+const LIVE_EVIDENCE_RE = /\blive(?:[-_ ]?stream)?\b/i;
+
+function matchesListenControl(el, name) {
+  if (DENY_RE.test(name)) return false;
+  if (LISTEN_STRONG_RE.test(name)) return true;
+  if (!LISTEN_WEAK_RE.test(name)) return false;
+  if (DURATION_RE.test(name)) return true;
+  const evidence = `${el.id} ${el.className}`;
+  if (LIVE_EVIDENCE_RE.test(evidence)) return false;
+  return AUDIO_CLASS_HINT_RE.test(evidence);
+}
 
 // Something in an <audio>'s own markup or its immediate surroundings that ties
 // it to reading the article rather than a sound effect or ad.
@@ -108,7 +133,7 @@ export function findPageNarration(root) {
     if (inReadTune(el)) continue;
     const name = accessibleName(el);
     if (!name || name.length > 120) continue;
-    if (!LISTEN_RE.test(name) || DENY_RE.test(name)) continue;
+    if (!matchesListenControl(el, name)) continue;
     if (!hasSize(el)) continue;
     return { kind: "control", el, name };
   }
