@@ -488,6 +488,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     parseDoc('<figure><figcaption>Listen</figcaption><audio src="/story.mp3"></audio></figure><iframe src="https://open.spotify.com/embed/episode/x"></iframe>'),
   );
   assert(audioHit && audioHit.kind === "audio", "page-audio: a real <audio> element is preferred over an embed");
+  assert(
+    PA.findPageNarration(parseDoc('<div class="fx"><audio src="/ping.mp3"></audio></div>')) === null,
+    "page-audio: a bare <audio> with no controls and no 'audio' context is ignored (notification/ad sounds)",
+  );
+  assert(
+    PA.findPageNarration(parseDoc('<audio loop autoplay controls src="/bed.mp3"></audio>')) === null,
+    "page-audio: a looping autoplay <audio> is background media, not narration",
+  );
   const embedHit = PA.findPageNarration(parseDoc('<iframe src="https://player.simplecast.com/abc"></iframe>'));
   assert(embedHit && embedHit.kind === "embed", "page-audio: a podcast iframe is detected as an embed");
   assert(
@@ -504,6 +512,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(ctrlHit && ctrlHit.kind === "control" && ctrlHit.el.id === "pa-listen", "page-audio: a visible 'Listen to this article' button is found, 'Play video' is skipped");
   bench.querySelector("#pa-listen").textContent = "Listen to this article trailer";
   assert(PA.findPageNarration(document) === null, "page-audio: a deny-word ('trailer') in the label disqualifies a matched control");
+  bench.innerHTML =
+    '<iframe src="https://player.simplecast.com/xyz"></iframe>' +
+    '<input id="pa-input" type="button" value="Listen to this article" />';
+  const inputHit = PA.findPageNarration(document);
+  assert(
+    inputHit && inputHit.kind === "control" && inputHit.el.id === "pa-input",
+    "page-audio: an <input type=button value='Listen…'> is found, and a labelled control outranks a footer podcast embed",
+  );
+  bench.innerHTML = '<button id="pa-hidden" style="visibility:hidden">Listen to this article</button>';
+  assert(PA.findPageNarration(document) === null, "page-audio: a visibility:hidden control is not surfaced");
   bench.remove();
   const own = document.createElement("div");
   own.innerHTML = '<div data-say><button>Read this page aloud</button></div>';

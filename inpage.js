@@ -212,6 +212,12 @@ var __readtuneBoot = (async () => {
   let narrationAudio = null; // the <audio> element we attached listeners to
   const narrationRetries = [];
 
+  // A real button we can safely fire a synthetic click on. Anchors are
+  // scroll-only even when they carry role="button" — clicking one can follow
+  // its href and navigate the reader off the article.
+  const isClickableControl = (el) =>
+    el.tagName !== "A" && el.matches('button, [role="button"], input[type="button"]');
+
   function paintPageAudio() {
     if (!narration) {
       pageAudioBtn.hidden = true;
@@ -227,7 +233,7 @@ var __readtuneBoot = (async () => {
       pageAudioBtn.textContent = "♪ Podcast";
       pageAudioBtn.title = "This page embeds a podcast — jump to the player";
       pageAudioBtn.classList.remove("on");
-    } else if (narration.el.matches('button, [role="button"], input')) {
+    } else if (isClickableControl(narration.el)) {
       pageAudioBtn.textContent = "▶ Page audio";
       pageAudioBtn.title = "This page has its own “Listen” — start the page's player";
       pageAudioBtn.classList.remove("on");
@@ -248,7 +254,14 @@ var __readtuneBoot = (async () => {
   }
 
   function mountNarration() {
-    if (removed || narration) return;
+    if (removed) return;
+    // A client-side route change can swap out the element we locked onto. If
+    // ours has left the document, drop it and look again.
+    if (narration && !narration.el.isConnected) {
+      detachNarrationAudio();
+      narration = null;
+    }
+    if (narration) return;
     let found = null;
     try {
       found = findPageNarration(document);
@@ -267,7 +280,11 @@ var __readtuneBoot = (async () => {
   }
 
   function triggerPageAudio() {
-    if (!narration) return;
+    if (narration && !narration.el.isConnected) mountNarration(); // re-find after an SPA nav
+    if (!narration) {
+      mountNarration();
+      if (!narration) return;
+    }
     if (narration.kind === "audio") {
       if (narration.el.paused || narration.el.ended) {
         const p = narration.el.play();
@@ -284,9 +301,9 @@ var __readtuneBoot = (async () => {
     } catch {
       narration.el.scrollIntoView();
     }
-    // Click a real button for the reader; for a bare link, just reveal it and
-    // let them decide — a synthetic click could navigate the whole page away.
-    if (narration.kind === "control" && narration.el.matches('button, [role="button"], input')) {
+    // Click a real button for the reader; for a link, just reveal it and let
+    // them decide — a synthetic click could navigate the whole page away.
+    if (narration.kind === "control" && isClickableControl(narration.el)) {
       try {
         narration.el.click();
       } catch {
@@ -359,7 +376,7 @@ var __readtuneBoot = (async () => {
     removed = true;
     chrome.storage.onChanged.removeListener(onStorage);
     window.removeEventListener("pointermove", onPointer);
-    narrationRetries.forEach(clearTimeout);
+    narrationRetries.forEach((t) => { clearTimeout(t); clearInterval(t); });
     detachNarrationAudio();
     removeBionic();
     styleEl.remove();
@@ -384,9 +401,20 @@ var __readtuneBoot = (async () => {
   mountNarration();
   for (const delay of [1400, 4000]) {
     narrationRetries.push(setTimeout(() => {
-      if (!narration && !removed) mountNarration();
+      if (!removed) mountNarration();
     }, delay));
   }
+  // Keep a slow watch so a client-side route change (stale element, or a
+  // player that only mounts on the new view) is picked up. Stop scanning a
+  // page that clearly has no narration, but never stop once we've found one —
+  // an SPA can still swap it out from under us.
+  let narrationSweeps = 0;
+  const narrationWatch = setInterval(() => {
+    if (removed) return;
+    mountNarration();
+    if (!narration && ++narrationSweeps >= 8) clearInterval(narrationWatch);
+  }, 4000);
+  narrationRetries.push(narrationWatch);
 })();
 
 // File injection itself is synchronous; expose the async boot so callers
