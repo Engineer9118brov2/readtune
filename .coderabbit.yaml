@@ -1,13 +1,36 @@
-# CodeRabbit configuration — https://docs.coderabbit.ai/guides/configure-coderabbit
+# CodeRabbit configuration — https://docs.coderabbit.ai/reference/configuration
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit is free for public repos, but it only runs *automatically* once the
+# repo has ≥ 10 GitHub stars. Below that, trigger each review by hand: check the
+# "Trigger review" box in CodeRabbit's PR comment, or comment `@coderabbitai review`.
 language: en-US
 reviews:
   profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: true
   auto_review:
     enabled: true
     drafts: false
-  # Codex is the primary reviewer; CodeRabbit is a second pass. Keep it terse.
-  high_level_summary: true
-  poem: false
+    base_branches:
+      - ".*"
+  # Vendored / generated third-party code — not ours to lint (mirrors .deepscanignore).
+  path_filters:
+    - "!lib/**"
+    - "!shared/piper/piper-o91UDS6e.js"
+    - "!shared/piper/piper-tts-web.js"
+    - "!shared/piper/voices_static-D_OtJDHM.js"
+  path_instructions:
+    - path: "test/**"
+      instructions: >-
+        Test scaffolding. Flag real logic errors and broken assertions; do not
+        nitpick style, globals used for isolation, or duplication between cases.
+    - path: "shared/**"
+      instructions: >-
+        Extension code shared by reader.js / pdfview.js / inpage.js. Watch for
+        anything that assumes one host page, leaks listeners/timers on destroy,
+        or blocks a user-gesture-gated API behind an await.
 chat:
   auto_reply: true
