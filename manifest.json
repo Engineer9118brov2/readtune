@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js"],
+      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js", "shared/page-audio.js"],
       "matches": ["<all_urls>"]
     }
   ],

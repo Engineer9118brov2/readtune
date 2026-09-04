@@ -34,6 +34,7 @@ var __readtuneBoot = (async () => {
   const { measuredLineHeight, adaptiveRulerHeight, normalizeRulerLines, rulerSpanLabel } = await import(
     chrome.runtime.getURL("shared/ruler.js")
   );
+  const { findPageNarration } = await import(chrome.runtime.getURL("shared/page-audio.js"));
 
   const FONT_ORDER = ["sans", "dyslexic", "atkinson", "lexend"];
   const FONT_LABEL = { sans: "System Sans", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
@@ -179,6 +180,7 @@ var __readtuneBoot = (async () => {
        <button data-a="tint"  title="Reading tint" aria-label="Reading tint"><span class="dot" data-l="tint"></span><span>Tint</span></button>
        <button data-a="bionic" title="Bold the start of each word" aria-label="Bionic bolding">Bionic</button>
        <button data-a="ruler" title="Line guide that follows your cursor" aria-label="Reading ruler">Ruler&nbsp;<i data-l="ruler"></i></button>
+       <button data-a="pageaudio" hidden></button>
        <span class="sep"></span>
        <button data-a="reader" title="Open the full Reader View" aria-label="Open Reader View">Reader&nbsp;View</button>
        <button data-a="off"   title="Turn ReadTune off on this page" aria-label="Turn off">Done</button>
@@ -202,6 +204,95 @@ var __readtuneBoot = (async () => {
       "aria-label",
       profile.focus === "ruler" ? `Reading ruler on, ${rulerSpanLabel(rulerLines)}` : `Turn on reading ruler, ${rulerSpanLabel(rulerLines)}`
     );
+  }
+
+  /* ---------- the page's own narration ("Listen to this article") ---------- */
+  const pageAudioBtn = root.querySelector('[data-a="pageaudio"]');
+  let narration = null; // { kind, el }
+  let narrationAudio = null; // the <audio> element we attached listeners to
+  const narrationRetries = [];
+
+  function paintPageAudio() {
+    if (!narration) {
+      pageAudioBtn.hidden = true;
+      return;
+    }
+    pageAudioBtn.hidden = false;
+    if (narration.kind === "audio") {
+      const playing = !narration.el.paused && !narration.el.ended;
+      pageAudioBtn.textContent = playing ? "❙❙ Page audio" : "▶ Page audio";
+      pageAudioBtn.title = playing ? "Pause the page's own narration" : "Play the page's own narration";
+      pageAudioBtn.classList.toggle("on", playing);
+    } else if (narration.kind === "embed") {
+      pageAudioBtn.textContent = "♪ Podcast";
+      pageAudioBtn.title = "This page embeds a podcast — jump to the player";
+      pageAudioBtn.classList.remove("on");
+    } else if (narration.el.matches('button, [role="button"], input')) {
+      pageAudioBtn.textContent = "▶ Page audio";
+      pageAudioBtn.title = "This page has its own “Listen” — start the page's player";
+      pageAudioBtn.classList.remove("on");
+    } else {
+      pageAudioBtn.textContent = "♪ Page audio";
+      pageAudioBtn.title = "Jump to this page's own “Listen to this article”";
+      pageAudioBtn.classList.remove("on");
+    }
+    pageAudioBtn.setAttribute("aria-label", pageAudioBtn.title);
+  }
+
+  function detachNarrationAudio() {
+    if (!narrationAudio) return;
+    narrationAudio.removeEventListener("play", paintPageAudio);
+    narrationAudio.removeEventListener("pause", paintPageAudio);
+    narrationAudio.removeEventListener("ended", paintPageAudio);
+    narrationAudio = null;
+  }
+
+  function mountNarration() {
+    if (removed || narration) return;
+    let found = null;
+    try {
+      found = findPageNarration(document);
+    } catch {
+      found = null;
+    }
+    if (!found) return;
+    narration = found;
+    if (narration.kind === "audio") {
+      narrationAudio = narration.el;
+      narrationAudio.addEventListener("play", paintPageAudio);
+      narrationAudio.addEventListener("pause", paintPageAudio);
+      narrationAudio.addEventListener("ended", paintPageAudio);
+    }
+    paintPageAudio();
+  }
+
+  function triggerPageAudio() {
+    if (!narration) return;
+    if (narration.kind === "audio") {
+      if (narration.el.paused || narration.el.ended) {
+        const p = narration.el.play();
+        if (p && p.catch) p.catch(() => {});
+      } else {
+        narration.el.pause();
+      }
+      paintPageAudio();
+      return;
+    }
+    // embed / control: bring it into view, then hand off to the page's own UI.
+    try {
+      narration.el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      narration.el.scrollIntoView();
+    }
+    // Click a real button for the reader; for a bare link, just reveal it and
+    // let them decide — a synthetic click could navigate the whole page away.
+    if (narration.kind === "control" && narration.el.matches('button, [role="button"], input')) {
+      try {
+        narration.el.click();
+      } catch {
+        /* the page's handler threw — nothing we can do */
+      }
+    }
   }
 
   root.querySelector(".bar").addEventListener("click", async (e) => {
@@ -229,7 +320,10 @@ var __readtuneBoot = (async () => {
         patch.rulerLines = 1;
       }
     }
-    else if (a === "reader") {
+    else if (a === "pageaudio") {
+      triggerPageAudio();
+      return;
+    } else if (a === "reader") {
       chrome.runtime.sendMessage({ type: "readtune-open-reader" });
       return;
     } else if (a === "off") {
@@ -265,6 +359,8 @@ var __readtuneBoot = (async () => {
     removed = true;
     chrome.storage.onChanged.removeListener(onStorage);
     window.removeEventListener("pointermove", onPointer);
+    narrationRetries.forEach(clearTimeout);
+    detachNarrationAudio();
     removeBionic();
     styleEl.remove();
     barHost.remove();
@@ -282,6 +378,15 @@ var __readtuneBoot = (async () => {
   applyBionic(profile.bionic);
   applyRuler(profile.focus === "ruler");
   paintBar();
+
+  // Look for the page's own "Listen to this article" now, and again shortly
+  // after in case its player is lazy-loaded. Stops once something is found.
+  mountNarration();
+  for (const delay of [1400, 4000]) {
+    narrationRetries.push(setTimeout(() => {
+      if (!narration && !removed) mountNarration();
+    }, delay));
+  }
 })();
 
 // File injection itself is synchronous; expose the async boot so callers

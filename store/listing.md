@@ -98,6 +98,7 @@ Reading help (optional AI)
 Where it works
 • Reader View — pulls the article out of any page and re-renders it
 • "Restyle this page" — reformats the page you're already on, in place, with a small floating bar; toggle off to restore it exactly
+• If the page you're restyling publishes its own "Listen to this article" audio or an embedded podcast of the piece, the bar adds a button to play it — ReadTune points you at the page's own narration rather than reading over it
 • PDF mode — extracts text from a worksheet or handout and reads it through the same engine
 • Optional per-site automation: auto-open Reader View, or auto-restyle, on a site you choose (asks for that one site's permission only when you turn it on)
 

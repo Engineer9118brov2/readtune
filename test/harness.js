@@ -94,6 +94,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const TTS = await import("../shared/tts.js");
   const EL = await import("../shared/elevenlabs.js");
   const IP = await import("../shared/inpage-style.js");
+  const PA = await import("../shared/page-audio.js");
   const RU = await import("../shared/ruler.js");
   const PI = await import("../shared/piper.js");
   const CS = await import("../shared/calibration-score.js");
@@ -117,6 +118,19 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(!!inpageDoc.getElementById("readtune-ruler"), "in-page restyle creates the reading ruler");
   const inpageBar = inpageDoc.getElementById("readtune-bar-host");
   assert(inpageBar && inpageBar.shadowRoot && inpageBar.shadowRoot.querySelectorAll("button").length >= 8, "in-page restyle renders isolated controls");
+  const pageAudioBtn = inpageBar.shadowRoot.querySelector('[data-a="pageaudio"]');
+  assert(pageAudioBtn && !pageAudioBtn.hidden, "in-page restyle surfaces the page's own 'Listen to this article' audio");
+  assert(pageAudioBtn && /page audio/i.test(pageAudioBtn.textContent), "the page-audio button is labelled for the page's own narration");
+  const pageAudioEl = inpageDoc.querySelector("figure.article-audio audio");
+  let paused = true;
+  pageAudioEl.play = () => { paused = false; pageAudioEl.dispatchEvent(new Event("play")); return Promise.resolve(); };
+  pageAudioEl.pause = () => { paused = true; pageAudioEl.dispatchEvent(new Event("pause")); };
+  Object.defineProperty(pageAudioEl, "paused", { get: () => paused });
+  pageAudioBtn.click();
+  assert(!paused && pageAudioBtn.classList.contains("on"), "clicking it plays the page's own audio and marks the button active");
+  pageAudioBtn.click();
+  assert(paused && !pageAudioBtn.classList.contains("on"), "clicking again pauses it");
+
   inpageWindow.__readtuneInpage.toggleOff();
   assert(!inpageDoc.documentElement.classList.contains("rt-inpage") && !inpageDoc.getElementById("readtune-bar-host"), "in-page restyle removes itself cleanly");
 
@@ -463,6 +477,39 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(/color-scheme: dark/.test(ipDark) && /-webkit-text-fill-color: var\(--rt-inpage-ink\)/.test(ipDark), "inpageCSS dark tint forces readable text");
   const ipNone = IP.inpageCSS({ ...S.DEFAULT_PROFILE, overlay: "none" }, "");
   assert(!/background: #/.test(ipNone.replace(/#readtune-ruler[^}]+}/g, "")), "inpageCSS overlay=none leaves page colours alone");
+
+  /* ---- page-narration detection (shared/page-audio.js) ---- */
+  const parseDoc = (html) => new DOMParser().parseFromString(html, "text/html");
+  assert(
+    PA.findPageNarration(parseDoc("<p>Just an article, no audio anywhere.</p>")) === null,
+    "page-audio: a plain article yields no narration handle",
+  );
+  const audioHit = PA.findPageNarration(
+    parseDoc('<figure><figcaption>Listen</figcaption><audio src="/story.mp3"></audio></figure><iframe src="https://open.spotify.com/embed/episode/x"></iframe>'),
+  );
+  assert(audioHit && audioHit.kind === "audio", "page-audio: a real <audio> element is preferred over an embed");
+  const embedHit = PA.findPageNarration(parseDoc('<iframe src="https://player.simplecast.com/abc"></iframe>'));
+  assert(embedHit && embedHit.kind === "embed", "page-audio: a podcast iframe is detected as an embed");
+  assert(
+    PA.findPageNarration(parseDoc('<iframe src="https://www.youtube.com/embed/xyz"></iframe>')) === null,
+    "page-audio: a YouTube iframe is not treated as narration",
+  );
+  const bench = document.createElement("div");
+  bench.innerHTML =
+    '<a href="/x">Related stories</a>' +
+    '<button aria-label="Play video">▶</button>' +
+    '<button id="pa-listen">Listen to this article</button>';
+  document.body.appendChild(bench);
+  const ctrlHit = PA.findPageNarration(document);
+  assert(ctrlHit && ctrlHit.kind === "control" && ctrlHit.el.id === "pa-listen", "page-audio: a visible 'Listen to this article' button is found, 'Play video' is skipped");
+  bench.querySelector("#pa-listen").textContent = "Listen to the playlist";
+  assert(PA.findPageNarration(document) === null, "page-audio: 'playlist' in the label disqualifies a control");
+  bench.remove();
+  const own = document.createElement("div");
+  own.innerHTML = '<div data-say><button>Read this page aloud</button></div>';
+  document.body.appendChild(own);
+  assert(PA.findPageNarration(document) === null, "page-audio: ReadTune's own read-aloud controls are ignored");
+  own.remove();
 
   /* ---- controls: read-aloud engine picker (Piper on-device + optional key) ---- */
   let ttsPatch = null;
