@@ -14,10 +14,11 @@
  *   • Reading speed is de-trended for practice effect (a small linear fit across
  *     passage position is subtracted) before anything is compared.
  *   • Passages are drawn from a pool (`shared/calibration-passages.js`) with no
- *     repeat until the pool is exhausted, so a retake isn't contaminated by
- *     remembering the text. Each carries a CLOZE check — two words blanked in a
- *     middle sentence — that you can't answer from the title or a skim, so the
- *     comprehension signal is hard to fake.
+ *     repeat until the pool is exhausted (seen ids persisted separately from the
+ *     append-only history), so a retake isn't contaminated by remembering the
+ *     text. Each carries a CLOZE check — two words blanked in a middle sentence
+ *     — that you can't answer from the title or a skim. A wrong cloze re-runs
+ *     that dimension once on a fresh passage rather than scoring a misread.
  *   • Speed, comprehension and a 1–5 ease rating are combined per dimension; a
  *     dimension is only kept if it clears a margin. If nothing does, the test
  *     says so honestly rather than inventing a winner.
@@ -33,6 +34,8 @@ import {
   writeProfile,
   appendCalibration,
   loadCalibrations,
+  loadSeenPassages,
+  saveSeenPassages,
   markSetupStep,
   loadSetup,
   extUrl,
@@ -107,21 +110,10 @@ const passageSurface = $("passage-surface");
 const passageView = createReadingView($("passage-view"));
 const voiceFitUrl = () => extUrl("lab.html?focus=voice&source=calibration");
 
-/* All passage ids this browser has already been shown, newest last — drawn
- * from the calibration history so a retake doesn't reuse text the reader
- * might remember. */
-async function seenPassageIds() {
-  try {
-    const history = await loadCalibrations();
-    return history.flatMap((h) => (Array.isArray(h.passages) ? h.passages.map((p) => p.id).filter(Boolean) : []));
-  } catch {
-    return [];
-  }
-}
-
 /* run order: warm-up, baseline, then the non-baseline dimensions shuffled —
- * each with a distinct pool passage. */
+ * each with a distinct pool passage, plus two spares for cloze re-runs. */
 let sequence = [];
+let spares = [];
 async function buildSequence() {
   const variants = DIMENSIONS.filter((d) => d.key !== "baseline");
   for (let i = variants.length - 1; i > 0; i--) {
@@ -129,7 +121,9 @@ async function buildSequence() {
     [variants[i], variants[j]] = [variants[j], variants[i]];
   }
   const ordered = [DIMENSIONS.find((d) => d.key === "baseline"), ...variants];
-  const { passages } = pickPassages(ordered.length, await seenPassageIds());
+  const { passages, seenIds } = pickPassages(ordered.length + 2, await loadSeenPassages());
+  await saveSeenPassages(seenIds);
+  spares = passages.slice(ordered.length);
   sequence = [
     { warmup: true, passage: WARMUP, dim: null },
     ...ordered.map((dim, k) => ({ warmup: false, passage: passages[k], dim })),
@@ -211,9 +205,22 @@ function showQuiz() {
     b.className = "cal-option";
     b.textContent = pair.join(" · ");
     b.addEventListener("click", () => {
-      current._correct = oi === correctIndex;
-      if (current.warmup) advance();
-      else show("ease");
+      const right = oi === correctIndex;
+      if (current.warmup) {
+        current._correct = right;
+        return advance();
+      }
+      /* A wrong cloze means the reading didn't really land — that passage's
+         speed and ease are noise. Re-run the dimension once on a fresh passage
+         rather than feeding a bad data point into the score. */
+      if (!right && !current._retried && spares.length) {
+        current._retried = true;
+        sequence[step].passage = spares.shift();
+        startPassage();
+        return;
+      }
+      current._correct = right;
+      show("ease");
     });
     box.appendChild(b);
   });
@@ -266,6 +273,7 @@ async function finish() {
   const saved = (await writeProfile(profile)) || profile;
 
   await appendCalibration({
+    method: "cloze-v2", // baseline = research starter, cloze comprehension, no chunk dim
     kept,
     profile: saved,
     speedInformative,

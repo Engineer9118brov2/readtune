@@ -131,13 +131,26 @@ export function pickPassages(count, seenIds = [], rand = Math.random) {
   const seen = new Set(seenIds);
   const unseen = CALIBRATION_PASSAGES.filter((p) => !seen.has(p.id));
   const cycled = unseen.length < count;
-  // On a cycle, carry nothing forward except "don't immediately repeat the
-  // very last passage the reader saw".
+
+  if (!cycled) {
+    const passages = shuffle(unseen, rand).slice(0, count);
+    return { passages, seenIds: [...seenIds, ...passages.map((p) => p.id)], cycled: false };
+  }
+
+  // Pool exhausted: take every remaining unseen passage first, then top up from
+  // a fresh cycle — never leave an unseen passage on the table by resetting
+  // early. The top-up avoids an immediate repeat of the reader's last passage.
   const lastSeen = seenIds[seenIds.length - 1];
-  const pool = cycled ? CALIBRATION_PASSAGES.filter((p) => p.id !== lastSeen) : unseen;
-  const carry = cycled ? [] : seenIds;
-  const passages = shuffle(pool, rand).slice(0, count);
-  return { passages, seenIds: [...carry, ...passages.map((p) => p.id)], cycled };
+  const picked = shuffle(unseen, rand);
+  const need = count - picked.length;
+  const pickedIds = new Set(picked.map((p) => p.id));
+  const fresh = shuffle(
+    CALIBRATION_PASSAGES.filter((p) => !pickedIds.has(p.id) && p.id !== lastSeen),
+    rand,
+  ).slice(0, need);
+  const passages = [...picked, ...fresh];
+  // Fresh cycle: the carried seen-set is just what this run showed.
+  return { passages, seenIds: passages.map((p) => p.id), cycled: true };
 }
 
 const BLANK_RE = /\{\{([^}]+)\}\}/g;

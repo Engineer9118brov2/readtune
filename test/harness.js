@@ -237,6 +237,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.saveSetup({ voiceFitAt: 22 });
   const setup1 = await S.loadSetup();
   assert(setup1.calibratedAt === 11 && setup1.voiceFitAt === 22, "setup progress round-trip");
+  assert((await S.loadSeenPassages()).length === 0, "seen-passages starts empty");
+  await S.saveSeenPassages(["a", "b", 3, null, "c"]);
+  assert(JSON.stringify(await S.loadSeenPassages()) === JSON.stringify(["a", "b", "c"]), "seen-passages round-trips, dropping non-strings");
+  await S.saveSeenPassages(Array.from({ length: 60 }, (_, i) => "p" + i));
+  assert((await S.loadSeenPassages()).length === 40, "seen-passages is capped so it can't grow without bound");
   await S.writeProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence", font: "lexend" });
   const lp2 = await S.loadProfile();
   assert(lp2.font === "lexend" && lp2.pacing === "flow", "pacing is session-only");
@@ -497,9 +502,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       if (run === 0) assert(!cycled, "first run doesn't cycle");
     }
     assert(new Set(runIds).size === 10, "two back-to-back runs of 5 share no passage");
+    const remaining = pool.filter((p) => !new Set(seen).has(p.id)).map((p) => p.id);
     const third = CP.pickPassages(5, seen);
     assert(third.cycled && third.passages.length === 5, "the third run cycles the pool rather than running short");
+    assert(remaining.every((id) => third.passages.some((p) => p.id === id)), "a cycle still hands over every not-yet-seen passage before repeating any");
     assert(!third.passages.some((p) => p.id === seen[seen.length - 1]), "a cycle still avoids an immediate repeat of the very last passage");
+    assert(third.seenIds.length === 5 && third.seenIds.every((id, i, a) => a.indexOf(id) === i), "a cycle resets the seen-set to just this run's passages");
+
+    // the calibration draws count + 2 spares for cloze re-runs
+    const withSpares = CP.pickPassages(7, []);
+    assert(withSpares.passages.length === 7 && new Set(withSpares.passages.map((p) => p.id)).size === 7, "a 7-passage draw (5 + 2 spares) returns 7 distinct passages");
   }
 
   /* ---- ElevenLabs read-aloud ---- */

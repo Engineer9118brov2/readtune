@@ -12,18 +12,14 @@
         window.chrome = {
           runtime: { getURL: (p) => new URL("../" + String(p).replace(/^\.?\//, ""), location.href).href, id: "sandbox" },
           permissions: { contains: async () => false, request: async () => false, remove: async () => true },
-          storage: {
-            local: {
+          storage: { local: {
               async get(k) { return k == null ? { ...mem.local } : { [k]: mem.local[k] }; },
               async set(v) { Object.assign(mem.local, v); },
-              async remove(k) { delete mem.local[k]; },
-            },
+              async remove(k) { delete mem.local[k]; } },
             session: {
               async get(k) { return k == null ? { ...mem.session } : { [k]: mem.session[k] }; },
               async set(v) { Object.assign(mem.session, v); },
-              async remove(k) { delete mem.session[k]; },
-            },
-          },
+              async remove(k) { delete mem.session[k]; } } },
         };
       })();
     </script>

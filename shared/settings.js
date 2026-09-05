@@ -17,6 +17,7 @@ export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle 
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
 export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
+export const CAL_SEEN_KEY = "readtune_cal_seen"; // calibration passage ids already shown (for no-repeat draw)
 
 export const FONTS = {
   sans: { label: "System Sans", stack: 'var(--rt-reading-font)' },
@@ -290,6 +291,31 @@ export async function loadCalibrations() {
     return Array.isArray(got && got[HISTORY_KEY]) ? got[HISTORY_KEY] : [];
   } catch (err) {
     console.warn("[ReadTune] loadCalibrations failed:", err);
+    return [];
+  }
+}
+
+/* Passage ids the calibration has already shown, so a retake draws fresh text.
+   Kept separate from the append-only history: pickPassages resets this set when
+   it cycles the pool, and the history can't represent a reset. */
+export async function loadSeenPassages() {
+  try {
+    const got = await chrome.storage.local.get(CAL_SEEN_KEY);
+    const list = got && got[CAL_SEEN_KEY];
+    return Array.isArray(list) ? list.filter((x) => typeof x === "string") : [];
+  } catch (err) {
+    console.warn("[ReadTune] loadSeenPassages failed:", err);
+    return [];
+  }
+}
+
+export async function saveSeenPassages(ids) {
+  try {
+    const list = Array.isArray(ids) ? ids.filter((x) => typeof x === "string").slice(-40) : [];
+    await chrome.storage.local.set({ [CAL_SEEN_KEY]: list });
+    return list;
+  } catch (err) {
+    console.warn("[ReadTune] saveSeenPassages failed:", err);
     return [];
   }
 }
