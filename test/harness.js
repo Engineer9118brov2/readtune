@@ -741,6 +741,37 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       S.normalizeProfile({ ttsRate: S.RANGES.ttsRate.max + 5 }).ttsRate <= S.RANGES.ttsRate.max,
       "a rate beyond the slider is still clamped",
     );
+
+    /* One clamp for the whole app — clampRate. normalizeProfile's own clamp
+       must agree with it at both ends, or a saved rate and a live rate can
+       differ. */
+    assert(
+      S.clampRate(0.1) === S.RANGES.ttsRate.min && S.clampRate(99) === S.RANGES.ttsRate.max &&
+        S.clampRate(0) === S.RANGES.ttsRate.min && S.clampRate("x") === 1 && S.clampRate(Infinity) === 1,
+      "clampRate pins any real number (0 included) to the shared range and only a non-finite value defaults to 1×",
+    );
+    assert(
+      S.normalizeProfile({ ttsRate: 0.1 }).ttsRate === S.clampRate(0.1) &&
+        S.normalizeProfile({ ttsRate: 99 }).ttsRate === S.clampRate(99),
+      "normalizeProfile's rate clamp agrees with clampRate",
+    );
+
+    /* Piper word-timing estimate (the model emits no timings). */
+    const wp = TTS.wordDurationWeights(["The", "quiet", "river", "bends."]);
+    assert(
+      wp.length === 4 && Math.abs(wp[3] - 1) < 1e-9 && wp[0] < wp[1] && wp[1] < wp[2] && wp[2] < wp[3],
+      "wordDurationWeights returns a rising cumulative curve ending at 1",
+    );
+    const wpPause = TTS.wordDurationWeights(["Wait.", "Go"]);
+    assert(wpPause[0] > 0.5, "a mid-sentence word ending in a mark carries a pause, so it takes more than its share of the clip");
+    assert(
+      TTS.wordDurationWeights(["Go", "now."])[0] === TTS.wordDurationWeights(["Go", "now"])[0],
+      "terminal punctuation on the last word doesn't shift the earlier boundaries (it can't extend a hold that already runs to the end)",
+    );
+    assert(
+      TTS.wordAtFraction(wp, 0) === 0 && TTS.wordAtFraction(wp, 1) === 3 && TTS.wordAtFraction(wp, 0.99) === 3,
+      "wordAtFraction maps elapsed fraction to the word being spoken, clamped at the ends",
+    );
   }
 
   /* ---- panel: tint picking without the OS colour panel ---- */

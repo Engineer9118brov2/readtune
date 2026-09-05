@@ -18,6 +18,7 @@ import {
   forgetTTSKey,
   applyDyslexicUi,
   nextTtsRate,
+  clampRate,
   DEFAULT_PROFILE,
 } from "./settings.js";
 import { applyTypography, paintPage } from "./render.js";
@@ -385,7 +386,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         });
         previewAudioUrl = URL.createObjectURL(audio);
         previewAudio = new Audio(previewAudioUrl);
-        previewAudio.playbackRate = profile.ttsRate;
+        previewAudio.playbackRate = clampRate(profile.ttsRate);
         previewAudio.onended = previewAudio.onerror = () => stopPreview();
         previewAudio.play().catch(() => {});
       } catch (e) {

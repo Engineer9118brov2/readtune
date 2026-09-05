@@ -17,6 +17,7 @@ import {
   extUrl,
   describeProfile,
   applyDyslexicUi,
+  clampRate,
   FONTS,
 } from "./shared/settings.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
@@ -240,11 +241,13 @@ async function speakVoicePreview(voice) {
         renderVoiceSummary();
       },
     });
-    const blob = await piperPreview.synthesize(VOICE_SAMPLE);
+    /* Preview at the reader's real speed, baked into synthesis like read-aloud
+       proper — so the audition matches what Reader View will actually sound
+       like, at any speed on the dial. */
+    const blob = await piperPreview.synthesize(VOICE_SAMPLE, { rate: clampRate(profile && profile.ttsRate) });
     if (run !== previewRun) return;
     piperPreviewUrl = URL.createObjectURL(blob);
     piperPreviewAudio = new Audio(piperPreviewUrl);
-    piperPreviewAudio.playbackRate = Math.max(0.75, Math.min(1.3, (profile && profile.ttsRate) || 1));
     piperPreviewAudio.onended = piperPreviewAudio.onerror = () => {
       if (run !== previewRun) return;
       stopVoicePreview();

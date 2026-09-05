@@ -203,6 +203,22 @@ async function fetchBlob(url, callback) {
   }
   return new Blob(chunks, { type: res.headers.get("Content-Type") ?? void 0 });
 }
+/* ReadTune patch: drop the model's leading/trailing near-silence so
+   audio.duration is the *speech* duration, not speech + padding. The word
+   highlighter estimates position as a fraction of duration, so the padding
+   was making the mark trail the voice, worse toward the end of each sentence. */
+function trimSilence(pcm, sampleRate) {
+  const threshold = 0.006; // ~ -44 dBFS
+  const pad = Math.round(sampleRate * 0.03); // keep 30 ms so onsets aren't clipped
+  let start = 0;
+  let end = pcm.length;
+  while (start < end && Math.abs(pcm[start]) < threshold) start++;
+  while (end > start && Math.abs(pcm[end - 1]) < threshold) end--;
+  start = Math.max(0, start - pad);
+  end = Math.min(pcm.length, end + pad);
+  if (end - start < sampleRate * 0.05) return pcm; // never hand back near-empty
+  return start === 0 && end === pcm.length ? pcm : pcm.subarray(start, end);
+}
 function pcm2wav(buffer, numChannels, sampleRate) {
   const bufferLength = buffer.length;
   const headerLength = 44;
@@ -310,10 +326,17 @@ const _TtsSession = class _TtsSession {
       { executionProviders: ["wasm"] }
     ));
   }
-  async predict(text) {
+  async predict(text, opts = {}) {
     var _a, _b, _c, _d, _e;
     await this.waitReady;
     const sampleRate = __privateGet(this, _modelConfig).audio.sample_rate;
+    /* ReadTune patch: bake the reader's chosen speed into synthesis via the
+       VITS length_scale (higher = slower) instead of resampling the finished
+       audio with playbackRate. A time-stretched short clip sounds mushy and
+       reads as "not really 0.8x"; length_scale is exact and pitch-preserving. */
+    const baseLengthScale = __privateGet(this, _modelConfig).inference.length_scale;
+    const rate = Number(opts.rate) > 0 ? Number(opts.rate) : 1;
+    const lengthScale = baseLengthScale / rate;
     const chunks = splitIntoChunks(text);
     if (chunks.length === 0) throw new Error("No text to predict on.");
     if (chunks.length > 1)
@@ -331,7 +354,7 @@ const _TtsSession = class _TtsSession {
           total: chunks.length
         });
       }
-      pcms.push(await __privateMethod(this, _TtsSession_instances, predictChunk_fn).call(this, chunks[i]));
+      pcms.push(await __privateMethod(this, _TtsSession_instances, predictChunk_fn).call(this, chunks[i], lengthScale));
     }
     if (chunks.length > 1) {
       (_d = __privateGet(this, _logger)) == null ? void 0 : _d.call(this, "TTS inference: all chunks complete.");
@@ -348,7 +371,8 @@ const _TtsSession = class _TtsSession {
       merged.set(pcm, offset);
       offset += pcm.length;
     }
-    return new Blob([pcm2wav(merged, 1, sampleRate)], {
+    const out = opts.trim === false ? merged : trimSilence(merged, sampleRate);
+    return new Blob([pcm2wav(out, 1, sampleRate)], {
       type: "audio/x-wav"
     });
   }
@@ -361,7 +385,7 @@ _progressCallback = new WeakMap();
 _wasmPaths = new WeakMap();
 _logger = new WeakMap();
 _TtsSession_instances = new WeakSet();
-predictChunk_fn = async function(text) {
+predictChunk_fn = async function(text, lengthScaleArg) {
   const input = JSON.stringify([{ text: text.trim() }]);
   const phonemeIds = await new Promise(async (resolve) => {
     const module = await __privateGet(this, _createPiperPhonemize).call(this, {
@@ -388,7 +412,7 @@ predictChunk_fn = async function(text) {
   });
   const speakerId = 0;
   const noiseScale = __privateGet(this, _modelConfig).inference.noise_scale;
-  const lengthScale = __privateGet(this, _modelConfig).inference.length_scale;
+  const lengthScale = Number(lengthScaleArg) > 0 ? Number(lengthScaleArg) : __privateGet(this, _modelConfig).inference.length_scale;
   const noiseW = __privateGet(this, _modelConfig).inference.noise_w;
   const session = __privateGet(this, _ortSession);
   const feeds = {
