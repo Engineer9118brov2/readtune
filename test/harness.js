@@ -440,6 +440,68 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(manualSummary.profile.font === "lexend" && /Lexend/.test(manualSummary.profileTitle), "insights: current saved profile beats stale history snapshot");
   assert(CI.buildProfileTitle({ font: "atkinson" }, ["spacing", "chunk"]) === "Atkinson Hyperlegible + roomier spacing", "guided pacing stays out of default profile title");
 
+  /* ---- calibration passage pool (guess-resistant cloze + no-repeat draw) ---- */
+  {
+    const CP = await import("../shared/calibration-passages.js");
+    const mulberry32 = (seed) => () => {
+      seed |= 0;
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const pool = CP.CALIBRATION_PASSAGES;
+    assert(pool.length >= 10, "the passage pool is big enough to run twice without repeats (" + pool.length + ")");
+    const ids = new Set(pool.map((p) => p.id));
+    assert(ids.size === pool.length, "every passage id is unique");
+    let poolOk = true;
+    for (const p of pool) {
+      const blanks = (p.text.match(/\{\{[^}]+\}\}/g) || []).map((m) => m.slice(2, -2));
+      const wc = CP.plainText(p.text).trim().split(/\s+/).length;
+      if (
+        blanks.length !== 2 ||
+        blanks.join("|") !== p.answer.join("|") ||
+        !Array.isArray(p.distractors) ||
+        p.distractors.length !== 3 ||
+        !p.distractors.every((d) => Array.isArray(d) && d.length === 2) ||
+        wc < 34 || wc > 62
+      ) {
+        poolOk = false;
+        log("passage '" + p.id + "' is malformed (blanks=" + blanks.length + " words=" + wc + ")", false);
+      }
+    }
+    assert(poolOk, "every passage: exactly 2 blanks matching answer, 3 two-word distractors, 34–62 words");
+
+    // cloze text / plain text
+    const sample = pool[0];
+    assert(!/\{\{|\}\}/.test(CP.clozeText(sample.text)) && CP.clozeText(sample.text).includes("____"), "clozeText replaces every marker with a blank");
+    assert(CP.plainText(sample.text).includes(sample.answer[0]) && !/\{\{/.test(CP.plainText(sample.text)), "plainText restores the words, drops the markers");
+
+    // options: correctIndex actually points at the answer pair, whatever the shuffle
+    let optOk = true;
+    for (let s = 0; s < 12; s++) {
+      const r = mulberry32(s * 7 + 1);
+      const { options, correctIndex } = CP.clozeOptions(sample, r);
+      if (options.length !== 4 || options[correctIndex].join("|") !== sample.answer.join("|")) optOk = false;
+    }
+    assert(optOk, "clozeOptions: four options, correctIndex points at the answer pair for any shuffle");
+
+    // no-repeat draw, then a clean cycle once the pool is exhausted
+    let seen = [];
+    const runIds = [];
+    for (let run = 0; run < 2; run++) {
+      const { passages, seenIds, cycled } = CP.pickPassages(5, seen);
+      assert(passages.length === 5, "pickPassages returns the requested count");
+      runIds.push(...passages.map((p) => p.id));
+      seen = seenIds;
+      if (run === 0) assert(!cycled, "first run doesn't cycle");
+    }
+    assert(new Set(runIds).size === 10, "two back-to-back runs of 5 share no passage");
+    const third = CP.pickPassages(5, seen);
+    assert(third.cycled && third.passages.length === 5, "the third run cycles the pool rather than running short");
+    assert(!third.passages.some((p) => p.id === seen[seen.length - 1]), "a cycle still avoids an immediate repeat of the very last passage");
+  }
+
   /* ---- ElevenLabs read-aloud ---- */
   const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };
   assert(EL.charIndexAt(align, 0) === 0 && EL.charIndexAt(align, 0.7) === 1 && EL.charIndexAt(align, 2.0) === 3 && EL.charIndexAt(align, 99) === 4, "charIndexAt binary search");

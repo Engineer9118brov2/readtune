@@ -126,6 +126,30 @@
   margin: 12px 0 0;
 }
 
+.cal-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 6px;
+}
+.cal-intro-actions .rt-btn {
+  margin-top: 0;
+}
+
+.cal-cloze {
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+  line-height: 1.7;
+  color: var(--rt-ui-ink);
+  max-width: 52ch;
+  margin: 0 auto 16px;
+  text-align: left;
+}
+
 .cal-options {
   display: flex;
   flex-direction: column;

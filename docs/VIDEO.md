@@ -37,10 +37,11 @@ of their reaction.)*
 
 Screen-record the test. Talk over it:
 
-> "Six short passages. Each one changes exactly *one* thing — here it's the
-> spacing, here it's the font, here it's one sentence at a time. It times my
-> reading, corrects for the fact that everyone speeds up as they go, asks me a
-> quick question so I can't just skim, and asks how it felt."
+> "Five short passages — or I skip it and just start reading. Each one changes
+> exactly *one* thing from a clean, research-backed page — here it's the
+> spacing, here it's the font. It times my reading, corrects for the fact that
+> everyone speeds up as they go, then blanks out two words and makes me pick
+> them — so a skim doesn't count — and asks how it felt."
 
 Land on the results screen. Point at the breakdown:
 
@@ -70,9 +71,9 @@ Land on the results screen. Point at the breakdown:
 > people who need it most are the ones who can't pay for it, and it's private
 > because it genuinely never needs to send your reading anywhere."
 >
-> "It's not a cure and I'm not claiming the two-minute test is a clinical
-> assessment. It's a good starting point instead of a wall of toggles. That's
-> the whole idea."
+> "It's not a cure and I'm not claiming the three-minute test is a clinical
+> assessment. It's a good starting point instead of a wall of toggles — and you
+> can skip it and start reading. That's the whole idea."
 
 *(End card: the name, "load unpacked — no store needed", the repo link.)*
 
@@ -82,7 +83,7 @@ Land on the results screen. Point at the breakdown:
 
 - [ ] Real-person clip (highest priority — even 10 seconds)
 - [ ] Competitor comparison table on screen, ~4 s
-- [ ] Calibration: one passage of each type, then the results/breakdown screen
+- [ ] Calibration: a passage + its cloze check, then the results/breakdown screen (or show the "Start reading now" skip)
 - [ ] Reader View on a recognisable news site
 - [ ] Alt+Shift+R in-place restyle on the same site
 - [ ] PDF mode on a real worksheet

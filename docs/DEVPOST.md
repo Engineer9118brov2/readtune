@@ -28,13 +28,16 @@ nothing.
 
 ## What ReadTune does differently
 
-**It runs the experiment on you.** The first thing you do is a ~4-minute
-calibration test: a warm-up, then six short passages. Each passage changes
-*exactly one* thing from plain text — the font, the spacing, bionic bolding, or
-showing one sentence at a time. It times your reading (correcting for the
-speed-up everyone gets from practice), asks one comprehension question, and asks
-how each one felt. Then it scores every change against *your own* baseline and
-tells you which ones helped:
+**It runs the experiment on you.** The first thing you do is a ~3-minute
+calibration test — or you skip it and start reading on a research-backed
+default. The test is a warm-up, then five short passages. Each passage changes
+*exactly one* thing from that research-backed page — the font, the spacing, or
+bionic bolding. It times your reading (correcting for the speed-up everyone gets
+from practice), runs a **cloze check** (two words blanked in a middle sentence,
+pick the missing pair — you can't answer it from the title or a skim), and asks
+how each one felt. Passages are drawn from a pool and never repeat on a retake.
+Then it scores every change against a genuinely good baseline and tells you
+which ones helped:
 
 > *"Roomier spacing helped you most — about 22% faster. OpenDyslexic didn't help
 > you. We turned spacing up and left the font standard."*
@@ -102,11 +105,12 @@ The calibration scoring is a small, testable model:
 
 ## What we're honest about
 
-The calibration test is a **quick estimate from six short readings, not a
+The calibration test is a **quick estimate from a few short readings, not a
 clinical assessment** — the results screen says exactly that and offers a
-retake. One comprehension question per passage is a noisy measure; six
-20-second readings is a small sample. It's a *starting point that beats a wall
-of toggles*, and that's the claim we're making.
+retake. Five ~20-second readings is a small sample. The cloze check makes the
+comprehension signal hard to fake, and the baseline is the research-backed
+starter so "keep nothing" is never a downgrade — but it's still a *starting
+point that beats a wall of toggles*, and that's the claim we're making.
 
 Some of the options ReadTune offers have strong evidence behind them (read-aloud,
 increased spacing, lower contrast). Some are contested (coloured tints, bionic

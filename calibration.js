@@ -4,20 +4,27 @@
  * The feature that sets ReadTune apart, and the part a judge will poke hardest,
  * so the method is deliberately conservative:
  *
+ *   • Baseline is the RESEARCH-BACKED starter, not a stripped-down page. Every
+ *     tested change is a deviation from a page that is already good, so "keep
+ *     nothing" leaves you with the research default — never a downgrade.
  *   • A warm-up passage (not scored) absorbs the biggest practice-speed jump.
- *   • A baseline passage in plain settings is the anchor.
  *   • Each remaining passage changes exactly ONE thing vs the baseline — font,
- *     spacing, bionic bolding, or one-sentence-at-a-time — so a win can be
- *     attributed to that one change, not a bundle.
+ *     spacing, or bionic bolding — so a win can be attributed to that one
+ *     change, not a bundle.
  *   • Reading speed is de-trended for practice effect (a small linear fit across
  *     passage position is subtracted) before anything is compared.
- *   • Every passage is ~55–60 words, similar syntax, one comprehension question.
+ *   • Passages are drawn from a pool (`shared/calibration-passages.js`) with no
+ *     repeat until the pool is exhausted, so a retake isn't contaminated by
+ *     remembering the text. Each carries a CLOZE check — two words blanked in a
+ *     middle sentence — that you can't answer from the title or a skim, so the
+ *     comprehension signal is hard to fake.
  *   • Speed, comprehension and a 1–5 ease rating are combined per dimension; a
  *     dimension is only kept if it clears a margin. If nothing does, the test
  *     says so honestly rather than inventing a winner.
  *
- * It is a quick estimate from six short readings, not an assessment — the result
- * screen says as much, and "retake" exists to check stability.
+ * It is a quick estimate from a few short readings, not an assessment — the
+ * result screen says as much, and "retake" exists to check stability. The
+ * intro also offers "Start reading now" so nobody has to finish it first.
  */
 
 import {
@@ -31,105 +38,55 @@ import {
   extUrl,
   applyStoredDyslexicUi,
 } from "./shared/settings.js";
+import { RESEARCH_STARTER_PROFILE } from "./shared/research.js";
+import {
+  pickPassages,
+  clozeText,
+  plainText,
+  clozeOptions,
+} from "./shared/calibration-passages.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { analyse, buildProfile, effectText, HELP_THRESHOLD } from "./shared/calibration-score.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
 
-/* Everything not listed here is DEFAULT_PROFILE. Font size is held constant so it
- * can't confound the comparison — it's the one knob everyone adjusts by hand. */
+/* The anchor every change is measured against: the research-backed starter,
+ * with font size pinned to the starter's value so it can't confound the
+ * comparison (it's the one knob everyone adjusts by hand anyway). "Keep
+ * nothing" therefore hands the reader RESEARCH_STARTER_PROFILE, not a
+ * tightened page — the calibration can only improve on a good default. */
 const BASELINE = {
-  font: "sans",
-  fontSize: 19,
-  lineHeight: 1.55,
-  letterSpacing: 0,
-  wordSpacing: 0,
-  paragraphSpacing: 1,
+  font: RESEARCH_STARTER_PROFILE.font,
+  fontSize: RESEARCH_STARTER_PROFILE.fontSize,
+  lineHeight: RESEARCH_STARTER_PROFILE.lineHeight,
+  letterSpacing: RESEARCH_STARTER_PROFILE.letterSpacing,
+  wordSpacing: RESEARCH_STARTER_PROFILE.wordSpacing,
+  paragraphSpacing: RESEARCH_STARTER_PROFILE.paragraphSpacing,
   bionic: 0,
   pacing: "flow",
 };
 
+/* Warm-up passage — fixed, never scored, absorbs the first-passage practice
+ * jump. Carries a cloze like the rest so the flow is consistent. */
 const WARMUP = {
+  id: "warmup",
   text:
-    "A small ferry crosses the same channel more than forty times a day. The crew knows the water so well they can hold the boat against the dock without ropes while the last cars roll off.",
-  q: "How does the crew hold the boat at the dock?",
-  options: ["Without ropes, using the current", "With two heavy anchors", "By keeping the engine in reverse hard", "They tie up to a second boat"],
-  answer: 0,
+    "A postman on a string of small islands has done the same round by rowing boat for thirty years. In fog he finds each landing by the sound of a different {{bell}} on every {{jetty}}, rung by whoever is expecting a letter.",
+  answer: ["bell", "jetty"],
+  distractors: [["dog", "porch"], ["horn", "boat"], ["light", "hill"]],
 };
 
-/* Each dimension = one change from BASELINE + its own matched passage. */
+/* Each scored dimension = one change from BASELINE. Its passage is assigned at
+ * run time from the pool (see buildSequence). `baseline` applies nothing. */
 const DIMENSIONS = [
-  {
-    key: "baseline",
-    label: "Standard",
-    apply: {},
-    passage: {
-      text:
-        "The seeds of the wax palm are spread almost entirely by one bird, a large mountain parrot that swallows them whole and drops them far from the parent tree. Where the parrot has vanished, young palms stop appearing, and the forest slowly fills with trees that were already old when the birds were common.",
-      q: "What happens in forests where the parrot has vanished?",
-      options: ["No young wax palms appear", "The palms grow much faster", "Other birds take over the job", "The oldest palms die within a year"],
-      answer: 0,
-    },
-  },
-  {
-    key: "dyslexic",
-    label: "OpenDyslexic font",
-    apply: { font: "dyslexic" },
-    passage: {
-      text:
-        "A lighthouse keeper on a bare stretch of coast kept a garden of flowers that could never have grown there on their own. Every plant began as a seed blown in by a storm or dropped by a passing bird, then coaxed along in soil he carried up from the beach in buckets over many years.",
-      q: "Where did the seeds in the keeper's garden come from?",
-      options: ["Storms and passing birds", "A supply boat twice a year", "A greenhouse on the rocks", "Cuttings sent from the mainland"],
-      answer: 0,
-    },
-  },
-  {
-    key: "atkinson",
-    label: "Atkinson Hyperlegible font",
-    apply: { font: "atkinson" },
-    passage: {
-      text:
-        "The longest freight trains take so long to clear a crossing that some towns have built roads over or under the tracks just to keep their two halves joined. A single train can weigh as much as a small cargo ship, and from the front the driver cannot see the last car even on a straight line.",
-      q: "Why did some towns build roads over or under the tracks?",
-      options: ["The trains take too long to pass", "The crossings kept flooding", "To make room for a new station", "The old crossings iced over in winter"],
-      answer: 0,
-    },
-  },
+  { key: "baseline", label: "Standard", apply: {} },
+  { key: "dyslexic", label: "OpenDyslexic font", apply: { font: "dyslexic" } },
+  { key: "atkinson", label: "Atkinson Hyperlegible font", apply: { font: "atkinson" } },
   {
     key: "spacing",
     label: "Roomier spacing",
     apply: { lineHeight: 1.95, letterSpacing: 0.045, wordSpacing: 0.16, paragraphSpacing: 1.3 },
-    passage: {
-      text:
-        "A clockmaker in a small mountain town was asked for a tower clock that people could read from the valley floor, almost a mile below. She made the hands as long as a rowing boat and painted them black on a white face, and on clear days farmers set their watches by it from their fields.",
-      q: "How did farmers in the valley use the clock?",
-      options: ["To set their watches from the fields", "To forecast the next day's weather", "As a signal to begin the harvest", "To find their way home in fog"],
-      answer: 0,
-    },
   },
-  {
-    key: "bionic",
-    label: "Bionic bolding",
-    apply: { bionic: 40 },
-    passage: {
-      text:
-        "Each autumn a certain deep lake turns over. The chilled surface water sinks, the warmer water from below rises, and for a few days the whole lake smells of mud that has sat undisturbed on the bottom all summer. Fish that never leave the depths are suddenly caught near the surface, thrown off by the change.",
-      q: "Why are deep-water fish caught near the surface in autumn?",
-      options: ["The layers of the lake trade places", "The lake is starting to freeze early", "They are chasing insects upward", "Anglers switch to brighter lures"],
-      answer: 0,
-    },
-  },
-  {
-    key: "chunk",
-    label: "One sentence at a time",
-    apply: { pacing: "sentence" },
-    passage: {
-      text:
-        "A town on a river bend used to flood every few springs until it dug a second, straighter channel for the high water to take. Most of the year the new channel is a dry ditch full of grass, but in a bad thaw it carries more water than the river itself and the old town stays dry.",
-      q: "What is the new channel like for most of the year?",
-      options: ["A dry, grassy ditch", "A slow shallow stream", "A fenced-off canal", "A chain of small ponds"],
-      answer: 0,
-    },
-  },
+  { key: "bionic", label: "Bionic bolding", apply: { bionic: 40 } },
 ];
 
 const FONT_KEYS = new Set(["dyslexic", "atkinson"]);
@@ -150,23 +107,36 @@ const passageSurface = $("passage-surface");
 const passageView = createReadingView($("passage-view"));
 const voiceFitUrl = () => extUrl("lab.html?focus=voice&source=calibration");
 
-/* run order: warm-up, baseline, then the 4 non-baseline dimensions shuffled */
+/* All passage ids this browser has already been shown, newest last — drawn
+ * from the calibration history so a retake doesn't reuse text the reader
+ * might remember. */
+async function seenPassageIds() {
+  try {
+    const history = await loadCalibrations();
+    return history.flatMap((h) => (Array.isArray(h.passages) ? h.passages.map((p) => p.id).filter(Boolean) : []));
+  } catch {
+    return [];
+  }
+}
+
+/* run order: warm-up, baseline, then the non-baseline dimensions shuffled —
+ * each with a distinct pool passage. */
 let sequence = [];
-function buildSequence() {
+async function buildSequence() {
   const variants = DIMENSIONS.filter((d) => d.key !== "baseline");
   for (let i = variants.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [variants[i], variants[j]] = [variants[j], variants[i]];
   }
-  const baseline = DIMENSIONS.find((d) => d.key === "baseline");
+  const ordered = [DIMENSIONS.find((d) => d.key === "baseline"), ...variants];
+  const { passages } = pickPassages(ordered.length, await seenPassageIds());
   sequence = [
     { warmup: true, passage: WARMUP, dim: null },
-    { warmup: false, passage: baseline.passage, dim: baseline },
-    ...variants.map((d) => ({ warmup: false, passage: d.passage, dim: d })),
+    ...ordered.map((dim, k) => ({ warmup: false, passage: passages[k], dim })),
   ];
 }
 
-$("p-total").textContent = String(DIMENSIONS.length); // 6 scored passages
+$("p-total").textContent = String(DIMENSIONS.length); // scored passages (baseline + variants)
 
 let step = 0;
 let shownAt = 0;
@@ -198,7 +168,7 @@ function startPassage() {
   const combo = { ...DEFAULT_PROFILE, ...BASELINE, ...(current.dim ? current.dim.apply : {}) };
   applyTypography(passageSurface, combo);
   paintPage(combo);
-  passageView.setText(current.passage.text);
+  passageView.setText(plainText(current.passage.text));
   passageView.applyProfile(combo);
 
   $("p-num").textContent = current.warmup ? "warm-up" : String(results.length + 1);
@@ -220,28 +190,33 @@ function finishPassage() {
     return;
   }
   current._ms = Math.max(elapsed, 400);
-  current._words = wordCount(current.passage.text);
+  current._words = wordCount(plainText(current.passage.text));
   showQuiz();
 }
 
+/* Cloze check: the passage reappears with its two target words blanked, and
+ * the reader picks the missing pair from four. You cannot answer it from the
+ * topic or a skim — you had to read that line. */
 function showQuiz() {
   const p = current.passage;
-  $("quiz-q").textContent = p.q;
+  $("quiz-q").textContent = "Which words are missing?";
+  const passage = $("quiz-passage");
+  if (passage) passage.textContent = clozeText(p.text);
   const box = $("quiz-options");
   box.replaceChildren();
-  const order = p.options.map((_, i) => i).sort(() => Math.random() - 0.5);
-  for (const oi of order) {
+  const { options, correctIndex } = clozeOptions(p);
+  options.forEach((pair, oi) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "cal-option";
-    b.textContent = p.options[oi];
+    b.textContent = pair.join(" · ");
     b.addEventListener("click", () => {
-      current._correct = oi === p.answer;
+      current._correct = oi === correctIndex;
       if (current.warmup) advance();
       else show("ease");
     });
     box.appendChild(b);
-  }
+  });
   show("quiz");
 }
 
@@ -254,6 +229,7 @@ function advance() {
   if (!current.warmup) {
     results.push({
       key: current.dim.key,
+      id: current.passage.id,
       label: current.dim.label,
       apply: current.dim.apply,
       position: results.length,
@@ -279,7 +255,7 @@ async function finish() {
     baseline: BASELINE,
     defaults: DEFAULT_PROFILE,
     fontKeys: FONT_KEYS,
-    extra: { overlay: "none", columnWidth: 64 },
+    extra: { overlay: "none", columnWidth: RESEARCH_STARTER_PROFILE.columnWidth },
   });
   // The calibration measures text formatting only. Carry forward the choices it
   // never tested — the OpenDyslexic-menus preference and the read-aloud rate —
@@ -293,7 +269,7 @@ async function finish() {
     kept,
     profile: saved,
     speedInformative,
-    passages: results.map((r) => ({ key: r.key, ms: Math.round(r.ms), wpm: Math.round(r.wpm), correct: r.correct, ease: r.ease })),
+    passages: results.map((r) => ({ key: r.key, id: r.id, ms: Math.round(r.ms), wpm: Math.round(r.wpm), correct: r.correct, ease: r.ease })),
     dims: dims.map((d) => ({ key: d.key, help: Number(d.help.toFixed(3)), speedDelta: Number(d.speedDelta.toFixed(3)) })),
   });
   const setup = (await markSetupStep("calibrated")) || (await loadSetup());
@@ -416,11 +392,34 @@ async function finish() {
 
 applyStoredDyslexicUi();
 
-$("start").addEventListener("click", () => {
+$("start").addEventListener("click", async () => {
+  const btn = $("start");
+  btn.disabled = true;
   step = 0;
   results.length = 0;
-  buildSequence();
+  try {
+    await buildSequence();
+  } finally {
+    btn.disabled = false;
+  }
   startPassage();
+});
+
+/* "Start reading now" — apply the research-backed starter immediately and get
+ * out of the way. The calibration is a refinement, not a toll gate; a reader
+ * can run it later from the Reading Lab. Also what the demo video shows. */
+$("skip")?.addEventListener("click", async () => {
+  const prior = await loadProfile();
+  const profile = {
+    ...DEFAULT_PROFILE,
+    ...RESEARCH_STARTER_PROFILE,
+    dyslexicUiMode: prior.dyslexicUiMode,
+    ttsRate: prior.ttsRate,
+  };
+  await writeProfile(profile);
+  // Deliberately NOT marked as "calibrated" — the reader skipped it and can
+  // still be offered it later; they just have a good profile in the meantime.
+  location.href = extUrl("pdf.html");
 });
 $("done").addEventListener("click", finishPassage);
 $("scale").addEventListener("click", (e) => {

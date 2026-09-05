@@ -3,9 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ReadTune — Find my settings</title>
-    <link rel="stylesheet" href="shared/theme.css" />
-    <link rel="stylesheet" href="calibration.css" />
+    <title>ReadTune — calibration sandbox</title>
+    <link rel="stylesheet" href="../shared/theme.css" />
+    <link rel="stylesheet" href="../calibration.css" />
+    <script>
+      (function () {
+        const mem = { local: { readtune_calibrations: [] }, session: {} };
+        window.chrome = {
+          runtime: { getURL: (p) => new URL("../" + String(p).replace(/^\.?\//, ""), location.href).href, id: "sandbox" },
+          permissions: { contains: async () => false, request: async () => false, remove: async () => true },
+          storage: {
+            local: {
+              async get(k) { return k == null ? { ...mem.local } : { [k]: mem.local[k] }; },
+              async set(v) { Object.assign(mem.local, v); },
+              async remove(k) { delete mem.local[k]; },
+            },
+            session: {
+              async get(k) { return k == null ? { ...mem.session } : { [k]: mem.session[k] }; },
+              async set(v) { Object.assign(mem.session, v); },
+              async remove(k) { delete mem.session[k]; },
+            },
+          },
+        };
+      })();
+    </script>
   </head>
   <body class="rt-ui rt-reading-page">
     <div class="cal-wrap">
@@ -165,6 +186,6 @@
       </section>
     </div>
 
-    <script type="module" src="calibration.js"></script>
+    <script type="module" src="../calibration.js"></script>
   </body>
 </html>
