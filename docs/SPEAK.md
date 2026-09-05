@@ -22,8 +22,11 @@ settings ("Voice source → Premium voice").
   nothing configured it returns `503` and the extension keeps using Piper. Any
   failure mid-read also drops to Piper (`fallbackToPiper` in `tts.js`).
 - **Nothing is stored.** Only the sentence being spoken is sent — and, during
-  prefetch, the one after it — never the whole page. Coarse per-minute rate
-  limit (Redis when configured, an in-memory counter otherwise).
+  prefetch, the one after it — never the whole page. Every OpenRouter speech
+  request carries `provider: { zdr: true }`, so it's only routed to providers
+  under a zero-data-retention policy (no retention, no training on the text).
+  Coarse per-minute rate limit (Redis when configured, an in-memory counter
+  otherwise).
 
 ## Providers & order
 
