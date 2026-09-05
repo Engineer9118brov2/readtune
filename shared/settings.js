@@ -156,6 +156,11 @@ export function formatRate(v) {
   return `${Number((Number(v) || 1).toFixed(2))}×`;
 }
 
+/** The one voice-speed clamp. Every surface that applies a rate — the engine,
+ *  the Lab preview, the reading-screen preview — must go through this so the
+ *  number the reader sees is the speed they get. */
+export const clampRate = (v) => Math.min(RANGES.ttsRate.max, Math.max(RANGES.ttsRate.min, Number(v) || 1));
+
 const clampNum = (v, lo, hi, dflt) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -196,7 +201,7 @@ export function normalizeProfile(raw) {
   p.contrast = clampNum(p.contrast, 70, 100, 100);
   p.rulerHeight = clampNum(p.rulerHeight, 20, 100, DEFAULT_PROFILE.rulerHeight);
   p.wpm = clampNum(p.wpm, 90, 900, DEFAULT_PROFILE.wpm);
-  p.ttsRate = clampNum(p.ttsRate, 0.5, 3, 1);
+  p.ttsRate = clampNum(p.ttsRate, RANGES.ttsRate.min, RANGES.ttsRate.max, 1);
   const bionic = Number(p.bionic);
   p.bionic = Number.isFinite(bionic) && bionic >= 10 ? Math.min(70, bionic) : 0;
 

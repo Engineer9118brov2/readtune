@@ -21,9 +21,37 @@
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 import { createPiperEngine } from "./piper.js";
-import { RANGES } from "./settings.js";
+import { RANGES, clampRate } from "./settings.js";
 
 const CHUNK_CHARS = 550;
+
+/* Piper emits no word timings, so for that voice we estimate which word is
+ * being spoken. A flat "each word gets an equal slice of the clip" estimate
+ * drifts badly — real words vary 3–4× in length and punctuation adds pauses.
+ * This gives each word a weight ∝ its length plus a bonus for a trailing
+ * mark, normalised to a 0–1 cumulative curve the driver walks against elapsed
+ * fraction. Pure + exported for the harness. */
+export function wordDurationWeights(words) {
+  const raw = words.map((w) => {
+    const s = String(w || "");
+    const letters = Math.max(1, s.replace(/[^A-Za-z0-9À-ɏ']/g, "").length || s.length);
+    let pause = 0;
+    if (/[.!?…]["')\]]?$/.test(s)) pause = 6;
+    else if (/[,;:—–)]["']?$/.test(s)) pause = 3;
+    return letters + 1 + pause; // +1 so a bare "a"/"I" still has some duration
+  });
+  const total = raw.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0;
+  // cumulative fraction at the END of each word
+  return raw.map((v) => (acc += v) / total);
+}
+
+/** Given the cumulative end-fractions and the fraction of the clip elapsed,
+ *  the index of the word currently being spoken. */
+export function wordAtFraction(cumEnds, fraction) {
+  for (let k = 0; k < cumEnds.length; k++) if (fraction <= cumEnds[k]) return k;
+  return cumEnds.length - 1;
+}
 
 /* The read-aloud word mark.
  *
@@ -71,6 +99,8 @@ export function createTTS({
   let piper = null;
   let piperUrl = "";
   let piperSentence = null;
+  let piperPrefetch = new Map(); // sentence index -> Promise<Blob>, synthesised one ahead
+  let piperPrefetchRate = 1; // the rate those blobs were synthesised at
 
   /* ---------- collect sentences + chunk them ---------- */
   function collect() {
@@ -216,6 +246,10 @@ export function createTTS({
     el = { k, data, chunk };
     stopAudioEl();
     audio = new Audio(data.url);
+    /* ElevenLabs has a synth-time speed knob (voice_settings.speed) we could
+       use for exact tempo like Piper's length_scale; until then it's a live
+       playbackRate stretch on ~550-char chunks (long enough that the
+       pitch-preserving stretch holds up). */
     audio.playbackRate = rate;
 
     const start = chunk.offsets.find((o) => o.s === sentenceIdx);
@@ -290,17 +324,51 @@ export function createTTS({
 
   function drivePiper(mine, sentence = piperSentence) {
     cancelAnimationFrame(raf);
+    /* Word position estimate. Silence is trimmed at synthesis (piper-tts-web
+       patch) so audio.duration is the speech duration, and the cumulative
+       weight curve accounts for word length + punctuation pauses — far closer
+       than "elapsed fraction × character count", which trailed the voice. */
+    ensureWordSpans(sentence);
+    const spans = [...sentence.el.querySelectorAll(".rt-w")];
+    const cumEnds = wordDurationWeights(spans.map((s) => s.textContent));
+    const flow = getFlow() || sentence.el;
     const tick = () => {
       if (!playing || mine !== run || !audio || !sentence) return;
-      if (Number.isFinite(audio.duration) && audio.duration > 0) {
-        const char = Math.floor((audio.currentTime / audio.duration) * sentence.text.length);
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && spans.length) {
+        const frac = Math.min(1, audio.currentTime / audio.duration);
         try {
-          highlightWord(sentence, char);
+          markWord(flow, spans[wordAtFraction(cumEnds, frac)] || null);
         } catch {}
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
+  }
+
+  function ensurePiper() {
+    if (!piper) {
+      piper = createPiperEngine({
+        voiceId: getConfig().piperVoice,
+        onStatus: (status) => onStatus({ provider: "piper", ...status }),
+      });
+    }
+    return piper;
+  }
+
+  /* Synthesise a sentence at the current rate, reusing the one-ahead prefetch
+     when it's for the right index and rate. */
+  function synthPiper(idx) {
+    if (idx < 0 || idx >= sentences.length) return null;
+    const cached = piperPrefetch.get(idx);
+    if (cached && piperPrefetchRate === rate) return cached;
+    const p = ensurePiper().synthesize(sentences[idx].text, { rate });
+    piperPrefetch.set(idx, p);
+    piperPrefetchRate = rate;
+    return p;
+  }
+
+  function clearPiperPrefetch() {
+    piperPrefetch = new Map();
   }
 
   async function piperSpeak() {
@@ -310,19 +378,15 @@ export function createTTS({
     const sentence = sentences[i];
     markSentence(i);
     try {
-      if (!piper) {
-        piper = createPiperEngine({
-          voiceId: getConfig().piperVoice,
-          onStatus: (status) => onStatus({ provider: "piper", ...status }),
-        });
-      }
-      const blob = await piper.synthesize(sentence.text);
+      ensurePiper();
+      const blob = await synthPiper(i);
       if (!playing || mine !== run) return;
+      piperPrefetch.delete(i);
       stopPiperAudio();
       piperUrl = URL.createObjectURL(blob);
       audio = new Audio(piperUrl);
       piperSentence = sentence;
-      audio.playbackRate = rate;
+      /* Rate is baked into synthesis (length_scale), so playback is 1×. */
       audio.onended = () => {
         if (!playing || mine !== run) return;
         i += 1;
@@ -336,6 +400,9 @@ export function createTTS({
       };
       await audio.play();
       drivePiper(mine, sentence);
+      /* Warm the next sentence while this one plays, so the highlight doesn't
+         stall at the end of a sentence waiting on synthesis. */
+      if (i + 1 < sentences.length) { const p = synthPiper(i + 1); if (p) p.catch(() => {}); }
     } catch (err) {
       if (!playing || mine !== run) return;
       const message = err && err.message ? err.message : "The on-device voice couldn't start.";
@@ -366,6 +433,7 @@ export function createTTS({
     run++;
     stopAudioEl();
     stopPiperAudio();
+    clearPiperPrefetch();
     el = null;
     releaseUrls();
     clearHighlight();
@@ -376,6 +444,7 @@ export function createTTS({
     run++;
     stopAudioEl();
     stopPiperAudio();
+    clearPiperPrefetch();
   }
 
   function resolveProvider() {
@@ -431,12 +500,12 @@ export function createTTS({
       let url;
       let one;
       try {
-        const blob = await withTimeout(piper.synthesize(say), synthMs);
+        /* A looked-up word is for clarity, not pace — never faster than 1×,
+           but honour a reader who has slowed everything down. Baked into
+           synthesis so it stays crisp. */
+        const blob = await withTimeout(piper.synthesize(say, { rate: Math.min(rate, 1) }), synthMs);
         url = URL.createObjectURL(blob);
         one = new Audio(url);
-        /* A looked-up word is for clarity, not pace — never faster than 1×,
-           but honour a reader who has slowed everything down. */
-        one.playbackRate = Math.min(rate, 1);
         /* play() resolves when playback *starts*; the caller ducks narration
            around this call, so settle on ended/error instead. */
         await withTimeout(
@@ -484,7 +553,6 @@ export function createTTS({
         onState({ playing: true, index: i, total: sentences.length });
       } else if (provider === "piper" && audio && piperSentence) {
         playing = true;
-        audio.playbackRate = rate;
         audio.play().then(() => drivePiper(run, piperSentence)).catch(() => {
           playing = false;
           onError("Couldn't resume the local voice. Press Play to try that sentence again.");
@@ -521,12 +589,18 @@ export function createTTS({
       }
     },
     setRate(r) {
-      /* Derived from the shared range, never a literal. There were three
-         independent rate clamps — RANGES, normalizeProfile and this one — and
-         raising the ceiling in the first two left playback pinned at 2x while
-         the UI happily reported 3x. */
-      rate = Math.max(RANGES.ttsRate.min, Math.min(RANGES.ttsRate.max, Number(r) || 1));
-      if (audio) audio.playbackRate = rate;
+      /* One clamp for the whole app — see clampRate in settings.js. There used
+         to be three that disagreed, so playback pinned at 2× while the UI
+         reported 3×. */
+      const next = clampRate(r);
+      if (next === rate) return;
+      rate = next;
+      /* Piper bakes rate into synthesis (length_scale), so the prefetched blob
+         is now stale — drop it and re-synth the next sentence at the new rate.
+         The sentence already playing finishes at its old rate. ElevenLabs has
+         no synth-time speed knob here, so it still resamples live. */
+      if (provider === "piper") clearPiperPrefetch();
+      else if (audio) audio.playbackRate = rate;
     },
     /** ElevenLabs key / voice / provider changed. */
     reload() {

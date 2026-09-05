@@ -123,9 +123,12 @@ export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {
       if (!ready) ready = call("prepare", { voiceId }).then(() => undefined);
       return ready;
     },
-    async synthesize(text) {
+    /* `rate` is baked into synthesis via the model's length_scale (see
+       piper/worker.js), not applied as playbackRate afterwards — a resampled
+       short clip sounds mushy and doesn't feel like the number on the dial. */
+    async synthesize(text, { rate = 1 } = {}) {
       await this.prepare();
-      const data = await call("synthesize", { text });
+      const data = await call("synthesize", { text, rate });
       return data.audio;
     },
     destroy() {

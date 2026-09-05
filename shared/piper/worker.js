@@ -49,7 +49,7 @@ self.onmessage = async ({ data }) => {
     }
     if (data.type === "synthesize") {
       postMessage({ type: "status", kind: "speaking", message: "Natural voice is reading along." });
-      const audio = await session.predict(data.text);
+      const audio = await session.predict(data.text, { rate: Number(data.rate) > 0 ? Number(data.rate) : 1 });
       postMessage({ id: data.id, type: "audio", audio });
     }
   } catch (error) {
