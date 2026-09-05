@@ -84,7 +84,7 @@ Read aloud
 • A natural neural voice (Piper) that runs entirely on your device. The default voice ships inside the extension, so it works offline with nothing to download and no permission prompt
 • The current sentence and word are highlighted as it speaks, in your chosen font
 • "Voice Fit" in the Reading Lab lets you preview a few on-device voices and keep the clearest; extra voices download a one-time model (~60 MB) from Hugging Face and are then cached on your device
-• Optional "Premium voice" — a higher-quality voice through ReadTune's free relay, no account and no key. Each sentence as it's read is sent to synthesise it; nothing else leaves your device, and it falls back to the on-device voice automatically if the relay is busy
+• Optional "Premium voice" — a higher-quality voice through ReadTune's free relay, no account and no key. Each sentence as it's read is sent to synthesise it, plus the next one prepared a moment ahead; nothing else leaves your device, and it falls back to the on-device voice automatically if the relay is busy
 • Optional: bring your own ElevenLabs API key for a different voice. Your key is stored only on your device; the passage is sent only to api.elevenlabs.io, only while reading
 
 Talk to type
@@ -207,7 +207,7 @@ Used by two optional, user-selected features, only when their request is made:
 
 1. "Summary" (Reader View). Where the user's browser already has Chrome's built-in AI ready, this is never called — the summary is generated on-device and nothing is sent. Otherwise, the article's opening text (and its URL, for cache lookup) is sent to this ReadTune-operated endpoint, which forwards it to a third-party AI model and returns the generated summary. Responses may be cached by the article's URL — shared across all users, not tied to any individual — so a popular article is only summarized once.
 
-2. "Premium voice" for read-aloud (off by default; the built-in on-device voice is the default). When the user selects it, each sentence as it is read aloud is sent to a ReadTune-operated endpoint that forwards it to a free third-party text-to-speech provider and streams back the audio. Only the sentence currently being spoken is sent — not the whole page. Nothing is stored. If the endpoint is unavailable the extension falls back to the on-device voice automatically.
+2. "Premium voice" for read-aloud (off by default; the built-in on-device voice is the default). When the user selects it, each sentence as it is read aloud is sent to a ReadTune-operated endpoint that forwards it to a free third-party text-to-speech provider and returns the audio. Only the sentence currently being spoken — and the next one, prepared a moment ahead — is sent; not the whole page. Nothing is stored. If the endpoint is unavailable the extension falls back to the on-device voice automatically.
 
 No account, no auth, no per-user data of any kind is stored for either.
 ```
@@ -242,7 +242,7 @@ onnxruntime engine). Where a browser has Chrome's built-in AI ready, "Summary"
 uses only that — part of the browser, not fetched by ReadTune. Otherwise, the
 request to ReadTune's own summarization endpoint (`readtune.tech/api`) sends
 JSON and receives JSON — plain-text data in, plain-text data out. The optional
-"Premium voice" endpoint (same host) sends JSON and receives an audio stream.
+"Premium voice" endpoint (same host) sends JSON and receives an audio clip.
 Never a script or executable of any kind, in or out.
 
 *If a reviewer pushes back and you want to switch the answer to "Yes", paste

@@ -16,6 +16,10 @@
 
 const RELAY_URL = "https://readtune.tech/api/speak";
 
+// A stalled relay must not hang read-aloud forever: bound every request so a
+// slow provider surfaces as a rejection the sentence loop can fall back from.
+const SYNTH_TIMEOUT_MS = 20000;
+
 export const CLOUD_VOICES = [
   { id: "aura-2-thalia-en", label: "Thalia", detail: "Warm, unhurried" },
   { id: "aura-2-andromeda-en", label: "Andromeda", detail: "Even and clear" },
@@ -30,6 +34,9 @@ export function cloudVoiceById(id) {
 
 export function createCloudEngine({ voice = CLOUD_VOICE.id, onStatus = () => {} } = {}) {
   let announced = false;
+  // In-flight requests, so destroy() (stop / reload / fall back to Piper) can
+  // abort a synthesis that would otherwise keep running against the relay.
+  const inflight = new Set();
 
   return {
     async synthesize(text, { rate = 1, signal } = {}) {
@@ -39,17 +46,35 @@ export function createCloudEngine({ voice = CLOUD_VOICE.id, onStatus = () => {} 
         announced = true;
         onStatus({ kind: "loading", message: "Fetching the premium voice…", percent: null });
       }
+      const ctl = new AbortController();
+      inflight.add(ctl);
+      const abortOuter = () => ctl.abort();
+      if (signal) {
+        if (signal.aborted) ctl.abort();
+        else signal.addEventListener("abort", abortOuter, { once: true });
+      }
+      const timer = setTimeout(() => ctl.abort(new DOMException("Timed out", "TimeoutError")), SYNTH_TIMEOUT_MS);
       let res;
       try {
         res = await fetch(RELAY_URL, {
           method: "POST",
-          signal,
+          signal: ctl.signal,
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ text: say, voice, speed: Number(rate) > 0 ? Number(rate) : 1 }),
         });
       } catch (e) {
+        const timedOut = ctl.signal.reason && ctl.signal.reason.name === "TimeoutError";
+        if (timedOut) {
+          const err = new Error("The premium voice took too long.");
+          err.status = 504;
+          throw err;
+        }
         if (e && (e.name === "AbortError" || e.name === "TimeoutError")) throw e;
         throw new Error("Couldn't reach the premium voice.");
+      } finally {
+        clearTimeout(timer);
+        inflight.delete(ctl);
+        if (signal) signal.removeEventListener("abort", abortOuter);
       }
       if (!res.ok) {
         let msg = `The premium voice couldn't handle that (${res.status}).`;
@@ -69,7 +94,14 @@ export function createCloudEngine({ voice = CLOUD_VOICE.id, onStatus = () => {} 
       return blob;
     },
     destroy() {
-      /* stateless — nothing to tear down */
+      for (const ctl of inflight) {
+        try {
+          ctl.abort();
+        } catch {
+          /* already settled */
+        }
+      }
+      inflight.clear();
     },
   };
 }

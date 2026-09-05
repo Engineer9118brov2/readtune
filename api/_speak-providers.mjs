@@ -15,9 +15,12 @@
 const TIMEOUT_MS = 25000;
 
 // A status that means *this request* is bad and every provider would reject it
-// identically — no point trying the next one. Anything else (bad key, model
-// gone, rate limit, 5xx) is that one provider's problem: fall through.
-const REQUEST_FATAL = new Set([400, 413, 422]);
+// identically — no point trying the next one. Kept narrow: 413/422 are about
+// the payload itself. A 400 is left off — providers return it for their own
+// reasons (an unknown voice id, a retired model) while another provider is
+// still fine, so a 400 falls through like a bad key or a 5xx. api/speak.js
+// caps the input length before we ever get here.
+const REQUEST_FATAL = new Set([413, 422]);
 
 function timeoutSignal(ms) {
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
@@ -60,6 +63,10 @@ function openrouter(text, speed, env) {
 
 function groq(text, speed, env) {
   if (!env.GROQ_API_KEY) return null;
+  // Groq retired playai-tts at the end of 2025; TTS is Orpheus (Canopy Labs)
+  // now. Orpheus only emits WAV, has no speed control, and caps input at ~200
+  // chars — so a long sentence 400s here and falls through to Unreal, which is
+  // fine for a middle-of-the-chain provider. `speed` is unused on purpose.
   return {
     name: "groq",
     url: "https://api.groq.com/openai/v1/audio/speech",
@@ -68,11 +75,10 @@ function groq(text, speed, env) {
       authorization: `Bearer ${env.GROQ_API_KEY}`,
     },
     body: {
-      model: env.SPEAK_GROQ_MODEL || "playai-tts",
+      model: env.SPEAK_GROQ_MODEL || "canopylabs/orpheus-v1-english",
       input: text,
-      voice: env.SPEAK_GROQ_VOICE || "Celeste-PlayAI",
-      response_format: "mp3",
-      speed,
+      voice: env.SPEAK_GROQ_VOICE || "Troy",
+      response_format: "wav",
     },
   };
 }
@@ -108,53 +114,58 @@ export function speakProvidersFromEnv(text, speed, env = {}) {
 
 /** One provider call → { audio: ArrayBuffer, contentType } or throws with .status. */
 export async function callSpeak(provider, fetchImpl = fetch) {
+  // Keep the timeout armed through the body reads too: with the manual-timer
+  // fallback, a provider that stalls partway through res.text()/arrayBuffer()
+  // would otherwise never abort. cancel() only fires once everything is read.
   const { signal, cancel } = timeoutSignal(TIMEOUT_MS);
-  let res;
   try {
-    res = await fetchImpl(provider.url, {
-      method: "POST",
-      signal,
-      headers: provider.headers,
-      body: JSON.stringify(provider.body),
-    });
-  } catch (e) {
-    const err = new Error(
-      e && e.name === "AbortError" ? "The premium voice took too long." : "Couldn't reach the premium voice.",
-    );
-    err.status = 502;
-    throw err;
+    let res;
+    try {
+      res = await fetchImpl(provider.url, {
+        method: "POST",
+        signal,
+        headers: provider.headers,
+        body: JSON.stringify(provider.body),
+      });
+    } catch (e) {
+      const err = new Error(
+        e && e.name === "AbortError" ? "The premium voice took too long." : "Couldn't reach the premium voice.",
+      );
+      err.status = 502;
+      throw err;
+    }
+
+    const contentType = (res.headers.get("content-type") || "").toLowerCase();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        detail = contentType.includes("json") ? JSON.stringify(await res.json()).slice(0, 200) : (await res.text()).slice(0, 200);
+      } catch {
+        /* body already consumed / not readable */
+      }
+      const err = new Error(`${provider.name} TTS failed (${res.status})${detail ? ": " + detail : ""}`);
+      err.status = res.status;
+      throw err;
+    }
+
+    // A 200 with a JSON/text body is an error the provider didn't flag with a
+    // status — treat it as a soft failure so the chain moves on.
+    if (contentType.includes("json") || contentType.includes("text/")) {
+      const err = new Error(`${provider.name} returned no audio`);
+      err.status = 502;
+      throw err;
+    }
+
+    const audio = await res.arrayBuffer();
+    if (!audio || audio.byteLength < 512) {
+      const err = new Error(`${provider.name} returned an empty clip`);
+      err.status = 502;
+      throw err;
+    }
+    return { audio, contentType: contentType || "audio/mpeg" };
   } finally {
     cancel();
   }
-
-  const contentType = (res.headers.get("content-type") || "").toLowerCase();
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = contentType.includes("json") ? JSON.stringify(await res.json()).slice(0, 200) : (await res.text()).slice(0, 200);
-    } catch {
-      /* body already consumed / not readable */
-    }
-    const err = new Error(`${provider.name} TTS failed (${res.status})${detail ? ": " + detail : ""}`);
-    err.status = res.status;
-    throw err;
-  }
-
-  // A 200 with a JSON/text body is an error the provider didn't flag with a
-  // status — treat it as a soft failure so the chain moves on.
-  if (contentType.includes("json") || contentType.includes("text/")) {
-    const err = new Error(`${provider.name} returned no audio`);
-    err.status = 502;
-    throw err;
-  }
-
-  const audio = await res.arrayBuffer();
-  if (!audio || audio.byteLength < 512) {
-    const err = new Error(`${provider.name} returned an empty clip`);
-    err.status = 502;
-    throw err;
-  }
-  return { audio, contentType: contentType || "audio/mpeg" };
 }
 
 /** Walk the providers, returning the first that gives audio. */

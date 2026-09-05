@@ -370,7 +370,7 @@ export function buildControls(profile, onChange) {
   const cloudHint = el(
     "p",
     { class: "rt-panel-hint" },
-    "A higher-quality voice through ReadTune's free relay — no account, no key. Each sentence you're listening to is sent to synthesise it; nothing else leaves your device, and if the relay is busy read-aloud falls back to the on-device voice automatically. See the privacy page."
+    "A higher-quality voice through ReadTune's free relay — no account, no key. Each sentence you're listening to is sent to synthesise it, plus the next one prepared a moment ahead; nothing else leaves your device, and if the relay is busy read-aloud falls back to the on-device voice automatically. See the privacy page."
   );
 
   const keyInput = el("input", {

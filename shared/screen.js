@@ -395,7 +395,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         previewAudio = new Audio(previewAudioUrl);
         previewAudio.playbackRate = clampRate(profile.ttsRate);
         previewAudio.onended = previewAudio.onerror = () => stopPreview();
-        previewAudio.play().catch(() => {});
+        previewAudio.play().catch(() => {
+          stopPreview();
+          toast("Preview is ready — press Preview again to hear it.");
+        });
       } catch (e) {
         toast(e && e.message ? e.message : "Couldn't play a preview.");
       }
@@ -408,7 +411,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         previewAudioUrl = URL.createObjectURL(blob);
         previewAudio = new Audio(previewAudioUrl);
         previewAudio.onended = previewAudio.onerror = () => stopPreview();
-        previewAudio.play().catch(() => {});
+        previewAudio.play().catch(() => {
+          stopPreview();
+          toast("Preview is ready — press Preview again to hear it.");
+        });
       } catch (e) {
         toast(e && e.message ? e.message : "Couldn't reach the premium voice — the on-device voice still works.");
       }

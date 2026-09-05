@@ -1794,9 +1794,18 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     try { await SP.relaySpeak(SP.speakProvidersFromEnv("x", 1, { OPENROUTER_API_KEY: "a" }), soft200()); } catch (e) { soft = e; }
     assert(soft && soft.status === 502, "a 200 with a JSON body (no audio) is treated as a soft failure");
 
-    let fatal;
-    try { await SP.relaySpeak(three, jsonErr(400)); } catch (e) { fatal = e; }
-    assert(fatal && fatal.status === 400, "a 400 (bad request) stops the chain — every provider would reject it");
+    // A provider-specific 400 (unknown voice id, retired model) must NOT stop
+    // the chain — another provider may still be fine.
+    let tried400 = 0;
+    let fell;
+    try { await SP.relaySpeak(three, () => { tried400++; return jsonErr(400)(); }); } catch (e) { fell = e; }
+    assert(tried400 === 3 && fell && fell.status === 400, "a provider 400 falls through to the rest, then the last error propagates");
+
+    // A 413/422 is the payload itself — every provider rejects it, so stop early.
+    let tried413 = 0;
+    let stopped;
+    try { await SP.relaySpeak(three, () => { tried413++; return jsonErr(413)(); }); } catch (e) { stopped = e; }
+    assert(tried413 === 1 && stopped && stopped.status === 413, "a 413 stops the chain — the request itself is unusable");
   }
 
   /* ---- premium (cloud) TTS client (shared/speak-cloud.js) ---- */

@@ -30,21 +30,45 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
 const RATE_LIMIT_PER_MINUTE = 200; // ~ a long article read by a few readers at once
 
+// Best-effort in-memory guard for when Redis isn't configured. It only spans
+// one warm serverless instance, so it's not a real quota — but it does stop a
+// single stuck client from hammering the relay thousands of times a minute,
+// which is the case the shared counter mainly exists for.
+const MEM_LIMIT_PER_MINUTE = 120;
+let memBucketKey = 0;
+let memBucketCount = 0;
+
+function memRateOk() {
+  const now = Math.floor(Date.now() / 60000);
+  if (now !== memBucketKey) {
+    memBucketKey = now;
+    memBucketCount = 0;
+  }
+  memBucketCount += 1;
+  return memBucketCount <= MEM_LIMIT_PER_MINUTE;
+}
+
+// Bound the Redis round-trips: if the store is slow, fall through to the
+// in-memory guard rather than making every reader wait on it.
+function redisFetch(path) {
+  const opts = { headers: { authorization: `Bearer ${REDIS_TOKEN}` } };
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    opts.signal = AbortSignal.timeout(600);
+  }
+  return fetch(`${REDIS_URL}${path}`, opts);
+}
+
 async function rateLimitOk() {
-  if (!hasRedis) return true;
+  if (!hasRedis) return memRateOk();
   try {
     const bucket = `speak:rl:${Math.floor(Date.now() / 60000)}`;
-    const r = await fetch(`${REDIS_URL}/incr/${encodeURIComponent(bucket)}`, {
-      headers: { authorization: `Bearer ${REDIS_TOKEN}` },
-    }).then((x) => x.json());
+    const r = await redisFetch(`/incr/${encodeURIComponent(bucket)}`).then((x) => x.json());
     if (r && r.result === 1) {
-      await fetch(`${REDIS_URL}/expire/${encodeURIComponent(bucket)}/70`, {
-        headers: { authorization: `Bearer ${REDIS_TOKEN}` },
-      }).catch(() => {});
+      await redisFetch(`/expire/${encodeURIComponent(bucket)}/70`).catch(() => {});
     }
     return !r || (typeof r.result === "number" && r.result <= RATE_LIMIT_PER_MINUTE);
   } catch {
-    return true; // fail open — a Redis hiccup shouldn't silence read-aloud
+    return memRateOk(); // Redis hiccup — degrade to the local guard, don't silence read-aloud
   }
 }
 
