@@ -10,6 +10,7 @@ import { RANGES, OVERLAYS, LINE_TINTS, FONTS, PACING, applyDyslexicUi, formatRat
 import { READING_MODES, modePatch } from "./reading-modes.js";
 import { RULER_LINE_OPTIONS, rulerSpanLabel } from "./ruler.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./research.js";
+import { CLOUD_VOICES } from "./speak-cloud.js";
 
 const FONT_OPTS = Object.entries(FONTS).map(([val, f]) => ({ val, label: f.label }));
 const FOCUS_OPTS = [
@@ -331,12 +332,13 @@ export function buildControls(profile, onChange) {
   reg.wpmRow = wpmRow;
 
   /* read-aloud: engine picker + browser voice + ElevenLabs key */
-  const ttsState = { provider: "piper", hasKey: false, voices: [], voiceId: "", status: "", error: "", piperProgress: null };
+  const ttsState = { provider: "piper", hasKey: false, voices: [], voiceId: "", cloudVoice: "", status: "", error: "", piperProgress: null };
 
   const engineSeg = el("div", { class: "rt-seg rt-seg-wrap", role: "group", "aria-label": "Read-aloud engine" });
   const engineBtns = [
-    { val: "piper", label: "On-device voice" },
-    { val: "elevenlabs", label: "Bring your own key" },
+    { val: "piper", label: "On-device" },
+    { val: "cloud", label: "Premium voice" },
+    { val: "elevenlabs", label: "Your own key" },
   ].map((o) => {
     const b = el("button", { type: "button", "data-val": o.val, "aria-pressed": "false" }, o.label);
     b.addEventListener("click", () => onChange({ __tts: { provider: o.val } }));
@@ -356,6 +358,20 @@ export function buildControls(profile, onChange) {
     b.addEventListener("click", () => onChange({ __tts: patchFactory() }));
     return b;
   };
+
+  const cloudVoiceSel = el("select", { class: "rt-select", "aria-label": "Premium voice" });
+  cloudVoiceSel.append(...CLOUD_VOICES.map((v) => el("option", { value: v.id }, `${v.label} — ${v.detail}`)));
+  cloudVoiceSel.addEventListener("change", () => onChange({ __tts: { cloudVoice: cloudVoiceSel.value } }));
+  reg.cloudVoice = cloudVoiceSel;
+  const cloudVoiceRow = el("div", { class: "rt-field" }, [
+    el("span", { class: "rt-field-label" }, "Premium voice"),
+    el("div", { class: "rt-voice-row" }, [cloudVoiceSel, previewBtn("Preview this voice")]),
+  ]);
+  const cloudHint = el(
+    "p",
+    { class: "rt-panel-hint" },
+    "A higher-quality voice through ReadTune's free relay — no account, no key. Each sentence you're listening to is sent to synthesise it, plus the next one prepared a moment ahead; nothing else leaves your device, and if the relay is busy read-aloud falls back to the on-device voice automatically. See the privacy page."
+  );
 
   const keyInput = el("input", {
     type: "password",
@@ -416,10 +432,12 @@ export function buildControls(profile, onChange) {
 
   const rateRow = slider("ttsRate", SLIDERS.ttsRate);
 
-  secMove.append(engineRow, piperHint, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
+  secMove.append(engineRow, piperHint, cloudHint, cloudVoiceRow, keyRow, keyHint, elVoiceRow, manualVoiceRow, connectedRow, rateRow);
   Object.assign(reg, {
     engineRow,
     piperHint,
+    cloudHint,
+    cloudVoiceRow,
     keyRow,
     keyHint,
     elVoiceRow,
@@ -499,16 +517,20 @@ export function buildControls(profile, onChange) {
     const aloud = state.pacing === "aloud";
     const eleven = t.provider === "elevenlabs";
     const piper = t.provider === "piper";
+    const cloud = t.provider === "cloud";
     const canList = t.hasKey && t.voices.length > 0;
     reg.engineRow.hidden = !aloud;
     reg.piperHint.hidden = !aloud || !piper;
+    reg.cloudHint.hidden = !aloud || !cloud;
+    reg.cloudVoiceRow.hidden = !aloud || !cloud;
     reg.rateRow.hidden = !aloud;
     reg.keyRow.hidden = !aloud || !eleven || t.hasKey;
     reg.keyHint.hidden = !aloud || !eleven || t.hasKey;
     reg.elVoiceRow.hidden = !aloud || !eleven || !canList;
     reg.manualVoiceRow.hidden = !aloud || !eleven || !t.hasKey || canList;
-    reg.connectedRow.hidden = !aloud || (!piper && (!eleven || !t.hasKey));
+    reg.connectedRow.hidden = !aloud || (!piper && !cloud && (!eleven || !t.hasKey));
     reg.forgetBtn.hidden = !eleven;
+    if (cloud && t.cloudVoice) reg.cloudVoice.value = t.cloudVoice;
     for (const b of reg.engineBtns) b.setAttribute("aria-pressed", b.dataset.val === t.provider ? "true" : "false");
     if (t.error) {
       reg.statusLine.textContent = t.error;
@@ -524,6 +546,9 @@ export function buildControls(profile, onChange) {
       reg.statusLine.dataset.kind = "info";
     } else if (piper) {
       reg.statusLine.textContent = "On-device voice selected. The default voice is built into ReadTune.";
+      reg.statusLine.dataset.kind = "info";
+    } else if (cloud) {
+      reg.statusLine.textContent = "Premium voice selected. Press Listen — it falls back to the on-device voice if the relay is busy.";
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
       reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";

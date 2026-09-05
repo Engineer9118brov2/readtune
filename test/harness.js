@@ -637,8 +637,23 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const engRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Voice source/.test(n.textContent));
   assert(engRow && !engRow.closest(".rt-field").hidden, "engine picker visible in aloud mode");
   const engButtons = [...cp.panel.querySelectorAll('.rt-seg[aria-label="Read-aloud engine"] button')].map((b) => b.dataset.val);
-  assert(engButtons.includes("piper") && engButtons.includes("elevenlabs") && !engButtons.includes("browser"), "engine picker offers the on-device voice and an optional key, not a browser voice");
+  assert(
+    engButtons.includes("piper") && engButtons.includes("cloud") && engButtons.includes("elevenlabs") && !engButtons.includes("browser"),
+    "engine picker offers on-device, the premium relay voice, and an optional key — not a browser voice",
+  );
   assert(/ships with ReadTune/.test(cp.panel.textContent), "panel explains the default voice is built in");
+  // premium (cloud) voice: picking it shows the cloud voice row + hint, hides Piper's
+  cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="cloud"]').click();
+  assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "cloud", "engine → cloud provider patch");
+  cp.setTTS({ provider: "cloud", cloudVoice: "aura-2-thalia-en" });
+  const cloudRow = [...cp.panel.querySelectorAll(".rt-field-label")].find((n) => /Premium voice/.test(n.textContent));
+  assert(cloudRow && !cloudRow.closest(".rt-field").hidden, "premium voice row is shown when the cloud engine is picked");
+  assert(/falls back to the on-device voice/i.test(cp.panel.textContent), "the cloud hint discloses the sentence-by-sentence relay and the Piper fallback");
+  const cloudSel = [...cp.panel.querySelectorAll("select")].find((s) => s.getAttribute("aria-label") === "Premium voice");
+  assert(cloudSel && cloudSel.value === "aura-2-thalia-en" && cloudSel.options.length >= 2, "premium voice list is populated and reflects the saved choice");
+  cloudSel.value = cloudSel.options[1].value;
+  cloudSel.dispatchEvent(new Event("change"));
+  assert(ttsPatch.__tts && typeof ttsPatch.__tts.cloudVoice === "string", "changing the premium voice emits a cloudVoice patch");
   cp.panel.querySelector('.rt-seg[aria-label="Read-aloud engine"] button[data-val="elevenlabs"]').click();
   assert(ttsPatch && ttsPatch.__tts && ttsPatch.__tts.provider === "elevenlabs", "engine → __tts patch");
   cp.setTTS({ provider: "elevenlabs", hasKey: true, voices: [{ id: "a", name: "Aria" }, { id: "b", name: "Bill" }], voiceId: "a", status: "ok" });
@@ -1739,6 +1754,83 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     let noText;
     try { await R.relayChat(two, "s", "u", chatOk("   ")); } catch (e) { noText = e; }
     assert(noText && noText.status === 502, "an empty model reply is a 502, not a silent pass");
+  }
+
+  /* ---- premium (cloud) TTS relay fan-out (api/_speak-providers.mjs) ---- */
+  {
+    const SP = await import("../api/_speak-providers.mjs");
+    const mp3 = new Uint8Array(2048).fill(1).buffer;
+    const audioRes = () => async () => ({ ok: true, headers: { get: () => "audio/mpeg" }, arrayBuffer: async () => mp3 });
+    const jsonErr = (status) => async () => ({
+      ok: false,
+      status,
+      headers: { get: () => "application/json" },
+      json: async () => ({ error: `boom ${status}` }),
+      text: async () => `boom ${status}`,
+    });
+    const soft200 = () => async () => ({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ note: "no audio here" }) });
+
+    assert(SP.speakProvidersFromEnv("hi", 1, {}).length === 0, "no keys set → no speak providers");
+    assert(
+      SP.speakProvidersFromEnv("hi", 1, { OPENROUTER_API_KEY: "a", GROQ_API_KEY: "b", UNREALSPEECH_API_KEY: "c" }).map((p) => p.name).join() ===
+        "openrouter,groq,unreal",
+      "speak providers list in order: OpenRouter, Groq, Unreal",
+    );
+    const built = SP.speakProvidersFromEnv("Hello there.", 1.5, { OPENROUTER_API_KEY: "a", UNREALSPEECH_API_KEY: "c" });
+    assert(built[0].body.input === "Hello there." && built[0].body.speed === 1.5, "OpenRouter body carries the text and a multiplier speed");
+    assert(built[1].body.Text === "Hello there." && built[1].body.Speed === 0.5, "Unreal body carries Text and a -1..1 speed offset (1.5× → +0.5)");
+    assert(SP.speakProvidersFromEnv("x", 9, { OPENROUTER_API_KEY: "a" })[0].body.speed === 3, "speed is clamped to the sane TTS range");
+
+    let none;
+    try { await SP.relaySpeak([], audioRes()); } catch (e) { none = e; }
+    assert(none && none.status === 503, "relaySpeak with no providers → 503 (extension keeps Piper)");
+
+    const three = SP.speakProvidersFromEnv("read me", 1, { OPENROUTER_API_KEY: "a", GROQ_API_KEY: "b", UNREALSPEECH_API_KEY: "c" });
+    let tried = 0;
+    const out = await SP.relaySpeak(three, (url) => { tried++; return (url.includes("groq") ? audioRes()() : jsonErr(500)()); });
+    assert(out && out.audio.byteLength === 2048 && tried === 2 && out.contentType.includes("audio"), "relaySpeak falls past a failing provider and returns the first real audio");
+
+    let soft;
+    try { await SP.relaySpeak(SP.speakProvidersFromEnv("x", 1, { OPENROUTER_API_KEY: "a" }), soft200()); } catch (e) { soft = e; }
+    assert(soft && soft.status === 502, "a 200 with a JSON body (no audio) is treated as a soft failure");
+
+    // A provider-specific 400 (unknown voice id, retired model) must NOT stop
+    // the chain — another provider may still be fine.
+    let tried400 = 0;
+    let fell;
+    try { await SP.relaySpeak(three, () => { tried400++; return jsonErr(400)(); }); } catch (e) { fell = e; }
+    assert(tried400 === 3 && fell && fell.status === 400, "a provider 400 falls through to the rest, then the last error propagates");
+
+    // A 413/422 is the payload itself — every provider rejects it, so stop early.
+    let tried413 = 0;
+    let stopped;
+    try { await SP.relaySpeak(three, () => { tried413++; return jsonErr(413)(); }); } catch (e) { stopped = e; }
+    assert(tried413 === 1 && stopped && stopped.status === 413, "a 413 stops the chain — the request itself is unusable");
+  }
+
+  /* ---- premium (cloud) TTS client (shared/speak-cloud.js) ---- */
+  {
+    const SC = await import("../shared/speak-cloud.js");
+    assert(SC.CLOUD_VOICES.length >= 2 && SC.cloudVoiceById("nope").id === SC.CLOUD_VOICE.id, "cloud voice list + safe lookup");
+    const realFetch2 = self.fetch;
+    let sent = null;
+    self.fetch = async (url, opts) => {
+      sent = { url: String(url), body: JSON.parse(opts.body) };
+      return { ok: true, blob: async () => new Blob([new Uint8Array(2048)], { type: "audio/mpeg" }) };
+    };
+    try {
+      const eng = SC.createCloudEngine({ voice: "aura-2-orion-en" });
+      const blob = await eng.synthesize("One sentence.", { rate: 1.2 });
+      assert(sent.url.includes("/api/speak") && sent.body.text === "One sentence." && sent.body.voice === "aura-2-orion-en" && sent.body.speed === 1.2,
+        "createCloudEngine posts { text, voice, speed } to the relay");
+      assert(blob && blob.size === 2048, "the engine returns the audio blob");
+      self.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: "not set up" }) });
+      let err;
+      try { await eng.synthesize("again"); } catch (e) { err = e; }
+      assert(err && err.status === 503, "a relay error propagates with its status so tts.js can drop to Piper");
+    } finally {
+      self.fetch = realFetch2;
+    }
   }
 
   /* showcase */

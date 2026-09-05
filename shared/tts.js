@@ -1,11 +1,16 @@
 /*
  * ReadTune — read aloud
  *
- * Two backends behind one interface:
+ * Three backends behind one interface:
  *   • "piper"      — an on-device neural voice (default). The default model
  *                    ships in the extension, so it works offline; other voices
  *                    download once. Runs in a Web Worker. Word highlighting is a
  *                    proportional estimate (the model emits no word timings).
+ *   • "cloud"      — the optional premium voice. One sentence at a time is sent
+ *                    to ReadTune's own relay (/api/speak → a free cloud TTS
+ *                    provider); no key on this side. Same sentence loop, same
+ *                    prefetch, same highlight estimate as Piper — speed is
+ *                    baked in server-side. Any failure drops to Piper mid-read.
  *   • "elevenlabs" — the user's own ElevenLabs key. Sentences are batched into
  *                    short chunks; each chunk's /with-timestamps response gives
  *                    per-character timings, so the spoken word is highlighted
@@ -13,14 +18,17 @@
  *                    stopping early doesn't spend quota on the rest of the text.
  *
  * There is no browser-speech (SpeechSynthesis) backend — the plain system
- * voices are the thing users disliked most. If Piper can't start, read-aloud
- * reports it rather than dropping to a robotic voice.
+ * voices are the thing users disliked most. Piper is always the floor: if the
+ * premium or ElevenLabs path fails, read-aloud continues on Piper rather than
+ * dropping to a robotic voice or stopping.
  *
- * Sentence + word highlighting in the page is shared between the two.
+ * The "piper" and "cloud" backends share one sentence loop (sentenceSpeak /
+ * synthSentence / driveEstimate); ElevenLabs has its own (elevenPlay).
  */
 
 import { synthesize, charIndexAt } from "./elevenlabs.js";
 import { createPiperEngine } from "./piper.js";
+import { createCloudEngine } from "./speak-cloud.js";
 import { RANGES, clampRate } from "./settings.js";
 
 const CHUNK_CHARS = 550;
@@ -104,10 +112,11 @@ export function createTTS({
   let el = null; // { k, data, chunk } currently playing
   let raf = 0;
   let piper = null;
-  let piperUrl = "";
-  let piperSentence = null;
-  let piperPrefetch = new Map(); // sentence index -> Promise<Blob>, synthesised one ahead
-  let piperPrefetchRate = 1; // the rate those blobs were synthesised at
+  let cloud = null; // the premium (cloud) engine, when provider === "cloud"
+  let spokenUrl = "";
+  let spokenSentence = null;
+  let sentencePrefetch = new Map(); // sentence index -> Promise<Blob>, synthesised one ahead
+  let sentencePrefetchRate = 1; // the rate those blobs were synthesised at
 
   /* ---------- collect sentences + chunk them ---------- */
   function collect() {
@@ -170,7 +179,7 @@ export function createTTS({
     sentence.wordsReady = true;
     let offset = 0;
     /* Every spoken token in order, with the span to light for it (null = Piper
-       says it but it gets no visible mark, e.g. inline code). drivePiper builds
+       says it but it gets no visible mark, e.g. inline code). driveEstimate builds
        its timing curve from this so a code fragment still costs its share of
        the clip and the highlight after it doesn't run ahead of the voice. */
     const speech = [];
@@ -226,7 +235,7 @@ export function createTTS({
     playing = false;
     run++;
     stopAudioEl();
-    stopPiperAudio();
+    stopSentenceAudio();
     clearHighlight();
     onError(message || "Read-aloud couldn't start on this device.");
     onState({ playing: false, done: true, index: i, total: sentences.length });
@@ -256,7 +265,7 @@ export function createTTS({
       onError(err && err.message ? err.message : "ElevenLabs request failed. Switching to the on-device voice.");
       provider = "piper";
       i = sentenceIdx;
-      return piperSpeak();
+      return sentenceSpeak();
     }
     if (!playing || mine !== run) return;
 
@@ -286,7 +295,7 @@ export function createTTS({
       onError("Audio playback failed. Switching to the on-device voice.");
       provider = "piper";
       i = sentenceIdx;
-      piperSpeak();
+      sentenceSpeak();
     };
 
     try {
@@ -328,19 +337,19 @@ export function createTTS({
     }
   }
 
-  function stopPiperAudio() {
+  function stopSentenceAudio() {
     cancelAnimationFrame(raf);
     if (audio) {
       audio.onended = audio.onerror = null;
       audio.pause();
       audio = null;
     }
-    if (piperUrl) URL.revokeObjectURL(piperUrl);
-    piperUrl = "";
-    piperSentence = null;
+    if (spokenUrl) URL.revokeObjectURL(spokenUrl);
+    spokenUrl = "";
+    spokenSentence = null;
   }
 
-  function drivePiper(mine, sentence = piperSentence) {
+  function driveEstimate(mine, sentence = spokenSentence) {
     cancelAnimationFrame(raf);
     /* Word position estimate. Silence is trimmed at synthesis (piper-tts-web
        patch) so audio.duration is the speech duration, and the cumulative
@@ -374,15 +383,48 @@ export function createTTS({
     return piper;
   }
 
+  /* The engine the sentence loop should use right now. Piper and the cloud
+     engine share one interface — synthesize(text, { rate }) -> Blob — so the
+     loop, the prefetch and the highlight estimate don't care which is active.
+     Word lookup ("Hear it") always uses Piper directly (see speakOnce). */
+  function ensureSentenceEngine() {
+    if (provider === "cloud") {
+      if (!cloud) {
+        cloud = createCloudEngine({
+          voice: getConfig().cloudVoice,
+          onStatus: (status) => onStatus({ provider: "cloud", ...status }),
+        });
+      }
+      return cloud;
+    }
+    return ensurePiper();
+  }
+
+  /* Cloud voice hit an error mid-read — drop to Piper for the rest of the
+     passage rather than stopping. Mirrors the ElevenLabs → Piper fallback. */
+  function fallbackToPiper(reason) {
+    if (provider !== "cloud") return false;
+    provider = "piper"; // for the rest of this passage; the saved choice is unchanged
+    clearSentencePrefetch();
+    if (cloud) { try { cloud.destroy(); } catch {} cloud = null; }
+    onStatus({
+      provider: "cloud",
+      kind: "info",
+      message: reason || "Premium voice unavailable — using the on-device voice.",
+      percent: null,
+    });
+    return true;
+  }
+
   /* Synthesise a sentence at the current rate, reusing the one-ahead prefetch
      when it's for the right index and rate. */
-  function synthPiper(idx) {
+  function synthSentence(idx) {
     if (idx < 0 || idx >= sentences.length) return null;
-    const cached = piperPrefetch.get(idx);
-    if (cached && piperPrefetchRate === rate) return cached;
-    const p = ensurePiper().synthesize(sentences[idx].text, { rate });
-    piperPrefetch.set(idx, p);
-    piperPrefetchRate = rate;
+    const cached = sentencePrefetch.get(idx);
+    if (cached && sentencePrefetchRate === rate) return cached;
+    const p = ensureSentenceEngine().synthesize(sentences[idx].text, { rate });
+    sentencePrefetch.set(idx, p);
+    sentencePrefetchRate = rate;
     return p;
   }
 
@@ -390,20 +432,20 @@ export function createTTS({
      is still in flight and at the current rate — stepping straight to a
      sentence we were already prefetching shouldn't launch a duplicate
      inference on the single-threaded worker. */
-  function clearPiperPrefetch(keep) {
-    const kept = keep != null ? piperPrefetch.get(keep) : null;
-    piperPrefetch = new Map();
-    if (kept && piperPrefetchRate === rate) piperPrefetch.set(keep, kept);
+  function clearSentencePrefetch(keep) {
+    const kept = keep != null ? sentencePrefetch.get(keep) : null;
+    sentencePrefetch = new Map();
+    if (kept && sentencePrefetchRate === rate) sentencePrefetch.set(keep, kept);
   }
 
-  async function piperSpeak() {
+  async function sentenceSpeak() {
     if (!playing) return;
     if (i >= sentences.length) return finish();
     const mine = run;
     const sentence = sentences[i];
     markSentence(i);
     try {
-      ensurePiper();
+      ensureSentenceEngine();
       /* Re-synthesise until the blob's rate matches the current setting: the
          reader can nudge the speed (any number of times) while this sentence
          is still being prepared, and playback hasn't started yet, so it should
@@ -414,33 +456,39 @@ export function createTTS({
       let atRate;
       do {
         atRate = rate;
-        blob = await synthPiper(i);
+        blob = await synthSentence(i);
         if (!playing || mine !== run) return;
       } while (rate !== atRate);
-      piperPrefetch.delete(i);
-      stopPiperAudio();
-      piperUrl = URL.createObjectURL(blob);
-      audio = new Audio(piperUrl);
-      piperSentence = sentence;
+      sentencePrefetch.delete(i);
+      stopSentenceAudio();
+      spokenUrl = URL.createObjectURL(blob);
+      audio = new Audio(spokenUrl);
+      spokenSentence = sentence;
       /* Rate is baked into synthesis (length_scale), so playback is 1×. */
       audio.onended = () => {
         if (!playing || mine !== run) return;
         i += 1;
-        piperSpeak();
+        sentenceSpeak();
       };
       audio.onerror = () => {
         if (!playing || mine !== run) return;
+        if (fallbackToPiper("The premium voice couldn't play — using the on-device voice.")) {
+          return sentenceSpeak(); // same sentence, now on Piper
+        }
         const message = "The on-device voice couldn't play this sentence.";
         onStatus({ provider: "piper", kind: "error", message, percent: null });
         readAloudFailed(message);
       };
       await audio.play();
-      drivePiper(mine, sentence);
+      driveEstimate(mine, sentence);
       /* Warm the next sentence while this one plays, so the highlight doesn't
          stall at the end of a sentence waiting on synthesis. */
-      if (i + 1 < sentences.length) { const p = synthPiper(i + 1); if (p) p.catch(() => {}); }
+      if (i + 1 < sentences.length) { const p = synthSentence(i + 1); if (p) p.catch(() => {}); }
     } catch (err) {
       if (!playing || mine !== run) return;
+      if (fallbackToPiper("Premium voice unavailable — using the on-device voice.")) {
+        return sentenceSpeak(); // retry this sentence on Piper
+      }
       const message = err && err.message ? err.message : "The on-device voice couldn't start.";
       onStatus({ provider: "piper", kind: "error", message, percent: null });
       readAloudFailed(message);
@@ -460,7 +508,7 @@ export function createTTS({
       buildChunks();
       elevenPlay(chunkOf(i), i);
     } else {
-      piperSpeak();
+      sentenceSpeak();
     }
   }
 
@@ -468,8 +516,8 @@ export function createTTS({
     playing = false;
     run++;
     stopAudioEl();
-    stopPiperAudio();
-    clearPiperPrefetch();
+    stopSentenceAudio();
+    clearSentencePrefetch();
     el = null;
     releaseUrls();
     clearHighlight();
@@ -479,13 +527,15 @@ export function createTTS({
   function halt(keepPrefetch) {
     run++;
     stopAudioEl();
-    stopPiperAudio();
-    clearPiperPrefetch(keepPrefetch);
+    stopSentenceAudio();
+    clearSentencePrefetch(keepPrefetch);
   }
 
   function resolveProvider() {
     const cfg = getConfig();
-    return cfg.provider === "elevenlabs" && cfg.apiKey && cfg.voiceId ? "elevenlabs" : "piper";
+    if (cfg.provider === "elevenlabs" && cfg.apiKey && cfg.voiceId) return "elevenlabs";
+    if (cfg.provider === "cloud") return "cloud"; // relay-backed, no key on this side
+    return "piper";
   }
 
   return {
@@ -587,11 +637,11 @@ export function createTTS({
         audio.play().catch(() => {});
         driveEleven(run);
         onState({ playing: true, index: i, total: sentences.length });
-      } else if (provider === "piper" && audio && piperSentence) {
+      } else if ((provider === "piper" || provider === "cloud") && audio && spokenSentence) {
         playing = true;
-        audio.play().then(() => drivePiper(run, piperSentence)).catch(() => {
+        audio.play().then(() => driveEstimate(run, spokenSentence)).catch(() => {
           playing = false;
-          onError("Couldn't resume the local voice. Press Play to try that sentence again.");
+          onError("Couldn't resume the voice. Press Play to try that sentence again.");
         });
         onState({ playing: true, index: i, total: sentences.length });
       } else {
@@ -631,20 +681,22 @@ export function createTTS({
       const next = clampRate(r);
       if (next === rate) return;
       rate = next;
-      /* Piper bakes rate into synthesis (length_scale), so the prefetched blob
-         is now stale — drop it and re-synth the next sentence at the new rate.
-         The sentence already playing finishes at its old rate. ElevenLabs has
-         no synth-time speed knob here, so it still resamples live. */
-      if (provider === "piper") clearPiperPrefetch();
+      /* Piper (length_scale) and the cloud relay (the provider's own speed
+         param) both bake rate into synthesis, so the prefetched blob is now
+         stale — drop it and re-synth the next sentence at the new rate. The
+         sentence already playing finishes at its old rate. ElevenLabs has no
+         synth-time speed knob here, so it still resamples live. */
+      if (provider === "piper" || provider === "cloud") clearSentencePrefetch();
       else if (audio) audio.playbackRate = rate;
     },
-    /** ElevenLabs key / voice / provider changed. */
+    /** Voice config changed (ElevenLabs key/voice, or the premium-voice pick). */
     reload() {
       const wasPlaying = playing;
       halt();
       releaseUrls();
       chunks = [];
       el = null;
+      if (cloud) { try { cloud.destroy(); } catch {} cloud = null; } // pick up a new cloud voice
       if (wasPlaying) {
         playing = true;
         provider = resolveProvider();
@@ -660,6 +712,7 @@ export function createTTS({
       releaseUrls();
       if (piper) piper.destroy();
       piper = null;
+      if (cloud) { try { cloud.destroy(); } catch {} cloud = null; }
       clearHighlight();
     },
   };

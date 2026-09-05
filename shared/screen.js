@@ -31,6 +31,7 @@ import { createAssistUi } from "./assist-ui.js";
 import { createAssistSidebar } from "./assist-sidebar.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
+import { createCloudEngine } from "./speak-cloud.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
 import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
@@ -79,6 +80,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onStatus: (status) => {
       piperStatus = status && status.provider === "piper" ? status : piperStatus;
       if (ttsConfig.provider === "piper") pushTTS();
+      // The premium voice fell back to Piper mid-read — say so, and reflect it
+      // in the picker so the reader knows why the voice changed.
+      else if (status && status.provider === "cloud" && status.kind === "info" && status.message) {
+        toast(status.message);
+      }
     },
     onState: (st) => {
       if (profile.pacing !== "aloud") return;
@@ -323,6 +329,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       hasKey,
       voices: ttsConfig.voices || [],
       voiceId: ttsConfig.voiceId || "",
+      cloudVoice: ttsConfig.cloudVoice || "",
       note,
       error: extra.error || "",
       status: extra.status || (ttsConfig.provider === "piper" ? piperStatus.message : ""),
@@ -388,9 +395,28 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         previewAudio = new Audio(previewAudioUrl);
         previewAudio.playbackRate = clampRate(profile.ttsRate);
         previewAudio.onended = previewAudio.onerror = () => stopPreview();
-        previewAudio.play().catch(() => {});
+        previewAudio.play().catch(() => {
+          stopPreview();
+          toast("Preview is ready — press Preview again to hear it.");
+        });
       } catch (e) {
         toast(e && e.message ? e.message : "Couldn't play a preview.");
+      }
+    } else if (ttsConfig.provider === "cloud") {
+      try {
+        // speed is baked in by the relay, so play at 1×
+        const blob = await createCloudEngine({ voice: ttsConfig.cloudVoice }).synthesize(line, {
+          rate: clampRate(profile.ttsRate),
+        });
+        previewAudioUrl = URL.createObjectURL(blob);
+        previewAudio = new Audio(previewAudioUrl);
+        previewAudio.onended = previewAudio.onerror = () => stopPreview();
+        previewAudio.play().catch(() => {
+          stopPreview();
+          toast("Preview is ready — press Preview again to hear it.");
+        });
+      } catch (e) {
+        toast(e && e.message ? e.message : "Couldn't reach the premium voice — the on-device voice still works.");
       }
     } else {
       toast("Add your ElevenLabs key to preview that voice, or try voices in the Reading Lab.");
@@ -463,6 +489,12 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       });
       pushTTS(note ? { note } : { status: "ok" });
       tts.reload();
+    }
+    if (typeof t.cloudVoice === "string" && t.cloudVoice) {
+      ttsConfig = await saveTTSConfig({ cloudVoice: t.cloudVoice });
+      pushTTS();
+      tts.reload();
+      return;
     }
     if (t.voiceId) {
       ttsConfig = await saveTTSConfig({ voiceId: t.voiceId, voiceName: t.voiceName || "" });
