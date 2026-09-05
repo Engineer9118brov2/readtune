@@ -129,18 +129,15 @@ export function shuffle(arr, rand = Math.random) {
  */
 export function pickPassages(count, seenIds = [], rand = Math.random) {
   const seen = new Set(seenIds);
-  let pool = CALIBRATION_PASSAGES.filter((p) => !seen.has(p.id));
-  let cycled = false;
-  if (pool.length < count) {
-    cycled = true;
-    const lastSeen = seenIds[seenIds.length - 1];
-    pool = CALIBRATION_PASSAGES.filter((p) => p.id !== lastSeen);
-    seenIds = [];
-    seen.clear();
-  }
+  const unseen = CALIBRATION_PASSAGES.filter((p) => !seen.has(p.id));
+  const cycled = unseen.length < count;
+  // On a cycle, carry nothing forward except "don't immediately repeat the
+  // very last passage the reader saw".
+  const lastSeen = seenIds[seenIds.length - 1];
+  const pool = cycled ? CALIBRATION_PASSAGES.filter((p) => p.id !== lastSeen) : unseen;
+  const carry = cycled ? [] : seenIds;
   const passages = shuffle(pool, rand).slice(0, count);
-  const nextSeen = [...seenIds, ...passages.map((p) => p.id)];
-  return { passages, seenIds: nextSeen, cycled };
+  return { passages, seenIds: [...carry, ...passages.map((p) => p.id)], cycled };
 }
 
 const BLANK_RE = /\{\{([^}]+)\}\}/g;

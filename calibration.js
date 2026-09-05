@@ -16,8 +16,8 @@
  *   • Passages are drawn from a pool (`shared/calibration-passages.js`) with no
  *     repeat until the pool is exhausted, so a retake isn't contaminated by
  *     remembering the text. Each carries a CLOZE check — two words blanked in a
- *     middle sentence — that you can't answer from the title or a skim. A wrong
- *     cloze means that passage's reading didn't count; it re-runs once.
+ *     middle sentence — that you can't answer from the title or a skim, so the
+ *     comprehension signal is hard to fake.
  *   • Speed, comprehension and a 1–5 ease rating are combined per dimension; a
  *     dimension is only kept if it clears a margin. If nothing does, the test
  *     says so honestly rather than inventing a winner.
@@ -397,8 +397,11 @@ $("start").addEventListener("click", async () => {
   btn.disabled = true;
   step = 0;
   results.length = 0;
-  await buildSequence();
-  btn.disabled = false;
+  try {
+    await buildSequence();
+  } finally {
+    btn.disabled = false;
+  }
   startPassage();
 });
 
