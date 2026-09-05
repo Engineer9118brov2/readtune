@@ -1609,6 +1609,64 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     }
   }
 
+  /* ---- cloud relay provider fan-out (api/_relay.mjs) ---- */
+  {
+    const R = await import("../api/_relay.mjs");
+    const chatOk = (content) => async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content } }] }),
+    });
+    const chatErr = (status) => async () => ({
+      ok: false,
+      status,
+      json: async () => ({ error: { message: `boom ${status}` } }),
+    });
+
+    assert(
+      R.providersFromEnv({}).length === 0 &&
+        R.providersFromEnv({ OPENROUTER_API_KEY: "k" }).map((p) => p.name).join() === "openrouter",
+      "providersFromEnv lists only the providers whose key is set",
+    );
+    assert(
+      R.providersFromEnv({ OLLAMA_API_KEY: "a", OPENROUTER_API_KEY: "b" }).map((p) => p.name).join() === "ollama,openrouter",
+      "with both keys set, Ollama is tried before OpenRouter",
+    );
+
+    const two = R.providersFromEnv({ OLLAMA_API_KEY: "a", OPENROUTER_API_KEY: "b" });
+
+    let noProvider;
+    try { await R.relayChat([], "s", "u", chatOk("x")); } catch (e) { noProvider = e; }
+    assert(noProvider && noProvider.status === 503, "no providers configured → relayChat throws a 503 'not set up'");
+
+    const out = await R.relayChat(two, "s", "u", (url) =>
+      (String(url).includes("ollama") ? chatErr(500)() : chatOk("  from openrouter  ")()));
+    assert(out === "from openrouter", "relayChat falls through a 5xx provider to the next and trims the reply");
+
+    let tries = 0;
+    let allFail;
+    try {
+      await R.relayChat(two, "s", "u", () => { tries++; return chatErr(429)(); });
+    } catch (e) { allFail = e; }
+    assert(allFail && allFail.status === 429 && tries === 2, "every provider 429s → last .status propagates after trying all");
+
+    let calls = 0;
+    let badRequest;
+    try {
+      await R.relayChat(two, "s", "u", () => { calls++; return chatErr(400)(); });
+    } catch (e) { badRequest = e; }
+    assert(badRequest && badRequest.status === 400 && calls === 1, "a 400 is the request's fault — relayChat stops instead of trying the next provider");
+
+    // a bad key / missing model on the first provider must NOT take the path
+    // offline — fall through to the healthy one.
+    const recovered = await R.relayChat(two, "s", "u", (url) =>
+      (String(url).includes("ollama") ? chatErr(401)() : chatOk("second provider")()));
+    assert(recovered === "second provider", "a 401 from the first provider falls through to the next (expired key shouldn't kill Summary)");
+
+    let noText;
+    try { await R.relayChat(two, "s", "u", chatOk("   ")); } catch (e) { noText = e; }
+    assert(noText && noText.status === 502, "an empty model reply is a 502, not a silent pass");
+  }
+
   /* showcase */
   host.replaceChildren();
   const sc = R.createReadingView(host);

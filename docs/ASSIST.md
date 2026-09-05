@@ -44,9 +44,18 @@ it" through the same read-aloud voice.
    no prompt, no "requires a user gesture" dance.
 2. **ReadTune's own relay, Summary only** (`api/assist.js`, deployed
    alongside the marketing site on Vercel) — the article text (and its URL)
-   is sent there, which forwards it to a free model on OpenRouter
-   (`openrouter/free`, OpenRouter's own free-model router — no model list to
-   maintain here) and returns the generated text. **If Redis is configured**,
+   is sent there, which forwards it to a free chat model and returns the
+   generated text. Provider order (`api/_relay.mjs`): **Ollama Cloud**
+   (`ollama.com/v1`, `gpt-oss:20b`) first when `OLLAMA_API_KEY` is set — a
+   signed-in Ollama account has the larger free daily allowance — then
+   **OpenRouter** (`openrouter/free`, its own free-model router). A provider
+   that errors falls through to the next — including a bad key (401/403) or a
+   missing model (404), so adding or invalidating one provider's key never
+   takes a working provider offline. Only a `400`/`413`/`422` (the request
+   itself is bad, every provider would reject it) stops the chain. With
+   neither key set the relay
+   returns `503` and Summary stays unavailable for cloud-path users.
+   **If Redis is configured**,
    responses are cached by normalized article URL (bound to a hash of the
    text, so no one can overwrite another article's cached summary) so a
    popular article is summarized once, ever — every later reader gets the
@@ -67,6 +76,22 @@ two modes now:
 `"on-device"` (ready, on this browser) and `"cloud"` (routed through the
 relay) — both are always `ready: true`, since the assistant always has
 somewhere to run.
+
+## Configuring the relay (Vercel env)
+
+Server-side only — no extension or manifest change to switch providers.
+
+| Env var | Effect |
+| --- | --- |
+| `OLLAMA_API_KEY` | Enables the Ollama Cloud provider (tried first). |
+| `OLLAMA_MODEL` | Optional; defaults to `gpt-oss:20b`. |
+| `OPENROUTER_API_KEY` | Enables the OpenRouter provider (tried after Ollama). |
+| `OPENROUTER_MODEL` | Optional; defaults to `openrouter/free`. |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Optional; enables the cross-reader cache + abuse guard. |
+
+With no provider key set, `/api/assist` returns `503` and the extension keeps
+Summary on-device-only. To change preference order, reorder the array in
+`providersFromEnv` (`api/_relay.mjs`).
 
 ## What is and isn't claimed
 

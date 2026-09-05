@@ -15,8 +15,9 @@
  *      path only fires when it costs nothing: the model Chrome already has
  *      ready for some other feature.
  *   2. Otherwise, ReadTune's own small relay (`/api/assist`, see that file),
- *      which forwards to a free model on OpenRouter and caches the response
- *      by article URL so a popular article is summarized once, ever.
+ *      which forwards to a free chat model — Ollama Cloud first, then
+ *      OpenRouter — and caches the response by article URL so a popular
+ *      article is summarized once, ever.
  *
  * This is the one place in ReadTune where text leaves the device — see
  * privacy.html / PRIVACY.md for the plain disclosure. Every other feature

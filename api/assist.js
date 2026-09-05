@@ -2,8 +2,9 @@
  * ReadTune — cloud-assisted Summary relay
  *
  * A tiny, stateless proxy: the extension sends article text (and, for a
- * whole-article summary, the article's URL), this relays it to a free model
- * on OpenRouter, and hands back the generated text. Nothing here is tied to
+ * whole-article summary, the article's URL), this relays it to a free chat
+ * model — Ollama Cloud first, then OpenRouter (see _relay.mjs) — and hands
+ * back the generated text. Nothing here is tied to
  * a person — no accounts, no auth, no per-user storage. The only thing kept
  * around is a cache of { article URL -> generated summary } so a popular
  * article is summarized once, ever, not once per reader.
@@ -15,11 +16,7 @@
  */
 
 import { createHash } from "node:crypto";
-
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// OpenRouter's own free-model router: it picks a working free model behind
-// this one id, so there is no per-model list to maintain here.
-const OPENROUTER_MODEL = "openrouter/free";
+import { providersFromEnv, relayChat } from "./_relay.mjs";
 
 const MAX_INPUT = 12000; // matches shared/assist.js's MAX_SUMMARY_INPUT
 
@@ -116,74 +113,6 @@ async function rateLimitOk() {
   }
 }
 
-const UPSTREAM_TIMEOUT_MS = 30000;
-
-// package.json declares no fixed Node runtime for this function, so don't
-// assume AbortSignal.timeout() exists — fall back to a plain AbortController.
-function timeoutSignal(ms) {
-  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
-    return { signal: AbortSignal.timeout(ms), cancel: () => {} };
-  }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, cancel: () => clearTimeout(timer) };
-}
-
-async function callOpenRouter(system, user) {
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key) {
-    const err = new Error("The AI helper isn't set up yet.");
-    err.status = 503;
-    throw err;
-  }
-  let res;
-  const { signal, cancel } = timeoutSignal(UPSTREAM_TIMEOUT_MS);
-  try {
-    res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      signal,
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${key}`,
-        "HTTP-Referer": "https://readtune.tech",
-        "X-Title": "ReadTune",
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.3,
-        max_tokens: 400,
-      }),
-    });
-  } catch (e) {
-    const err = new Error(
-      e && e.name === "AbortError" ? "The AI helper took too long to respond." : "Couldn't reach the AI helper. Check your connection.",
-    );
-    err.status = 502;
-    throw err;
-  } finally {
-    cancel();
-  }
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const err = new Error((data && data.error && data.error.message) || `The AI helper couldn't handle that (${res.status}).`);
-    err.status = res.status;
-    throw err;
-  }
-  const data = await res.json();
-  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-  const trimmed = (text || "").trim();
-  if (!trimmed) {
-    const err = new Error("The AI helper returned nothing usable.");
-    err.status = 502;
-    throw err;
-  }
-  return trimmed;
-}
-
 function setCors(res) {
   // A stateless public relay with no auth/cookies to protect — any origin,
   // including a Chrome extension's chrome-extension://<id>, may call it.
@@ -238,7 +167,7 @@ export default async function handler(req, res) {
 
   try {
     const system = kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM;
-    const generated = await callOpenRouter(system, text);
+    const generated = await relayChat(providersFromEnv(process.env), system, text);
     await cacheSet(cacheKey, generated);
     res.status(200).json({ text: generated, cached: false });
   } catch (err) {
