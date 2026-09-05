@@ -405,13 +405,14 @@ export const setSiteAutoStyle = (origin, on) => writeSite(origin, { autoStyle: !
 /* ---- read-aloud engine config (browser voice, or the user's ElevenLabs key) ---- */
 
 export const DEFAULT_TTS = {
-  provider: "piper", // "piper" | "elevenlabs" — Piper (on-device) is the built-in read-aloud engine
+  provider: "piper", // "piper" | "cloud" | "elevenlabs" — Piper (on-device) is the built-in engine and the floor
   apiKey: "", // the user's own ElevenLabs key — stored here only, never in a file or the profile
   voiceId: "", // ElevenLabs voice id
   voiceName: "",
   model: "eleven_flash_v2_5",
   voices: [], // cached [{id,name}] for the picker
   piperVoice: "en_US-ljspeech-medium", // bundled, public-domain — no download on first use
+  cloudVoice: "aura-2-thalia-en", // premium (cloud) voice id — relayed through /api/speak, no key here
 };
 
 // Voices dropped for licensing (Blizzard research-only / CC-BY-NC) or quality.

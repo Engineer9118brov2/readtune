@@ -7,9 +7,19 @@ good voices; Immersive Reader's are cloud; the OS voices are hit-or-miss).
 
 ## As shipped (v0.9.0)
 
-Piper is **the only read-aloud engine** (ElevenLabs stays as an optional
-bring-your-own-key path). There is no browser-speech fallback: if Piper can't
-run, read-aloud shows a clear message rather than a robotic system voice.
+Piper is **the default read-aloud engine and the floor** — everything falls
+back to it. Two optional upgrades sit above it: a **"Premium voice"** through
+ReadTune's own relay (`/api/speak` → a free cloud TTS provider, no key on the
+reader's side — see `api/_speak-providers.mjs`), and the **ElevenLabs**
+bring-your-own-key path. There is no browser-speech fallback: if the premium or
+ElevenLabs path fails mid-read, it drops to Piper for the rest of the passage;
+if Piper itself can't run, read-aloud shows a clear message rather than a
+robotic system voice.
+
+The "piper" and "cloud" backends share one sentence loop in `tts.js`
+(`sentenceSpeak` / `synthSentence` / `driveEstimate` + the one-ahead prefetch);
+speed is baked in for both (Piper's `length_scale`, the cloud provider's own
+`speed` param). ElevenLabs keeps its own chunked, timestamp-aligned path.
 
 - `shared/piper.js` — voice list + `createPiperEngine()`; `shared/piper/worker.js`
   runs ORT + the phonemizer off the main thread.
@@ -75,8 +85,10 @@ lib/piper/voices/         en_US-ljspeech-medium.onnx (+ .json) — the bundled d
 ```
 
 - **Provider resolution** (`resolveProvider()` in `tts.js`): ElevenLabs only when
-  a working key + voice are set; otherwise Piper. A Piper failure surfaces an
-  honest error — there is no `speechSynthesis` fallback.
+  a working key + voice are set; "cloud" when the reader picked the premium
+  voice; otherwise Piper. Premium/ElevenLabs failure → drop to Piper mid-read
+  (`fallbackToPiper`); a Piper failure surfaces an honest error — there is no
+  `speechSynthesis` fallback.
 - **CSP:** `script-src 'self' 'wasm-unsafe-eval'` is enough. The ORT ESM build
   and the phonemizer glue use `WebAssembly.instantiate` on *bundled* bytes — no
   `eval`, no remote wasm.
