@@ -141,6 +141,12 @@ const results = []; // one per scored passage, in run order
 const show = (name) => {
   for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
   window.scrollTo({ top: 0 });
+  /* Move focus to the new screen so a keyboard or screen-reader user is taken
+     to it (and hears its heading) instead of being stranded on the button they
+     just pressed, which is now hidden. Each section is aria-labelledby its
+     heading and tabindex="-1" for exactly this. */
+  const active = screens[name];
+  if (active) requestAnimationFrame(() => active.focus({ preventScroll: true }));
 };
 
 function renderProgress() {
@@ -153,6 +159,9 @@ function renderProgress() {
     else if (i === scoredDone && step > 0) dot.className = "on";
     progressEl.appendChild(dot);
   }
+  progressEl.setAttribute("aria-valuemax", String(DIMENSIONS.length));
+  progressEl.setAttribute("aria-valuenow", String(Math.min(scoredDone, DIMENSIONS.length)));
+  progressEl.setAttribute("aria-valuetext", `Passage ${Math.min(scoredDone + (current && current.warmup ? 0 : 1), DIMENSIONS.length)} of ${DIMENSIONS.length}`);
 }
 
 const wordCount = (t) => t.trim().split(/\s+/).filter(Boolean).length;

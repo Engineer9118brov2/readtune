@@ -202,6 +202,40 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     labDoc.getElementById("lab-assist-status").getAttribute("role") === "status",
     "the Lab's assistant status line is a live region (announces on-device availability)",
   );
+  const labCard = labDoc.querySelector(".lab-voice-card");
+  assert(
+    labCard.getAttribute("role") === "group" && /voice/i.test(labCard.getAttribute("aria-label") || ""),
+    "each Voice Fit card is a labelled group so a screen reader ties its buttons to that voice",
+  );
+  assert(
+    [...labCard.querySelectorAll("button")].every((b) => /Linden/.test(b.getAttribute("aria-label") || b.textContent)),
+    "the Preview / Use buttons name the voice they act on",
+  );
+
+  /* ---- calibration flow: keyboard / screen-reader shape ---- */
+  {
+    const calHtml = await fetch("../calibration.html").then((r) => r.text());
+    const calDoc = new DOMParser().parseFromString(calHtml, "text/html");
+    const stepIds = ["screen-intro", "screen-passage", "screen-quiz", "screen-ease", "screen-results"];
+    assert(
+      stepIds.every((id) => {
+        const s = calDoc.getElementById(id);
+        return s && s.getAttribute("tabindex") === "-1" && s.hasAttribute("aria-labelledby");
+      }),
+      "every calibration screen is focusable (tabindex=-1) and labelled by its heading, so show() can move focus and a screen reader announces the step",
+    );
+    assert(calDoc.getElementById("passage-head").tagName === "H2", "the passage screen has a real heading, not a bare div");
+    assert(calDoc.getElementById("progress").getAttribute("role") === "progressbar", "the calibration progress dots expose a progressbar role");
+    const easeBtns = [...calDoc.querySelectorAll("#scale button")];
+    assert(
+      easeBtns.every((b) => b.hasAttribute("aria-label")) && /hardest/.test(easeBtns[0].getAttribute("aria-label")) && /easiest/.test(easeBtns[4].getAttribute("aria-label")),
+      "the ease buttons carry aria-labels, and the ends spell out 'hardest' / 'easiest' rather than relying on the tiny caption text",
+    );
+    assert(calDoc.getElementById("quiz-options").getAttribute("role") === "group", "the cloze options are a labelled group");
+    // claim discipline: the popup must not promise a calibration the code doesn't run
+    const popHtml = await fetch("../popup.html").then((r) => r.text());
+    assert(!/six short passages|6 passages|about 4 minutes/i.test(popHtml), "the popup's calibration copy matches v2 (five passages, ~3 min), not the old six/four");
+  }
 
   /* settings */
   assert(S.DEFAULT_PROFILE.pacing === "flow" && Object.keys(S.FONTS).length === 4, "profile defaults + 4 fonts");

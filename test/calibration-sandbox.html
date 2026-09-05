@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ReadTune — calibration sandbox</title>
+    <title>ReadTune — Find my settings</title>
     <link rel="stylesheet" href="../shared/theme.css" />
     <link rel="stylesheet" href="../calibration.css" />
     <script>
@@ -14,23 +14,20 @@
           permissions: { contains: async () => false, request: async () => false, remove: async () => true },
           storage: { local: {
               async get(k) { return k == null ? { ...mem.local } : { [k]: mem.local[k] }; },
-              async set(v) { Object.assign(mem.local, v); },
-              async remove(k) { delete mem.local[k]; } },
-            session: {
-              async get(k) { return k == null ? { ...mem.session } : { [k]: mem.session[k] }; },
-              async set(v) { Object.assign(mem.session, v); },
-              async remove(k) { delete mem.session[k]; } } },
+              async set(v) { Object.assign(mem.local, v); }, async remove(k) { delete mem.local[k]; } },
+            session: { async get(k) { return k == null ? { ...mem.session } : { [k]: mem.session[k] }; },
+              async set(v) { Object.assign(mem.session, v); }, async remove(k) { delete mem.session[k]; } } },
         };
       })();
     </script>
   </head>
   <body class="rt-ui rt-reading-page">
     <div class="cal-wrap">
-      <div class="cal-progress" id="progress" hidden></div>
+      <div class="cal-progress" id="progress" role="progressbar" aria-label="Calibration progress" aria-valuemin="0" hidden></div>
 
-      <section class="cal-card" id="screen-intro">
+      <section class="cal-card" id="screen-intro" tabindex="-1" aria-labelledby="intro-heading">
         <span class="rt-chip">Calibration</span>
-        <h1>Try a few reading settings</h1>
+        <h1 id="intro-heading">Try a few reading settings</h1>
         <p>
           You'll read a short warm-up, then five passages. Each one changes
           <b>one</b> thing from a clean, research-backed page — the font, the
@@ -67,38 +64,38 @@
         </div>
       </section>
 
-      <section id="screen-passage" hidden>
-        <div class="cal-passage-head">
+      <section id="screen-passage" hidden tabindex="-1" aria-labelledby="passage-head">
+        <h2 class="cal-passage-head" id="passage-head">
           Passage <span id="p-num">1</span><span id="p-total-wrap"> of <span id="p-total">5</span></span>
           — read it at your normal pace
-        </div>
-        <main class="rt-surface cal-surface" id="passage-surface"><div id="passage-view"></div></main>
+        </h2>
+        <main class="rt-surface cal-surface" id="passage-surface" aria-label="Passage to read"><div id="passage-view"></div></main>
         <div class="cal-actions">
           <button class="rt-btn rt-primary" id="done" type="button">I've finished reading</button>
-          <p class="cal-hint" id="passage-hint" hidden>
+          <p class="cal-hint" id="passage-hint" role="status" hidden>
             Take your time and read the whole passage. Tap again to continue.
           </p>
         </div>
       </section>
 
-      <section class="cal-card" id="screen-quiz" hidden>
+      <section class="cal-card" id="screen-quiz" hidden tabindex="-1" aria-labelledby="quiz-q">
         <h2 id="quiz-q">Which words are missing?</h2>
         <p class="cal-cloze" id="quiz-passage"></p>
-        <div class="cal-options" id="quiz-options"></div>
+        <div class="cal-options" id="quiz-options" role="group" aria-label="Pick the missing pair of words"></div>
       </section>
 
-      <section class="cal-card" id="screen-ease" hidden>
-        <h2>How easy was that to read?</h2>
-        <div class="cal-scale" id="scale">
-          <button type="button" data-v="1">1<small>Hard</small></button>
-          <button type="button" data-v="2">2<small></small></button>
-          <button type="button" data-v="3">3<small>OK</small></button>
-          <button type="button" data-v="4">4<small></small></button>
-          <button type="button" data-v="5">5<small>Easy</small></button>
+      <section class="cal-card" id="screen-ease" hidden tabindex="-1" aria-labelledby="ease-heading">
+        <h2 id="ease-heading">How easy was that to read?</h2>
+        <div class="cal-scale" id="scale" role="group" aria-label="Rate how easy that passage was to read, 1 hardest to 5 easiest">
+          <button type="button" data-v="1" aria-label="1 — hardest">1<small>Hard</small></button>
+          <button type="button" data-v="2" aria-label="2">2<small></small></button>
+          <button type="button" data-v="3" aria-label="3 — okay">3<small>OK</small></button>
+          <button type="button" data-v="4" aria-label="4">4<small></small></button>
+          <button type="button" data-v="5" aria-label="5 — easiest">5<small>Easy</small></button>
         </div>
       </section>
 
-      <section class="cal-card" id="screen-results" hidden>
+      <section class="cal-card" id="screen-results" hidden tabindex="-1" aria-labelledby="result-title">
         <span class="rt-chip">Settings to try</span>
         <h1 id="result-title">Your starting setup</h1>
         <p id="result-headline" class="cal-headline" hidden></p>

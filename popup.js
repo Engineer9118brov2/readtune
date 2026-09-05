@@ -122,7 +122,7 @@ function configureFirstRun() {
   $("btn-calibrate").classList.add("rt-primary");
   $("btn-reader").classList.remove("rt-primary");
   $("calibrate-title").textContent = "Run the reading calibration";
-  $("calibrate-sub").textContent = "6 short passages · about 4 minutes";
+  $("calibrate-sub").textContent = "5 short passages · about 3 minutes";
   $("btn-reader").querySelector(".rt-btn-title").textContent = "Open Reader View";
   $("btn-reader").querySelector(".rt-btn-sub").textContent = "Pull the current article into a calmer page · Alt+R";
   setActionOrder(["calibrate", "reader", "pdf", "restyle", "dictate"]);
