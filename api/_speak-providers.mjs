@@ -80,7 +80,7 @@ function openRouterSpeech(spec, text, speed, voice, env) {
   };
 }
 
-function cartesia(text, speed, env) {
+function cartesia(text, env) {
   if (!env.CARTESIA_API_KEY) return null;
   // Cartesia isn't a provider OpenRouter can BYOK, so it's a direct call. It
   // wants a UUID voice id and takes no numeric speed on this endpoint version,
@@ -106,7 +106,7 @@ function cartesia(text, speed, env) {
 export function speakProvidersFromEnv(text, speed, env = {}, voice = "") {
   const s = clampSpeed(speed);
   const list = OPENROUTER_SPEECH.map((spec) => openRouterSpeech(spec, text, s, voice, env));
-  list.push(cartesia(text, s, env));
+  list.push(cartesia(text, env));
   return list.filter(Boolean);
 }
 
