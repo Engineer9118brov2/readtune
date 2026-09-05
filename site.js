@@ -74,104 +74,50 @@ document.querySelector(".play-button")?.addEventListener("click", (event) => {
   button.innerHTML = playing ? "<span class=\"pause-icon\"></span>" : "<span></span>";
 });
 
-/* ---- Read this page aloud ------------------------------------------------
-   Marketing-site only. Drives window.speechSynthesis — a browser/system voice,
-   not the extension's on-device Piper engine. Two triggers, one controller:
-   the nav "Listen" button and the O of "Stop" in the hero headline. */
-(function readAloud() {
+/* ---- Hear the pitch --------------------------------------------------
+   Marketing-site only. Plays one pre-recorded ElevenLabs narration of the
+   short pitch (docs/PITCH-SCRIPT.md) — not a live read of the whole page,
+   and not the extension's own on-device Piper engine. Two triggers, one
+   <audio> element: the nav "Listen" button and the O of "Stop" in the
+   hero headline. If the recording isn't there yet, the triggers quietly
+   remove themselves rather than offer a button that does nothing. */
+(function hearThePitch() {
   const triggers = Array.from(document.querySelectorAll("[data-say]"));
   if (!triggers.length) return;
-
-  const synth = window.speechSynthesis;
   const heroO = document.querySelector(".say-o");
-  if (!synth || typeof window.SpeechSynthesisUtterance !== "function") {
+
+  const audio = new Audio("audio/pitch.mp3");
+  audio.preload = "none";
+
+  const removeTriggers = () => {
     if (heroO) heroO.replaceWith(document.createTextNode("o")); // keep the word "Stop" whole
     triggers.forEach((t) => t !== heroO && t.remove());
-    return;
-  }
-
-  // Build the reading list from the page's real prose, in document order.
-  const root = document.querySelector("main") || document.body;
-  const SKIP = '.specimen, .audio-card, .section-label, .eyebrow, .mono-label, .card-label, .hero-proof, .voice-note, [aria-hidden="true"]';
-  const readText = (node) => {
-    const clone = node.cloneNode(true);
-    clone.querySelectorAll("br").forEach((br) => br.replaceWith(" ")); // <br> is a word break, not a join
-    return clone.textContent.replace(/\s+/g, " ").replace(/([.!?])(?=[A-Za-z])/g, "$1 ").trim();
   };
-  // "one. two." -> ["one.", "two."] without a lookbehind (Safari < 16.4)
-  const sentences = (t) => (t.match(/[^.!?]+[.!?]*\s*/g) || [t]).map((s) => s.trim()).filter(Boolean);
-  const lines = [];
-  root.querySelectorAll("h1, h2, h3, p, li").forEach((node) => {
-    if (node.closest(SKIP)) return;
-    const text = readText(node);
-    if (text.length < 2) return;
-    // Headings read whole; body text splits on sentence ends so no single
-    // utterance is long enough to trip Chrome's ~15s speechSynthesis cut-off.
-    if (/^H[1-3]$/.test(node.tagName)) lines.push(text);
-    else sentences(text).forEach((s) => lines.push(s));
-  });
-  if (!lines.length) return;
+  // No recording yet (404, or the browser can't decode it) — pull the
+  // buttons rather than ship a "Listen" that silently does nothing.
+  audio.addEventListener("error", removeTriggers, { once: true });
 
   const bar = document.body.appendChild(Object.assign(document.createElement("div"), { className: "say-progress" }));
 
-  let playing = false;
-  let at = 0;
-  let run = 0;
-  let voice = null;
-  let keepAlive = 0;
-
-  const pickVoice = () => {
-    const all = synth.getVoices() || [];
-    const en = all.filter((v) => /^en\b/i.test(v.lang));
-    return en.find((v) => v.localService && /US|GB/i.test(v.lang)) || en.find((v) => v.localService) || en[0] || all[0] || null;
-  };
-  voice = pickVoice();
-  synth.addEventListener && synth.addEventListener("voiceschanged", () => { voice = pickVoice(); });
-
   const paint = () => {
+    const playing = !audio.paused && !audio.ended;
     bar.classList.toggle("is-on", playing);
-    bar.style.transform = `scaleX(${playing ? at / lines.length : 0})`;
+    bar.style.transform = `scaleX(${audio.duration ? audio.currentTime / audio.duration : 0})`;
     triggers.forEach((t) => {
       t.classList.toggle("is-playing", playing);
-      t.setAttribute("aria-label", playing ? "Stop reading this page" : "Read this page aloud");
+      t.setAttribute("aria-label", playing ? "Stop the pitch" : "Hear the pitch");
     });
   };
 
   const stop = () => {
-    run++;
-    playing = false;
-    at = 0;
-    clearInterval(keepAlive);
-    try { synth.cancel(); } catch (e) { /* ignore */ }
+    audio.pause();
+    audio.currentTime = 0;
     paint();
   };
 
-  const step = (mine) => {
-    if (!playing || mine !== run) return;
-    if (at >= lines.length) { stop(); return; }
-    paint();
-    const u = new SpeechSynthesisUtterance(lines[at]);
-    if (voice) u.voice = voice;
-    u.rate = 1;
-    u.onend = () => { if (playing && mine === run) { at += 1; step(mine); } };
-    u.onerror = () => { if (playing && mine === run) { at += 1; step(mine); } };
-    try { synth.speak(u); } catch (e) { stop(); }
-  };
-
-  const start = () => {
-    try { synth.cancel(); } catch (e) { /* ignore */ }
-    run++;
-    playing = true;
-    at = 0;
-    // Chrome quietly pauses synthesis after ~15s; nudge it back if that happens.
-    clearInterval(keepAlive);
-    keepAlive = setInterval(() => {
-      try { if (synth.paused && playing) synth.resume(); } catch (e) { /* ignore */ }
-    }, 5000);
-    step(run);
-  };
-
-  triggers.forEach((t) => t.addEventListener("click", () => (playing ? stop() : start())));
-  document.addEventListener("keydown", (e) => e.key === "Escape" && playing && stop());
+  audio.addEventListener("timeupdate", paint);
+  audio.addEventListener("ended", stop);
+  triggers.forEach((t) => t.addEventListener("click", () => (audio.paused ? audio.play().catch(removeTriggers) : stop())));
+  document.addEventListener("keydown", (e) => e.key === "Escape" && !audio.paused && stop());
   window.addEventListener("pagehide", stop);
 })();
