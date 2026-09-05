@@ -249,8 +249,7 @@ export function buildControls(profile, onChange) {
   secLeg.append(field("Line tint", segment("lineTint", LINE_TINT_OPTS, "Line tint")));
   secLeg.append(
     hint(
-      "Colour that shifts from line to line, so your eye has something to follow back to the left margin. " +
-        "Reader View and PDFs only — it needs to repaint the text itself, which is not safe to do on a live page.",
+      "Colour that shifts line to line, so your eye finds its way back to the margin. Reader View and PDFs only.",
       "rt-panel-hint-tight",
     ),
   );
