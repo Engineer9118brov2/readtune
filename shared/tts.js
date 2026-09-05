@@ -169,12 +169,21 @@ export function createTTS({
     if (sentence.wordsReady) return;
     sentence.wordsReady = true;
     let offset = 0;
+    /* Every spoken token in order, with the span to light for it (null = Piper
+       says it but it gets no visible mark, e.g. inline code). drivePiper builds
+       its timing curve from this so a code fragment still costs its share of
+       the clip and the highlight after it doesn't run ahead of the voice. */
+    const speech = [];
     const nodes = [];
     const walker = document.createTreeWalker(sentence.el, NodeFilter.SHOW_TEXT);
     let n;
     while ((n = walker.nextNode())) nodes.push(n);
     for (const node of nodes) {
-      if (node.parentElement && node.parentElement.closest("code")) {
+      const isCode = node.parentElement && node.parentElement.closest("code");
+      if (isCode) {
+        for (const word of node.nodeValue.split(/\s+/)) {
+          if (word) speech.push({ text: word, span: null });
+        }
         offset += node.nodeValue.length;
         continue;
       }
@@ -190,12 +199,14 @@ export function createTTS({
           w.dataset.o = String(local);
           w.textContent = m[2];
           frag.appendChild(w);
+          speech.push({ text: m[2], span: w });
         }
         local += m[0].length;
       }
       offset += node.nodeValue.length;
       if (node.parentNode) node.parentNode.replaceChild(frag, node);
     }
+    sentence.speech = speech;
   }
 
   function highlightWord(sentence, charIndex) {
@@ -336,15 +347,16 @@ export function createTTS({
        weight curve accounts for word length + punctuation pauses — far closer
        than "elapsed fraction × character count", which trailed the voice. */
     ensureWordSpans(sentence);
-    const spans = [...sentence.el.querySelectorAll(".rt-w")];
-    const cumEnds = wordDurationWeights(spans.map((s) => s.textContent));
+    const speech = sentence.speech || [];
+    const cumEnds = wordDurationWeights(speech.map((t) => t.text));
     const flow = getFlow() || sentence.el;
     const tick = () => {
       if (!playing || mine !== run || !audio || !sentence) return;
-      if (Number.isFinite(audio.duration) && audio.duration > 0 && spans.length) {
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && speech.length) {
         const frac = Math.min(1, audio.currentTime / audio.duration);
         try {
-          markWord(flow, spans[wordAtFraction(cumEnds, frac)] || null);
+          const tok = speech[wordAtFraction(cumEnds, frac)];
+          markWord(flow, (tok && tok.span) || null);
         } catch {}
       }
       raf = requestAnimationFrame(tick);
@@ -392,16 +404,19 @@ export function createTTS({
     markSentence(i);
     try {
       ensurePiper();
-      const atRate = rate;
-      let blob = await synthPiper(i);
-      if (!playing || mine !== run) return;
-      /* Reader nudged the speed while this sentence was still synthesising.
-         Playback hasn't started, so redo it once at the new rate rather than
-         open at the old tempo. setRate already cleared the prefetch map. */
-      if (rate !== atRate) {
+      /* Re-synthesise until the blob's rate matches the current setting: the
+         reader can nudge the speed (any number of times) while this sentence
+         is still being prepared, and playback hasn't started yet, so it should
+         open at the rate that's on the dial now — not whatever it was when the
+         first synth kicked off. setRate clears the prefetch map on each change,
+         so each pass here re-synthesises at the latest rate. */
+      let blob;
+      let atRate;
+      do {
+        atRate = rate;
         blob = await synthPiper(i);
         if (!playing || mine !== run) return;
-      }
+      } while (rate !== atRate);
       piperPrefetch.delete(i);
       stopPiperAudio();
       piperUrl = URL.createObjectURL(blob);

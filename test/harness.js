@@ -746,8 +746,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
        must agree with it at both ends, or a saved rate and a live rate can
        differ. */
     assert(
-      S.clampRate(0.1) === S.RANGES.ttsRate.min && S.clampRate(99) === S.RANGES.ttsRate.max && S.clampRate("x") === 1,
-      "clampRate pins to the shared range and defaults a junk value to 1×",
+      S.clampRate(0.1) === S.RANGES.ttsRate.min && S.clampRate(99) === S.RANGES.ttsRate.max &&
+        S.clampRate(0) === S.RANGES.ttsRate.min && S.clampRate("x") === 1 && S.clampRate(Infinity) === 1,
+      "clampRate pins any real number (0 included) to the shared range and only a non-finite value defaults to 1×",
     );
     assert(
       S.normalizeProfile({ ttsRate: 0.1 }).ttsRate === S.clampRate(0.1) &&

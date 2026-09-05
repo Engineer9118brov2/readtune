@@ -159,7 +159,12 @@ export function formatRate(v) {
 /** The one voice-speed clamp. Every surface that applies a rate — the engine,
  *  the Lab preview, the reading-screen preview — must go through this so the
  *  number the reader sees is the speed they get. */
-export const clampRate = (v) => Math.min(RANGES.ttsRate.max, Math.max(RANGES.ttsRate.min, Number(v) || 1));
+export const clampRate = (v) => {
+  const n = Number(v);
+  // Match clampNum: a real number (0 included) is clamped into range; only a
+  // non-finite value falls back to 1×.
+  return Number.isFinite(n) ? Math.min(RANGES.ttsRate.max, Math.max(RANGES.ttsRate.min, n)) : 1;
+};
 
 const clampNum = (v, lo, hi, dflt) => {
   const n = Number(v);
