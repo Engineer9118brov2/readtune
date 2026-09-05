@@ -94,8 +94,20 @@
 .cal-passage-head {
   text-align: center;
   font-size: 0.86rem;
+  font-weight: 400;
   color: var(--rt-ui-ink-soft);
-  margin-bottom: 14px;
+  margin: 0 0 14px;
+}
+
+/* The screen wrappers take focus only so a screen reader announces the new
+   step — they aren't in the tab order, so no visible ring. Real controls keep
+   the global :focus-visible outline. */
+#screen-intro:focus,
+#screen-passage:focus,
+#screen-quiz:focus,
+#screen-ease:focus,
+#screen-results:focus {
+  outline: none;
 }
 .cal-passage-head span {
   font-weight: 700;

@@ -265,6 +265,8 @@ async function speakVoicePreview(voice) {
 function voiceCard(voice) {
   const article = document.createElement("article");
   article.className = "lab-voice-card";
+  article.setAttribute("role", "group");
+  article.setAttribute("aria-label", `${voice.label} voice`);
   article.dataset.active = ttsConfig && ttsConfig.provider === "piper" && ttsConfig.piperVoice === voice.id ? "true" : "false";
   article.dataset.playing = previewingVoice === voice.id ? "true" : "false";
 
@@ -300,12 +302,14 @@ function voiceCard(voice) {
   preview.className = "rt-btn";
   preview.type = "button";
   preview.textContent = article.dataset.playing === "true" ? "Stop preview" : "Preview";
+  preview.setAttribute("aria-label", `${article.dataset.playing === "true" ? "Stop previewing" : "Preview"} the ${voice.label} voice`);
   preview.addEventListener("click", () => speakVoicePreview(voice));
 
   const use = document.createElement("button");
   use.className = `rt-btn${article.dataset.active === "true" ? "" : " rt-primary"}`;
   use.type = "button";
   use.textContent = article.dataset.active === "true" ? "Using this voice" : "Use this voice";
+  use.setAttribute("aria-label", article.dataset.active === "true" ? `Using the ${voice.label} voice` : `Use the ${voice.label} voice`);
   use.disabled = article.dataset.active === "true";
   use.addEventListener("click", () => savePiperVoice(voice));
 
