@@ -14,7 +14,10 @@
     linear-gradient(180deg, #f4efe4, #f8f4eb 42%, #f4efe4);
 }
 
-.lab-hero,
+.lab-hero {
+  display: block;
+}
+
 .lab-grid {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -22,7 +25,6 @@
 }
 
 .lab-hero-copy,
-.lab-stat,
 .lab-panel {
   border-radius: 24px;
   border: 1px solid rgba(214, 206, 190, 0.9);
@@ -54,24 +56,19 @@
   color: var(--rt-ui-ink-soft);
 }
 
-.lab-hero-stats {
-  display: grid;
-  gap: 12px;
+.lab-status {
+  margin: 14px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--rt-ui-accent-ink);
 }
 
-.lab-stat,
-.lab-next,
-.lab-use-case,
-.lab-leader,
-.lab-timeline-item {
+.lab-next {
   padding: 16px;
 }
 
-.lab-stat span,
 .lab-overline,
-.lab-next span,
-.lab-use-case span,
-.lab-timeline-date {
+.lab-next span {
   display: block;
   font-size: 0.7rem;
   font-weight: 700;
@@ -80,26 +77,13 @@
   color: var(--rt-ui-ink-soft);
 }
 
-.lab-stat strong,
 .lab-next strong,
-.lab-panel-head h2,
-.lab-use-case strong,
-.lab-timeline-item strong,
-.lab-leader strong {
+.lab-panel-head h2 {
   display: block;
   font-family: var(--rt-ui-display);
 }
 
-.lab-stat strong {
-  margin: 8px 0 6px;
-  font-size: 1rem;
-}
-
-.lab-stat p,
 .lab-panel p,
-.lab-use-case p,
-.lab-timeline-item p,
-.lab-leader p,
 .lab-empty p {
   margin: 0;
   color: var(--rt-ui-ink-soft);
@@ -249,14 +233,6 @@
   color: var(--rt-ui-ink-soft);
 }
 
-.lab-leaderboard,
-.lab-use-cases,
-.lab-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .lab-voice-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
@@ -385,66 +361,6 @@
   line-height: 1.5;
 }
 
-.lab-leader,
-.lab-use-case,
-.lab-timeline-item {
-  border-radius: 18px;
-  border: 1px solid rgba(214, 206, 190, 0.88);
-  background: rgba(248, 244, 235, 0.76);
-}
-
-.lab-leader-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-}
-
-.lab-leader-head span {
-  font-size: 0.8rem;
-  color: var(--rt-ui-ink-soft);
-}
-
-.lab-leader p {
-  margin: 7px 0 10px;
-}
-
-.lab-track {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(222, 214, 198, 0.76);
-  overflow: hidden;
-}
-
-.lab-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgba(239, 141, 100, 0.94), rgba(15, 108, 92, 0.9));
-}
-
-.lab-fill-muted {
-  background: rgba(145, 144, 136, 0.55);
-}
-
-.lab-timeline-item {
-  display: grid;
-  grid-template-columns: 108px 1fr;
-  gap: 14px;
-  align-items: start;
-}
-
-.lab-timeline-item p {
-  margin-top: 5px;
-}
-
-.lab-trust-list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--rt-ui-ink-soft);
-  display: grid;
-  gap: 8px;
-}
-
 .lab-actions {
   display: flex;
   flex-wrap: wrap;
@@ -500,7 +416,6 @@
 }
 
 @media (max-width: 860px) {
-  .lab-hero,
   .lab-grid {
     grid-template-columns: 1fr;
   }
@@ -519,10 +434,6 @@
 }
 
 @media (max-width: 620px) {
-  .lab-timeline-item {
-    grid-template-columns: 1fr;
-  }
-
   .lab-actions {
     flex-direction: column;
   }
@@ -534,10 +445,7 @@
 
 /* Dyslexic UI mode: un-caps the lab's micro-labels (easier to read, and
    OpenDyslexic is too wide for the tracked caps) and relaxes the hero title. */
-:root.rt-ui-dyslexic .lab-stat span,
 :root.rt-ui-dyslexic .lab-next span,
-:root.rt-ui-dyslexic .lab-use-case span,
-:root.rt-ui-dyslexic .lab-timeline-date,
 :root.rt-ui-dyslexic .lab-badge,
 :root.rt-ui-dyslexic .lab-evidence-chip,
 :root.rt-ui-dyslexic .lab-panel-focus::after {
@@ -558,20 +466,4 @@
   margin-top: 12px;
   font-size: 0.85rem;
   color: var(--rt-ui-ink-soft);
-}
-.rt-key-row {
-  display: flex;
-  gap: 8px;
-  max-width: 460px;
-}
-.rt-input {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 9px 11px;
-  border: 1px solid var(--rt-ui-line);
-  border-radius: 8px;
-  background: var(--rt-ui-bg, #fff);
-  color: var(--rt-ui-ink, #1f2430);
 }
