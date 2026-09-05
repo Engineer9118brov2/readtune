@@ -237,6 +237,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.saveSetup({ voiceFitAt: 22 });
   const setup1 = await S.loadSetup();
   assert(setup1.calibratedAt === 11 && setup1.voiceFitAt === 22, "setup progress round-trip");
+  assert((await S.loadSeenPassages()).length === 0, "seen-passages starts empty");
+  await S.saveSeenPassages(["a", "b", 3, null, "c"]);
+  assert(JSON.stringify(await S.loadSeenPassages()) === JSON.stringify(["a", "b", "c"]), "seen-passages round-trips, dropping non-strings");
+  await S.saveSeenPassages(Array.from({ length: 60 }, (_, i) => "p" + i));
+  assert((await S.loadSeenPassages()).length === 40, "seen-passages is capped so it can't grow without bound");
   await S.writeProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence", font: "lexend" });
   const lp2 = await S.loadProfile();
   assert(lp2.font === "lexend" && lp2.pacing === "flow", "pacing is session-only");
@@ -439,6 +444,75 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const manualSummary = CI.summarizeCalibrations(history, { ...history[2].profile, font: "lexend" });
   assert(manualSummary.profile.font === "lexend" && /Lexend/.test(manualSummary.profileTitle), "insights: current saved profile beats stale history snapshot");
   assert(CI.buildProfileTitle({ font: "atkinson" }, ["spacing", "chunk"]) === "Atkinson Hyperlegible + roomier spacing", "guided pacing stays out of default profile title");
+
+  /* ---- calibration passage pool (guess-resistant cloze + no-repeat draw) ---- */
+  {
+    const CP = await import("../shared/calibration-passages.js");
+    const mulberry32 = (seed) => () => {
+      seed |= 0;
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const pool = CP.CALIBRATION_PASSAGES;
+    assert(pool.length >= 10, "the passage pool is big enough to run twice without repeats (" + pool.length + ")");
+    const ids = new Set(pool.map((p) => p.id));
+    assert(ids.size === pool.length, "every passage id is unique");
+    let poolOk = true;
+    for (const p of pool) {
+      const blanks = (p.text.match(/\{\{[^}]+\}\}/g) || []).map((m) => m.slice(2, -2));
+      const wc = CP.plainText(p.text).trim().split(/\s+/).length;
+      if (
+        blanks.length !== 2 ||
+        blanks.join("|") !== p.answer.join("|") ||
+        !Array.isArray(p.distractors) ||
+        p.distractors.length !== 3 ||
+        !p.distractors.every((d) => Array.isArray(d) && d.length === 2) ||
+        wc < 34 || wc > 62
+      ) {
+        poolOk = false;
+        log("passage '" + p.id + "' is malformed (blanks=" + blanks.length + " words=" + wc + ")", false);
+      }
+    }
+    assert(poolOk, "every passage: exactly 2 blanks matching answer, 3 two-word distractors, 34–62 words");
+
+    // cloze text / plain text
+    const sample = pool[0];
+    assert(!/\{\{|\}\}/.test(CP.clozeText(sample.text)) && CP.clozeText(sample.text).includes("____"), "clozeText replaces every marker with a blank");
+    assert(CP.plainText(sample.text).includes(sample.answer[0]) && !/\{\{/.test(CP.plainText(sample.text)), "plainText restores the words, drops the markers");
+
+    // options: correctIndex actually points at the answer pair, whatever the shuffle
+    let optOk = true;
+    for (let s = 0; s < 12; s++) {
+      const r = mulberry32(s * 7 + 1);
+      const { options, correctIndex } = CP.clozeOptions(sample, r);
+      if (options.length !== 4 || options[correctIndex].join("|") !== sample.answer.join("|")) optOk = false;
+    }
+    assert(optOk, "clozeOptions: four options, correctIndex points at the answer pair for any shuffle");
+
+    // no-repeat draw, then a clean cycle once the pool is exhausted
+    let seen = [];
+    const runIds = [];
+    for (let run = 0; run < 2; run++) {
+      const { passages, seenIds, cycled } = CP.pickPassages(5, seen);
+      assert(passages.length === 5, "pickPassages returns the requested count");
+      runIds.push(...passages.map((p) => p.id));
+      seen = seenIds;
+      if (run === 0) assert(!cycled, "first run doesn't cycle");
+    }
+    assert(new Set(runIds).size === 10, "two back-to-back runs of 5 share no passage");
+    const remaining = pool.filter((p) => !new Set(seen).has(p.id)).map((p) => p.id);
+    const third = CP.pickPassages(5, seen);
+    assert(third.cycled && third.passages.length === 5, "the third run cycles the pool rather than running short");
+    assert(remaining.every((id) => third.passages.some((p) => p.id === id)), "a cycle still hands over every not-yet-seen passage before repeating any");
+    assert(!third.passages.some((p) => p.id === seen[seen.length - 1]), "a cycle still avoids an immediate repeat of the very last passage");
+    assert(third.seenIds.length === 5 && third.seenIds.every((id, i, a) => a.indexOf(id) === i), "a cycle resets the seen-set to just this run's passages");
+
+    // the calibration draws count + 2 spares for cloze re-runs
+    const withSpares = CP.pickPassages(7, []);
+    assert(withSpares.passages.length === 7 && new Set(withSpares.passages.map((p) => p.id)).size === 7, "a 7-passage draw (5 + 2 spares) returns 7 distinct passages");
+  }
 
   /* ---- ElevenLabs read-aloud ---- */
   const align = { starts: [0, 0.5, 1.0, 1.6, 2.4], chars: ["a", "b", "c", "d", "e"], ends: [] };

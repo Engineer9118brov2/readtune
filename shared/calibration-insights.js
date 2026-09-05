@@ -115,7 +115,13 @@ export function buildProfileTitle(profile, keptKeys = []) {
 }
 
 export function summarizeCalibrations(history = [], fallbackProfile = null) {
-  const runs = asArray(history).filter(Boolean).slice(-10);
+  /* Only compare runs of the same calibration method. v2 (research baseline +
+     cloze, no chunk dimension) is a different experiment from the old flow, so
+     a v1 run and a v2 run landing on the same winner isn't a repeat
+     measurement and mustn't read as "Stable". */
+  const allRuns = asArray(history).filter(Boolean);
+  const latestMethod = (allRuns[allRuns.length - 1] || {}).method || null;
+  const runs = allRuns.filter((r) => (r.method || null) === latestMethod).slice(-10);
   const last = runs[runs.length - 1] || null;
   const historyProfile = (last && last.profile) || null;
   const profile = fallbackProfile || historyProfile || null;

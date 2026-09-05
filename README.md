@@ -18,7 +18,7 @@ The product now also ships a **research-backed starter** before calibration fini
 
 | | |
 | --- | --- |
-| **Preference check** | 1 warm-up + 6 passages, timed + comprehension-checked + rated, compared against your own baseline to suggest a starting profile |
+| **Preference check** | 1 warm-up + 5 passages (or skip), timed + cloze-checked + rated, compared against a research-backed baseline to suggest a starting profile — passages don't repeat on a retake |
 | **Research-backed starter** | Opens with calmer spacing, softer contrast, shorter lines, and honest evidence labels before you fine-tune anything |
 | **Reading Lab** | Shows how repeatable the result has been, retake history, Voice Fit, and which changes keep coming up |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |

@@ -55,7 +55,7 @@ Tools that help do exist: roomier spacing, calmer colour, a cleaner layout, text
 
 WHAT READTUNE DOES DIFFERENTLY
 
-It opens with a short check — one warm-up passage plus six that each take about a minute. Each passage changes exactly one thing versus plain text: the font, the spacing, leading-letter bolding, or showing one sentence at a time. For each one it notes your reading time, a one-question comprehension check, and a 1–5 "how did that feel" rating.
+It opens with a short check — a warm-up plus five short passages, about three minutes, or skip it and start reading on a research-backed default. Each passage changes exactly one thing versus that default: the font, the spacing, or leading-letter bolding. For each one it notes your reading time, a fill-in-the-blank check that a skim can't pass, and a 1–5 "how did that feel" rating. Passages don't repeat if you retake it.
 
 Then it compares every change against your own baseline — so a naturally slower reader isn't penalised — allows for the practice speed-up, and keeps only the changes that clear a real margin. If nothing clears the bar, it tells you that instead of inventing a winner.
 
