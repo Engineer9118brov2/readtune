@@ -92,7 +92,7 @@ Talk to type
 
 Reading help (optional AI)
 • "Summary" in Reader View — the key points of an article before you commit to reading it
-• No key, no account, ever. Where your browser has Chrome's built-in AI ready, it runs entirely on your device. Otherwise it runs through ReadTune's free summarization helper — the article text is sent to generate the response, and popular articles are cached so most requests never even reach the model
+• No key, no account, ever. Where your browser has Chrome's built-in AI ready, it runs entirely on your device. Otherwise it runs through ReadTune's free summarization helper — the article text is sent to generate the response, and popular articles may be cached so most requests never even reach the model
 
 Where it works
 • Reader View — pulls the article out of any page and re-renders it

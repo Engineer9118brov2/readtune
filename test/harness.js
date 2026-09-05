@@ -1441,9 +1441,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       try { await pending; } catch (e) { abortName = (e && e.name) || ""; }
       assert(abortName === "AbortError", "a cancelled on-device summary rejects as AbortError, not a masked error");
 
-      // the same holds for a cancelled cloud request
+      // the same holds for a cancelled cloud request — the mock only rejects
+      // once the passed-in signal itself aborts, so this actually proves the
+      // signal reaches fetch() rather than passing on an unconditional reject
       setAI({});
-      self.fetch = () => Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+      self.fetch = (_url, opts) =>
+        new Promise((_resolve, reject) => {
+          const signal = opts && opts.signal;
+          if (!signal) { reject(new Error("fetch called without a signal")); return; }
+          if (signal.aborted) { reject(abortErr()); return; }
+          signal.addEventListener("abort", () => reject(abortErr()));
+        });
       const ac2 = new AbortController();
       const pending2 = A.createAssistant({ getArticleText: () => "Article text." }).summarize({ signal: ac2.signal });
       ac2.abort();
@@ -1471,6 +1479,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       setAI({ LanguageModel: { state: "available", instance: { prompt: async (p) => "SIMPLE: " + p.slice(-10), destroy() {} } } });
       const rOut = await A.createAssistant({}).simplify("The tide pool's ecosystem exhibits diurnal periodicity in its hydration.");
       assert(/^SIMPLE:/.test(rOut.text), "simplify falls back to the Prompt API when there is no Rewriter but the Prompt API is ready");
+
+      // Simplify is disclosed as on-device-only — unlike summarize, it must
+      // NOT fall back to the cloud relay when no on-device model is ready,
+      // or it would send a reader's selection somewhere ReadTune never said it would
+      setAI({});
+      let cloudCalledForSimplify = false;
+      self.fetch = async () => { cloudCalledForSimplify = true; return { ok: true, json: async () => ({ text: "SHOULD NOT BE USED" }) }; };
+      let simplifyThrew = false;
+      try {
+        await A.createAssistant({}).simplify("A passage with no on-device model ready to rewrite it right now.");
+      } catch {
+        simplifyThrew = true;
+      }
+      assert(simplifyThrew, "simplify with no on-device model ready fails rather than silently using the cloud relay");
+      assert(!cloudCalledForSimplify, "simplify never calls fetch() — the cloud relay is Summary-only");
 
       // the UI degrades to a readable error — with a retry, since the
       // assistant always has somewhere to run now — and tears down cleanly

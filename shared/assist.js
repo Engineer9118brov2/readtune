@@ -34,6 +34,23 @@ const CLOUD_URL = "https://readtune.tech/api/assist";
 
 const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutError");
 
+/* Cloud relay is disclosed (privacy.html / PRIVACY.md) as a Summary-only path.
+   Simplify stays on-device-only until its own cloud migration is built and
+   disclosed — see docs/ASSIST.md. */
+const CLOUD_KINDS = new Set(["summary"]);
+
+/* Never forward a query string or fragment to the relay — a URL can carry a
+   session token or other identifying junk. The relay re-normalizes on receipt
+   anyway; this just keeps that off the wire in the first place. */
+function sanitizeUrl(url) {
+  try {
+    const u = new URL(String(url || ""));
+    return u.origin + u.pathname;
+  } catch {
+    return "";
+  }
+}
+
 /* A summary reads the top of the article; a rewrite acts on a selection the
    reader made. Both are capped so a pathological page can't wedge the model —
    matches the cap the cloud relay re-enforces server-side. */
@@ -114,7 +131,12 @@ async function cloudGenerate(kind, text, url, signal) {
     if (isAbort(e)) throw e;
     throw new Error("Couldn't reach the AI helper. Check your connection.");
   }
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try {
+    data = await res.json();
+  } catch (e) {
+    if (isAbort(e)) throw e; // cancelled mid-read, not a bad response — don't report it as one
+  }
   if (!res.ok) {
     if (res.status === 429) throw new Error("The AI helper is busy right now. Try again in a bit.");
     throw new Error((data && data.error) || `The AI helper couldn't handle that (${res.status}).`);
@@ -194,10 +216,15 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       }
     }
 
-    // 2 — ReadTune's cloud relay. Always available, so the assistant never
-    // has "nothing to run on" anymore.
+    // 2 — ReadTune's cloud relay, Summary only (see CLOUD_KINDS above).
+    // Simplify has no cloud path yet: if on-device wasn't ready above, it
+    // fails here rather than silently sending the reader's selection off
+    // their device — that's not what ReadTune tells anyone it does today.
+    if (!CLOUD_KINDS.has(kind)) {
+      throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
+    }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, kind === "summary" ? getArticleUrl() : "", signal);
+    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal);
   }
 
   return {

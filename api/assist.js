@@ -54,7 +54,12 @@ function normalizeUrl(url) {
 
 function cacheKeyFor(kind, url, text) {
   const norm = url ? normalizeUrl(url) : "";
-  const basis = norm ? `url:${norm}` : `text:${hash(text)}`;
+  // Bind the entry to the submitted text even when it's URL-keyed — otherwise
+  // anyone can overwrite a real article's cached summary with arbitrary text
+  // by POSTing that url with different text (no auth on this endpoint).
+  // Identical text for the same URL still shares one entry, so the
+  // cross-reader cache saving is unaffected.
+  const basis = norm ? `url:${norm}:${hash(text)}` : `text:${hash(text)}`;
   return `assist:${kind}:${basis}`;
 }
 
@@ -111,6 +116,19 @@ async function rateLimitOk() {
   }
 }
 
+const UPSTREAM_TIMEOUT_MS = 30000;
+
+// package.json declares no fixed Node runtime for this function, so don't
+// assume AbortSignal.timeout() exists — fall back to a plain AbortController.
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return { signal: AbortSignal.timeout(ms), cancel: () => {} };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) };
+}
+
 async function callOpenRouter(system, user) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) {
@@ -119,9 +137,11 @@ async function callOpenRouter(system, user) {
     throw err;
   }
   let res;
+  const { signal, cancel } = timeoutSignal(UPSTREAM_TIMEOUT_MS);
   try {
     res = await fetch(OPENROUTER_URL, {
       method: "POST",
+      signal,
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${key}`,
@@ -138,10 +158,14 @@ async function callOpenRouter(system, user) {
         max_tokens: 400,
       }),
     });
-  } catch {
-    const err = new Error("Couldn't reach the AI helper. Check your connection.");
+  } catch (e) {
+    const err = new Error(
+      e && e.name === "AbortError" ? "The AI helper took too long to respond." : "Couldn't reach the AI helper. Check your connection.",
+    );
     err.status = 502;
     throw err;
+  } finally {
+    cancel();
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

@@ -13,15 +13,20 @@ Chromebooks that don't keep a local profile between logins would re-download
 the ~2 GB model every single sign-in. ReadTune now never triggers that
 download at all.
 
-## As shipped (Summary only — Simplify is next)
+## As shipped (Summary only — Simplify's cloud path is next)
 
 - **Summary** — a header action in Reader View. Key points for the article
-  (its opening, if the article is long — capped at ~12k characters).
+  (its opening, if the article is long — capped at ~12k characters). Routed
+  to on-device AI when it's already ready, otherwise ReadTune's cloud relay
+  (see below).
 - **Simplify** — a pill that appears over any selection of ~12+ characters
   inside the reading flow. Rewrites that passage and shows it **beside the
   original**, never in its place, under an "AI — may not be exact" line.
-  (Still routed the same way as Summary; UI/UX pass for it comes after
-  Summary is verified solid.)
+  **On-device only for now** — if this browser doesn't already have a ready
+  Rewriter/Prompt model, Simplify says so rather than falling back to the
+  cloud relay. It isn't disclosed as a cloud feature yet, so it doesn't
+  become one silently; that migration (and the UI/UX pass for it) comes
+  after Summary's cloud path is verified solid.
 
 Both render in one dismissible card (`shared/assist-ui.js`), modelled on the
 word-lookup popup: Escape / click-outside / Cancel, a copy button, and "Hear
@@ -37,22 +42,28 @@ it" through the same read-aloud voice.
    (Chrome's own, or another site's) already triggered it, this path is free,
    instant, and fully private. Otherwise, straight to step 2 — no download,
    no prompt, no "requires a user gesture" dance.
-2. **ReadTune's own relay** (`api/assist.js`, deployed alongside the
-   marketing site on Vercel) — the article text (and its URL, for Summary)
+2. **ReadTune's own relay, Summary only** (`api/assist.js`, deployed
+   alongside the marketing site on Vercel) — the article text (and its URL)
    is sent there, which forwards it to a free model on OpenRouter
    (`openrouter/free`, OpenRouter's own free-model router — no model list to
-   maintain here) and returns the generated text. Responses are cached by
-   normalized article URL in Upstash Redis, when configured, so a popular
-   article is summarized once, ever — every later reader gets the cached
-   text instantly, at no extra cost. There's a coarse shared rate limit as
-   an abuse guard, not a per-user quota.
+   maintain here) and returns the generated text. **If Redis is configured**,
+   responses are cached by normalized article URL (bound to a hash of the
+   text, so no one can overwrite another article's cached summary) so a
+   popular article is summarized once, ever — every later reader gets the
+   cached text instantly, at no extra cost. Without Redis configured, every
+   request reaches the model. There's a coarse shared rate limit as an abuse
+   guard, not a per-user quota, also a no-op without Redis.
 3. **Never a ReadTune-hosted model.** The relay calls a third-party model;
-   it doesn't run one itself.
+   it doesn't run one itself. **Never for Simplify** — see above.
 
 This is the one place in ReadTune where article text leaves the device by
-default — see `privacy.html` / `PRIVACY.md` for the plain disclosure. Every
-other feature (calibration, Reader View, Piper read-aloud, PDF mode) still
-sends nothing anywhere. `describeAvailability()` reports two modes now:
+default. Every other claim ReadTune makes elsewhere — "no ReadTune server",
+"nothing leaves your device", "no accounts, no analytics" — should be read
+with this one Summary exception; see `privacy.html` / `PRIVACY.md` for the
+plain disclosure with that exception spelled out. Every other feature
+(calibration, Reader View, Piper read-aloud, PDF mode, and Simplify as
+shipped today) still sends nothing anywhere. `describeAvailability()` reports
+two modes now:
 `"on-device"` (ready, on this browser) and `"cloud"` (routed through the
 relay) — both are always `ready: true`, since the assistant always has
 somewhere to run.
