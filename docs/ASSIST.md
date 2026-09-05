@@ -2,69 +2,77 @@
 
 **Goal:** the two AI helpers that actually earn their place for a struggling
 reader — a short "what is this about" before committing to a long article, and a
-plain-language rewrite of the one paragraph that won't come together — while
-keeping ReadTune's wedge intact: free, no account, private, offline where the
-browser allows it.
+plain-language rewrite of the one paragraph that won't come together.
 
-**Removed:** the "bring your own Gemini key" fallback shipped in 0.9.0 and was
-removed shortly after. Rationale: the extension's own readers are people who
-find text hard to work with, not people comfortable creating a Google AI
-Studio project and pasting an API key — a key-entry form was never a real
-fallback for this audience, just a UI that looked like one.
+**History, briefly:** shipped on-device-only in 0.9.0 (Chrome's built-in
+Gemini Nano). Then the bring-your-own-key fallback was removed — pasting a
+Google AI Studio key is not a real option for this extension's readers. Then
+on-device itself was dropped as the *default* path: real devices are
+storage/CPU-limited, and — the disqualifying case — students on shared school
+Chromebooks that don't keep a local profile between logins would re-download
+the ~2 GB model every single sign-in. ReadTune now never triggers that
+download at all.
 
-## As shipped
+## As shipped (Summary only — Simplify is next)
 
-Two entry points in Reader View:
-
-- **Summary** — a header action. Key points for the article (its opening, if the
-  article is long — capped at ~12k characters).
-- **Simplify** — a pill that appears over any selection of ~12+ characters inside
-  the reading flow. Rewrites that passage and shows it **beside the original**,
-  never in its place, under an "AI — may not be exact" line.
+- **Summary** — a header action in Reader View. Key points for the article
+  (its opening, if the article is long — capped at ~12k characters).
+- **Simplify** — a pill that appears over any selection of ~12+ characters
+  inside the reading flow. Rewrites that passage and shows it **beside the
+  original**, never in its place, under an "AI — may not be exact" line.
+  (Still routed the same way as Summary; UI/UX pass for it comes after
+  Summary is verified solid.)
 
 Both render in one dismissible card (`shared/assist-ui.js`), modelled on the
-word-lookup popup: Escape / click-outside / Cancel, a copy button, and "Hear it"
-through the same read-aloud voice.
+word-lookup popup: Escape / click-outside / Cancel, a copy button, and "Hear
+it" through the same read-aloud voice.
 
 ## How a request is routed (`shared/assist.js`)
 
-On-device only, in this order:
+1. **On-device, but only if it's already ready.** Chrome's built-in
+   `Summarizer`/`Rewriter`/`LanguageModel`, checked via `.availability()`.
+   ReadTune only calls `.create()` when the status is already `"available"` —
+   never for `"downloadable"` or `"downloading"`. This is the whole point:
+   **ReadTune never initiates the one-time download.** If some other feature
+   (Chrome's own, or another site's) already triggered it, this path is free,
+   instant, and fully private. Otherwise, straight to step 2 — no download,
+   no prompt, no "requires a user gesture" dance.
+2. **ReadTune's own relay** (`api/assist.js`, deployed alongside the
+   marketing site on Vercel) — the article text (and its URL, for Summary)
+   is sent there, which forwards it to a free model on OpenRouter
+   (`openrouter/free`, OpenRouter's own free-model router — no model list to
+   maintain here) and returns the generated text. Responses are cached by
+   normalized article URL in Upstash Redis, when configured, so a popular
+   article is summarized once, ever — every later reader gets the cached
+   text instantly, at no extra cost. There's a coarse shared rate limit as
+   an abuse guard, not a per-user quota.
+3. **Never a ReadTune-hosted model.** The relay calls a third-party model;
+   it doesn't run one itself.
 
-1. **A task-specific on-device API**, if the browser has one: `Summarizer` for a
-   summary, `Rewriter` for a rewrite. `create()` is the first `await` after the
-   click, because Chrome refuses to start the one-time model download unless a
-   user gesture is still live.
-2. **The Prompt API** (`LanguageModel`) as the on-device fallback — this is the
-   path today, since Chrome 152 ships `Summarizer` and `LanguageModel` but not
-   `Rewriter` yet.
-3. **If neither is available, the feature just isn't.** There used to be a
-   "bring your own Gemini key" third tier here. It's gone — pasting a Google AI
-   Studio key is not a real fallback for the readers this extension is for, so a
-   browser with no on-device AI gets an honest "not available here" instead of a
-   form nobody in the target audience can actually fill out. `describeAvailability()`
-   reports only two modes now: `"on-device"` (ready or downloading) and `"none"`.
-4. **Never a ReadTune-hosted model.** A proxy would put the text you are reading
-   on a server, and add cost, rate-limiting and an abuse surface. The whole
-   point of the on-device-first design is that it doesn't.
-
-On-device models are downloaded and cached by Chrome, shared across every site —
-so the ~GB download happens at most once per browser, not once per extension.
+This is the one place in ReadTune where article text leaves the device by
+default — see `privacy.html` / `PRIVACY.md` for the plain disclosure. Every
+other feature (calibration, Reader View, Piper read-aloud, PDF mode) still
+sends nothing anywhere. `describeAvailability()` reports two modes now:
+`"on-device"` (ready, on this browser) and `"cloud"` (routed through the
+relay) — both are always `ready: true`, since the assistant always has
+somewhere to run.
 
 ## What is and isn't claimed
 
-- It is **"an optional plain-language rewrite of the part you pick, generated on
-  your device"** — not "understand any article", not a comprehension guarantee.
+- It is **"an optional plain-language rewrite of the part you pick"** or
+  **"the key points of an article"** — not "understand any article", not a
+  comprehension guarantee.
 - The rewrite prompt tells the model to keep every fact, name and number, add
   nothing, and drop nothing — but a model can still get it wrong, so the
   original is always on screen next to it.
 - The summary is "the main points as the text states them", capped to the
   article's opening for a long piece, and labelled when it was clipped.
-- Store answer to "do you use remote code?" stays **No**: the built-in AI is part
-  of the browser; ReadTune makes no network request for this feature at all.
+- Store answer to "do you use remote code?" stays **No**: this sends and
+  receives data (article text in, generated text out), it doesn't fetch or
+  execute code. The on-device path, where it applies, is part of the browser.
 
 ## Not in v1
 
-Freeform "ask about this article" chat. The Prompt API is less widely available
-than the task APIs, and open Q&A is the shape most likely to read as "ReadTune
-understood the article for you". Revisit once the summarize/simplify path has
-real user feedback.
+Freeform "ask about this article" chat. Open Q&A is the shape most likely to
+read as "ReadTune understood the article for you". Revisit once
+summarize/simplify has real user feedback.

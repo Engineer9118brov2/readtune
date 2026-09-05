@@ -22,6 +22,7 @@
     "type": "module"
   },
   "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://readtune.tech/api/*"],
   "optional_host_permissions": ["https://api.elevenlabs.io/*", "https://huggingface.co/*", "https://*.hf.co/*", "*://*/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

@@ -5,27 +5,38 @@
  * rewrite of the part you pick, and a short "what is this about" before you
  * commit to a long article.
  *
- * On-device only. Chrome's built-in AI — the Summarizer and Rewriter APIs,
- * with the Prompt API as a fallback — runs against a model the browser
- * downloads once and shares across every site. No key, no network, no cost,
- * works offline once the model is there.
+ * Routing, in order:
+ *   1. On-device, but ONLY if Chrome's built-in AI is already ready — never
+ *      trigger the ~2 GB one-time download ourselves. That download turned
+ *      out to be a bad bet for this extension's real audience: some readers'
+ *      own devices are storage/CPU-limited, and — the disqualifying case —
+ *      students on shared school Chromebooks that don't keep a local profile
+ *      between logins would re-download it every single sign-in. So this
+ *      path only fires when it costs nothing: the model Chrome already has
+ *      ready for some other feature.
+ *   2. Otherwise, ReadTune's own small relay (`/api/assist`, see that file),
+ *      which forwards to a free model on OpenRouter and caches the response
+ *      by article URL so a popular article is summarized once, ever.
  *
- * There used to be a "bring your own key" fallback for browsers without
- * built-in AI. It's gone: pasting a Google AI Studio key is not a real option
- * for the readers this extension is for, so a browser with no on-device AI
- * simply doesn't get this feature, rather than a form nobody can use.
- *
- * Never a ReadTune-hosted model either: that would put the text you are
- * reading on a server, which every other promise in this extension is about
- * not doing.
+ * This is the one place in ReadTune where text leaves the device — see
+ * privacy.html / PRIVACY.md for the plain disclosure. Every other feature
+ * (calibration, Reader View, Piper read-aloud, PDF mode) still sends nothing
+ * anywhere. There used to be a "bring your own Gemini key" third tier here;
+ * it's gone — pasting an API key is not a real option for the readers this
+ * extension is for.
  *
  * What this is NOT: a comprehension engine. It offers a rewrite of a passage
- * you choose, generated on your device, and labels it approximate. It is not a
- * claim that the article has been understood for you.
+ * you choose, or the key points of an article, and labels the result
+ * approximate. It is not a claim that the article has been understood for you.
  */
 
+const CLOUD_URL = "https://readtune.tech/api/assist";
+
+const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutError");
+
 /* A summary reads the top of the article; a rewrite acts on a selection the
-   reader made. Both are capped so a pathological page can't wedge the model. */
+   reader made. Both are capped so a pathological page can't wedge the model —
+   matches the cap the cloud relay re-enforces server-side. */
 const MAX_SUMMARY_INPUT = 12000;
 const MAX_SIMPLIFY_INPUT = 2400;
 
@@ -39,7 +50,7 @@ const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
   "Three to five short plain lines, each a single idea, no preamble. Only what the text says.";
 
-/* ---------- on-device: Chrome built-in AI ---------- */
+/* ---------- on-device: Chrome built-in AI (opportunistic only) ---------- */
 
 const globalApi = (name) => {
   try {
@@ -59,9 +70,6 @@ async function availabilityOf(name) {
   }
 }
 
-const CAN_USE = new Set(["available", "downloadable", "downloading"]);
-const usable = (s) => CAN_USE.has(s);
-
 /**
  * Per-API on-device availability.
  * @returns {{summarizer:string, rewriter:string, prompt:string}}
@@ -79,24 +87,41 @@ export async function onDeviceStatus() {
 /** One line describing where the assistant will run, for the panel / popup. */
 export async function describeAvailability() {
   const s = await onDeviceStatus();
-  const anyOnDevice = usable(s.summarizer) || usable(s.rewriter) || usable(s.prompt);
-  if (anyOnDevice) {
-    const ready = s.summarizer === "available" || s.rewriter === "available" || s.prompt === "available";
-    return {
-      mode: "on-device",
-      ready,
-      needsDownload: !ready,
-      text: ready
-        ? "On-device AI is ready. Nothing you read leaves your device."
-        : "On-device AI is available to download — one time, about 2 GB, kept by Chrome and shared with every site.",
-    };
-  }
+  const ready = s.summarizer === "available" || s.rewriter === "available" || s.prompt === "available";
   return {
-    mode: "none",
-    ready: false,
-    needsDownload: false,
-    text: "This browser doesn't have on-device AI yet, so the reading assistant isn't available here. The rest of ReadTune works the same either way.",
+    mode: ready ? "on-device" : "cloud",
+    ready: true, // the cloud relay means the assistant always has somewhere to run
+    text: ready
+      ? "On-device AI is ready on this browser. Nothing you read leaves your device."
+      : "Runs through ReadTune's free AI helper. The article text (or the passage you select) is sent to generate the response — everything else in ReadTune stays on your device.",
   };
+}
+
+const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
+
+/* ---------- cloud: ReadTune's own relay to a free model ---------- */
+
+async function cloudGenerate(kind, text, url, signal) {
+  let res;
+  try {
+    res = await fetch(CLOUD_URL, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, text, url }),
+    });
+  } catch (e) {
+    if (isAbort(e)) throw e;
+    throw new Error("Couldn't reach the AI helper. Check your connection.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("The AI helper is busy right now. Try again in a bit.");
+    throw new Error((data && data.error) || `The AI helper couldn't handle that (${res.status}).`);
+  }
+  const text_ = data && data.text;
+  if (!text_) throw new Error("The AI helper returned nothing usable.");
+  return text_;
 }
 
 /* ---------- the assistant ---------- */
@@ -110,45 +135,29 @@ const clip = (s, n) => {
   return { text: t.slice(0, n).replace(/\s+\S*$/, "") + " …", clipped: true };
 };
 
-const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
-
 /**
  * @param {object}   opts
  * @param {() => string}  opts.getArticleText  full reading text, for summaries
+ * @param {() => string}  [opts.getArticleUrl] the article's URL, for cache keying server-side
  */
-export function createAssistant({ getArticleText = () => "" } = {}) {
-  /* Route one request against whatever on-device API the browser offers.
-     There is deliberately NO `await` before the first `.create()`: it must run
-     while the click that started this is still a live user gesture, or Chrome
-     refuses to begin the one-time model download ("Requires a user gesture"). */
+export function createAssistant({ getArticleText = () => "", getArticleUrl = () => "" } = {}) {
   async function run({ kind, text, onProgress, signal }) {
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-    const monitor = (m) => {
-      m.addEventListener("downloadprogress", (e) => {
-        if (onProgress) onProgress({ phase: "download", loaded: e.loaded, total: e.total || 0 });
-      });
-    };
-    /* Try to stand up a built-in-AI session. null = the browser doesn't offer
-       this one, the gesture has lapsed and a download can't start, or the
-       option shape doesn't match this browser's build of the API (Rewriter is
-       still moving) — in every case, fall through to the next on-device API.
-       A genuine resource failure (out of memory) is re-thrown. */
+    // 1 — on-device, but only when it's already ready. No `.create()` call
+    // here ever triggers a download: every status checked below is either
+    // "available" (use it) or something else (skip straight to the cloud).
+    const status = await onDeviceStatus();
     const make = async (name, opts) => {
       const API = globalApi(name);
       if (!API) return null;
       try {
-        return await API.create({ ...opts, monitor });
-      } catch (e) {
-        // absent/disabled/gesture-lapsed, or an option this build rejects
-        const soft = ["NotAllowedError", "NotSupportedError", "UnknownError", "TypeError"];
-        if (e && soft.includes(e.name)) return null;
-        throw e;
+        return await API.create(opts);
+      } catch {
+        return null; // ready a moment ago, not ready now — fall through
       }
     };
-
-    // 1 — a task-specific on-device API, if the browser has one
-    if (kind === "summary") {
+    if (kind === "summary" && status.summarizer === "available") {
       const s = await make("Summarizer", { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM });
       if (s) {
         try {
@@ -158,7 +167,7 @@ export function createAssistant({ getArticleText = () => "" } = {}) {
         }
       }
     }
-    if (kind === "simplify") {
+    if (kind === "simplify" && status.rewriter === "available") {
       const r = await make("Rewriter", { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM });
       if (r) {
         try {
@@ -168,24 +177,27 @@ export function createAssistant({ getArticleText = () => "" } = {}) {
         }
       }
     }
-
-    // 2 — the general Prompt API, if that is what is on-device
-    const lm = await make("LanguageModel", {
-      initialPrompts: [{ role: "system", content: kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM }],
-    });
-    if (lm) {
-      try {
-        const ask =
-          kind === "summary"
-            ? `Main points of this article:\n\n${text}`
-            : `Rewrite this passage in plain language:\n\n${text}`;
-        return await lm.prompt(ask, { signal });
-      } finally {
-        safeDestroy(lm);
+    if (status.prompt === "available") {
+      const lm = await make("LanguageModel", {
+        initialPrompts: [{ role: "system", content: kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM }],
+      });
+      if (lm) {
+        try {
+          const ask =
+            kind === "summary"
+              ? `Main points of this article:\n\n${text}`
+              : `Rewrite this passage in plain language:\n\n${text}`;
+          return await lm.prompt(ask, { signal });
+        } finally {
+          safeDestroy(lm);
+        }
       }
     }
 
-    throw new Error("This browser doesn't have on-device AI available right now.");
+    // 2 — ReadTune's cloud relay. Always available, so the assistant never
+    // has "nothing to run on" anymore.
+    if (onProgress) onProgress({ phase: "cloud" });
+    return await cloudGenerate(kind, text, kind === "summary" ? getArticleUrl() : "", signal);
   }
 
   return {
