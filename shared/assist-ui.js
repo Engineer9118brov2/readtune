@@ -30,10 +30,9 @@ function el(tag, attrs, kids) {
  * @param {ReturnType<import("./assist.js").createAssistant>} opts.assistant
  * @param {() => string}       opts.getSelectionText  the reader's current selection
  * @param {(t:string)=>Promise<any>} [opts.speak]     optional "hear it" for the result
- * @param {(key:string)=>Promise<boolean>} [opts.onSaveKey]  persist a BYOK key
  * @param {(m:string)=>void}   [opts.onError]
  */
-export function createAssistUi({ assistant, getSelectionText = () => "", speak, onSaveKey, onError = () => {} } = {}) {
+export function createAssistUi({ assistant, getSelectionText = () => "", speak, onError = () => {} } = {}) {
   let card = null;
   let controller = null;
   let lastFocus = null;
@@ -116,44 +115,15 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   async function fail(body, message, retry) {
     const parts = [el("p", { class: "rt-assist-error" }, message || "That didn't work.")];
 
-    /* If the reason is "nothing to run on", offer the way out right here — a
-       free Gemini key — rather than sending the reader off to find a settings
-       page. On-device AI, where the browser has it, needs no key and never
-       shows this. */
+    /* "Nothing to run on" means this browser has no on-device AI at all —
+       that's not a transient failure, so there's no "try again" here, just an
+       honest note. Everything else (a network blip, a model that was busy) is
+       worth one retry button. */
     let where = { mode: "none" };
     try { where = await assistant.describe(); } catch {}
-    if (where.mode === "none" && typeof onSaveKey === "function") {
-      const input = el("input", {
-        type: "password",
-        class: "rt-assist-key",
-        placeholder: "Google AI Studio (Gemini) key",
-        autocomplete: "off",
-        spellcheck: "false",
-        "aria-label": "Gemini API key",
-      });
-      const save = el("button", { type: "button", class: "rt-assist-btn" }, "Save & retry");
-      save.addEventListener("click", async () => {
-        const v = input.value.trim();
-        if (!v) return;
-        save.disabled = true;
-        save.textContent = "Checking…";
-        const ok = await onSaveKey(v);
-        if (!ok) {
-          save.disabled = false;
-          save.textContent = "Save & retry";
-          input.value = "";
-          return;
-        }
-        if (typeof retry === "function") retry();
-      });
-      input.addEventListener("keydown", (e) => e.key === "Enter" && save.click());
-      parts.push(
-        el("p", { class: "rt-assist-sub" }, "Get a free key at aistudio.google.com/apikey — it stays in this browser and is sent only to Google."),
-        el("div", { class: "rt-assist-actions" }, [input, save]),
-      );
+    if (where.mode === "none") {
+      parts.push(el("p", { class: "rt-assist-sub" }, "The rest of ReadTune works the same either way — this is just the optional AI part."));
     } else if (typeof retry === "function") {
-      /* An engine is set up — this was a transient failure (a network blip, a
-         model that was busy). One button to run it again. */
       const again = el("button", { type: "button", class: "rt-assist-btn" }, "Try again");
       again.addEventListener("click", () => retry());
       parts.push(el("div", { class: "rt-assist-actions" }, [again]));

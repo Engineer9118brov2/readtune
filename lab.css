@@ -559,9 +559,6 @@
   font-size: 0.85rem;
   color: var(--rt-ui-ink-soft);
 }
-#lab-assist-key-forget {
-  margin-top: 10px;
-}
 .rt-key-row {
   display: flex;
   gap: 8px;

@@ -844,17 +844,6 @@ body.rt-reading-page > .rt-surface {
   font-size: .82rem;
 }
 .rt-assist-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
-.rt-assist-key {
-  flex: 1 1 200px;
-  min-width: 0;
-  padding: 7px 11px;
-  border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .18));
-  border-radius: 8px;
-  background: var(--rt-ui-bg, #fff);
-  color: var(--rt-ui-ink, #1f2430);
-  font: inherit;
-  font-size: .88rem;
-}
 .rt-assist-pill {
   position: fixed;
   z-index: 2147483000;

@@ -16,8 +16,6 @@ import {
   loadTTSConfig,
   saveTTSConfig,
   forgetTTSKey,
-  loadAssistConfig,
-  saveAssistConfig,
   applyDyslexicUi,
   nextTtsRate,
   DEFAULT_PROFILE,
@@ -27,7 +25,7 @@ import { createReadingAids } from "./aids.js";
 import { createTransport } from "./transport.js";
 import { createTTS } from "./tts.js";
 import { createWordLookup } from "./wordlook.js";
-import { createAssistant, geminiKeyWorks, hasGeminiPermission, requestGeminiPermission } from "./assist.js";
+import { createAssistant } from "./assist.js";
 import { createAssistUi } from "./assist-ui.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
@@ -39,7 +37,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
   applyDyslexicUi(profile.dyslexicUiMode);
   let ttsConfig = await loadTTSConfig();
-  let assistConfig = await loadAssistConfig();
   let memory = { scroll: 0, highlights: [] };
   let saveTimer = 0;
   let autoRAF = 0;
@@ -135,10 +132,9 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   /* Optional AI help: a plain-language rewrite of a passage you select, and a
      "what is this about" for the whole article. On-device (Chrome built-in AI)
-     first, the reader's own Gemini key second, nothing ReadTune-hosted ever. */
+     only — nothing ReadTune-hosted, and no key to paste when it's absent. */
   const assistant = createAssistant({
     getArticleText: () => view.getPlainText(),
-    getConfig: () => assistConfig,
   });
   const assist = createAssistUi({
     assistant,
@@ -147,23 +143,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       return s && !s.isCollapsed ? String(s.toString() || "").trim() : "";
     },
     speak: speakDucked,
-    onSaveKey: async (key) => {
-      if (!(await hasGeminiPermission())) {
-        const granted = await requestGeminiPermission();
-        if (!granted) {
-          toast("ReadTune needs permission to reach Google to check the key.");
-          return false;
-        }
-      }
-      const check = await geminiKeyWorks(key);
-      if (!check.ok) {
-        toast(check.reason || "That key didn't work.");
-        return false;
-      }
-      assistConfig = (await saveAssistConfig({ key })) || { ...assistConfig, key };
-      toast("Gemini key saved — it stays in this browser.");
-      return true;
-    },
     onError: (m) => toast(m),
   });
   const unmountAssistTrigger = assist.mountSelectionTrigger(() => view.getFlowEl());
@@ -232,7 +211,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       {
         label: "Summary",
         title:
-          "Key points for this article before you commit to it. Runs on your device where the browser supports it; otherwise a free Gemini key (Reading Lab) turns it on. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
+          "Key points for this article before you commit to it. Runs on your device — nothing you read leaves it. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
         onClick: () => assist.openSummary(),
       },
     ]);
