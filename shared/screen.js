@@ -27,6 +27,7 @@ import { createTTS } from "./tts.js";
 import { createWordLookup } from "./wordlook.js";
 import { createAssistant } from "./assist.js";
 import { createAssistUi } from "./assist-ui.js";
+import { createAssistSidebar } from "./assist-sidebar.js";
 import { fetchVoices, requestElevenPermission, hasElevenPermission, synthesize, keyCanSynthesize } from "./elevenlabs.js";
 import { requestPiperPermission, piperVoiceNeedsDownload } from "./piper.js";
 import { buildControls } from "./controls.js";
@@ -130,10 +131,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onError: (m) => toast(m),
   });
 
-  /* Optional AI help: a plain-language rewrite of a passage you select, and a
-     "what is this about" for the whole article. On-device (Chrome built-in AI)
-     when it's already free, ReadTune's cloud relay otherwise — see
-     shared/assist.js for why on-device is opportunistic-only now. */
+  /* Optional AI help: a plain-language rewrite of a passage you select
+     (assist-ui.js, a dismissible card), and a "what is this about" for the
+     whole article (assist-sidebar.js, a docked left panel — the headline AI
+     feature gets a persistent surface, not a modal). On-device (Chrome
+     built-in AI) when it's already free, ReadTune's cloud relay otherwise for
+     Summary — see shared/assist.js for why on-device is opportunistic-only
+     now, and why Simplify stays on-device-only. */
   const assistant = createAssistant({
     getArticleText: () => view.getPlainText(),
     getArticleUrl: () => pageUrl,
@@ -148,6 +152,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onError: (m) => toast(m),
   });
   const unmountAssistTrigger = assist.mountSelectionTrigger(() => view.getFlowEl());
+  const assistSidebar = createAssistSidebar({
+    assistant,
+    speak: speakDucked,
+    onError: (m) => toast(m),
+  });
 
   const transport = createTransport({
     onExit: () => change({ pacing: "flow" }),
@@ -214,7 +223,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         label: "Summary",
         title:
           "Key points for this article before you commit to it. Runs on your device where it can, otherwise through ReadTune's free AI helper. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
-        onClick: () => assist.openSummary(),
+        onClick: () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()),
       },
     ]);
   }
@@ -630,6 +639,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       aids.destroy();
       wordLook.destroy();
       assist.destroy();
+      assistSidebar.destroy();
       unmountAssistTrigger();
       transport.destroy();
       if (tts) tts.destroy();
