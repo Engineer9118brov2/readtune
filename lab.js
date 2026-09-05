@@ -13,9 +13,6 @@ import {
   saveProfile,
   loadTTSConfig,
   saveTTSConfig,
-  loadAssistConfig,
-  saveAssistConfig,
-  forgetAssistKey,
   markSetupStep,
   extUrl,
   describeProfile,
@@ -26,7 +23,7 @@ import { createReadingView, applyTypography, paintPage } from "./shared/render.j
 import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
 import { PIPER_VOICES, createPiperEngine, piperVoiceById, piperVoiceNeedsDownload, requestPiperPermission } from "./shared/piper.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
-import { describeAvailability, geminiKeyWorks, hasGeminiPermission, requestGeminiPermission } from "./shared/assist.js";
+import { describeAvailability } from "./shared/assist.js";
 
 const PREVIEW_TEXT =
   "This is the profile ReadTune is carrying into articles and PDFs for you right now. The Reading Lab shows whether this signal looks new, emerging, or steady enough to trust as your default.";
@@ -416,64 +413,16 @@ function initVoiceFit() {
 async function initAssist() {
   const status = $("lab-assist-status");
   const badge = $("lab-assist-badge");
-  const keyRow = $("lab-assist-key-row");
-  const keyInput = $("lab-assist-key");
-  const save = $("lab-assist-key-save");
-  const forget = $("lab-assist-key-forget");
-  if (!status || !badge || !keyRow || !keyInput || !save || !forget) return;
+  if (!status || !badge) return;
 
-  async function paint() {
-    let assist = { key: "" };
-    try {
-      assist = await loadAssistConfig();
-    } catch {
-      /* storage stub in tests */
-    }
-    let where;
-    try {
-      where = await describeAvailability(!!assist.key);
-    } catch {
-      where = { mode: "none", ready: false, text: "" };
-    }
-    status.textContent = where.text || "";
-    badge.textContent = where.mode === "on-device" ? (where.ready ? "On device" : "Downloads once") : assist.key ? "Your key" : "Optional";
-    // The key form is only useful where the browser can't do it on its own.
-    keyRow.hidden = where.mode === "on-device";
-    forget.hidden = !assist.key;
+  let where;
+  try {
+    where = await describeAvailability();
+  } catch {
+    where = { mode: "none", ready: false, text: "" };
   }
-
-  save.addEventListener("click", async () => {
-    const v = keyInput.value.trim();
-    if (!v) return;
-    save.disabled = true;
-    save.textContent = "Checking…";
-    try {
-      if (!(await hasGeminiPermission())) {
-        const granted = await requestGeminiPermission();
-        if (!granted) throw new Error("permission");
-      }
-      const check = await geminiKeyWorks(v);
-      if (!check.ok) {
-        status.textContent = check.reason || "That key didn't work.";
-        return;
-      }
-      await saveAssistConfig({ key: v });
-      keyInput.value = "";
-      await paint();
-    } catch {
-      status.textContent = "ReadTune needs permission to reach Google to check the key.";
-    } finally {
-      save.disabled = false;
-      save.textContent = "Save key";
-    }
-  });
-  keyInput.addEventListener("keydown", (e) => e.key === "Enter" && save.click());
-  forget.addEventListener("click", async () => {
-    await forgetAssistKey();
-    await paint();
-  });
-
-  await paint();
+  status.textContent = where.text || "";
+  badge.textContent = where.mode === "on-device" ? (where.ready ? "On device" : "Downloads once") : "Not available";
 }
 
 function applyLaunchState() {

@@ -93,7 +93,7 @@ Talk to type
 Reading help (optional AI)
 • "Summary" in Reader View — the key points of an article before you commit to reading it
 • "Simplify" — select any passage and get a plain-language rewrite shown beside the original, never in its place, labelled "AI — may not be exact"
-• Runs on your device where your browser has built-in AI — no key, nothing uploaded. Otherwise a free Google AI Studio (Gemini) key turns it on; the key stays in your browser and only the text you ask about goes to Google. No ReadTune server is ever involved
+• Runs entirely on your device, using Chrome's built-in AI — no key, no account, nothing uploaded. Where a browser doesn't have that yet, these two helpers simply aren't available there; no key or account is ever asked for as a fallback, and no ReadTune server is ever involved
 
 Where it works
 • Reader View — pulls the article out of any page and re-renders it
@@ -124,7 +124,7 @@ No ReadTune server. No account. No analytics or telemetry. Nothing is sold or sh
 
 Read-aloud runs on your device: the default voice ships inside the extension, so it needs no network. If you pick one of the other voices, its model is downloaded once from Hugging Face and cached locally — the text you read is never sent anywhere.
 
-Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The AI reading helpers run on your device where the browser supports it; otherwise, with a Gemini key you add, the text you ask about and your key go from your browser to Google. Nothing else, nowhere else.
+Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The AI reading helpers run only on your device, using Chrome's built-in AI; where a browser doesn't have that, the helpers just aren't available, and nothing is sent anywhere as a fallback. Nothing else, nowhere else.
 
 Free and open source. The full code is at github.com/Engineer9118brov2/readtune
 ```
@@ -198,7 +198,7 @@ Used together with activeTab to inject ReadTune's own content scripts on the use
 
 **storage**
 ```
-Stores, on the user's own device only: the reading profile and check history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and — only if the user enables an optional feature that needs one — their own third-party API key (ElevenLabs for a premium read-aloud voice, or Google Gemini for the AI reading helpers). None of this is sent to the developer or any server.
+Stores, on the user's own device only: the reading profile and check history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and — only if the user enables it — their own ElevenLabs API key for a premium read-aloud voice. None of this is sent to the developer or any server.
 ```
 
 **Optional host permission — https://api.elevenlabs.io/***
@@ -209,11 +209,6 @@ Not requested at install. Requested only if the user enters their own ElevenLabs
 **Optional host permission — https://huggingface.co/* and https://*.hf.co/***
 ```
 Not requested at install. Requested only if the user selects one of the optional extra on-device voices in the Reading Lab. Used once to download that voice's model file (neural network weights — data, not executable code), which is then cached on the device. The default voice ships inside the extension and needs no network. The text being read aloud is never transmitted.
-```
-
-**Optional host permission — https://generativelanguage.googleapis.com/***
-```
-Not requested at install. Requested only if the user adds their own Google Gemini API key to use the optional AI reading helpers (article summary, plain-language rewrite) — and only on browsers that do not provide on-device AI, where those helpers otherwise run locally with no network at all. Used only to send the text the user asks about (the article's opening, or the passage they selected) with the user's own key, from the user's browser to Google's Gemini endpoint, and to get back the summary or rewrite. ReadTune operates no server in this path.
 ```
 
 **Optional host permission — *://*/***
@@ -232,9 +227,9 @@ remote `<script>`, a remote dynamic `import()`, or `eval()` of fetched text. The
 `wasm-unsafe-eval` CSP entry is for instantiating the *bundled* wasm and does
 not by itself count as remote code. Files fetched at runtime are all data, not
 code: optional neural-voice model weights from Hugging Face (read by the bundled
-onnxruntime engine), and — only with a user-supplied key — Gemini API
-request/response JSON. The AI reading helpers otherwise use Chrome's own
-built-in AI, which is part of the browser, not fetched by ReadTune.
+onnxruntime engine). The AI reading helpers use only Chrome's own built-in AI,
+which is part of the browser, not fetched by ReadTune, and make no network
+request of their own.
 
 *If a reviewer pushes back and you want to switch the answer to "Yes", paste
 this as the justification:*
@@ -254,7 +249,7 @@ personal communications, no location, no web history, no user activity).
 
 If the dashboard gives a free-text box for the disclosure, use:
 ```
-ReadTune processes the text of the page or file the user chooses to read, on the user's device, to reformat it — this is not sent to the developer. Optional, user-initiated features transmit content off the device: "Talk to type" turns on Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (Chrome's engine, not ReadTune's); "ElevenLabs read-aloud", if the user adds their own API key, sends the passage to be spoken and that key from the user's browser to the user's own ElevenLabs account; the AI reading helpers (article summary, plain-language rewrite) run on Chrome's built-in AI where available, and otherwise, if the user adds their own Google Gemini key, send the text the user asks about and that key from the user's browser to Google. All such API keys are stored only in local storage on the device. ReadTune operates no server and receives none of this data.
+ReadTune processes the text of the page or file the user chooses to read, on the user's device, to reformat it — this is not sent to the developer. Optional, user-initiated features transmit content off the device: "Talk to type" turns on Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (Chrome's engine, not ReadTune's); "ElevenLabs read-aloud", if the user adds their own API key, sends the passage to be spoken and that key from the user's browser to the user's own ElevenLabs account. The AI reading helpers (article summary, plain-language rewrite) run only on Chrome's built-in AI, on the user's device — where a browser doesn't have that, the helpers are simply not available, and nothing is sent anywhere as a fallback. Any API key (ElevenLabs) is stored only in local storage on the device. ReadTune operates no server and receives none of this data.
 ```
 
 ## Certifications — check all three (all true)

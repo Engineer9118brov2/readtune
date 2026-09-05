@@ -16,7 +16,6 @@ export const ARTICLE_KEY = "readtune_article";
 export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle }
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
-export const ASSIST_KEY = "readtune_assist"; // reading-assistant config (incl. the user's own Gemini key)
 export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
 
 export const FONTS = {
@@ -426,45 +425,6 @@ export async function forgetTTSKey() {
     return true;
   } catch (err) {
     console.warn("[ReadTune] forgetTTSKey failed:", err);
-    return false;
-  }
-}
-
-/* ---- reading-assistant config ----
-   On-device (Chrome built-in AI) needs no config and is always preferred; this
-   only holds the optional bring-your-own Gemini key for browsers without it.
-   The key lives here and nowhere else — never a file, never the profile. */
-export const DEFAULT_ASSIST = { enabled: true, key: "" };
-
-export async function loadAssistConfig() {
-  try {
-    const got = await chrome.storage.local.get(ASSIST_KEY);
-    return { ...DEFAULT_ASSIST, ...(got && got[ASSIST_KEY] ? got[ASSIST_KEY] : {}) };
-  } catch (err) {
-    console.warn("[ReadTune] loadAssistConfig failed:", err);
-    return { ...DEFAULT_ASSIST };
-  }
-}
-
-export async function saveAssistConfig(patch) {
-  try {
-    const cur = await loadAssistConfig();
-    const next = { ...cur, ...patch };
-    await chrome.storage.local.set({ [ASSIST_KEY]: next });
-    return next;
-  } catch (err) {
-    console.warn("[ReadTune] saveAssistConfig failed:", err);
-    return null;
-  }
-}
-
-export async function forgetAssistKey() {
-  try {
-    const cur = await loadAssistConfig();
-    await chrome.storage.local.set({ [ASSIST_KEY]: { ...cur, key: "" } });
-    return true;
-  } catch (err) {
-    console.warn("[ReadTune] forgetAssistKey failed:", err);
     return false;
   }
 }

@@ -6,7 +6,13 @@ plain-language rewrite of the one paragraph that won't come together — while
 keeping ReadTune's wedge intact: free, no account, private, offline where the
 browser allows it.
 
-## As shipped (v0.9.0)
+**Removed:** the "bring your own Gemini key" fallback shipped in 0.9.0 and was
+removed shortly after. Rationale: the extension's own readers are people who
+find text hard to work with, not people comfortable creating a Google AI
+Studio project and pasting an API key — a key-entry form was never a real
+fallback for this audience, just a UI that looked like one.
+
+## As shipped
 
 Two entry points in Reader View:
 
@@ -22,6 +28,8 @@ through the same read-aloud voice.
 
 ## How a request is routed (`shared/assist.js`)
 
+On-device only, in this order:
+
 1. **A task-specific on-device API**, if the browser has one: `Summarizer` for a
    summary, `Rewriter` for a rewrite. `create()` is the first `await` after the
    click, because Chrome refuses to start the one-time model download unless a
@@ -29,12 +37,12 @@ through the same read-aloud voice.
 2. **The Prompt API** (`LanguageModel`) as the on-device fallback — this is the
    path today, since Chrome 152 ships `Summarizer` and `LanguageModel` but not
    `Rewriter` yet.
-3. **The reader's own Gemini key** — a free Google AI Studio key, stored in
-   `chrome.storage.local` under `readtune_assist` (mirrors the ElevenLabs
-   `readtune_tts` pattern), sent with the request straight from the browser to
-   `generativelanguage.googleapis.com`. The key form appears in the failure
-   card, and proactively in the Reading Lab, only when there is nothing else to
-   run on. Gated behind a `chrome.permissions.request` for that one origin.
+3. **If neither is available, the feature just isn't.** There used to be a
+   "bring your own Gemini key" third tier here. It's gone — pasting a Google AI
+   Studio key is not a real fallback for the readers this extension is for, so a
+   browser with no on-device AI gets an honest "not available here" instead of a
+   form nobody in the target audience can actually fill out. `describeAvailability()`
+   reports only two modes now: `"on-device"` (ready or downloading) and `"none"`.
 4. **Never a ReadTune-hosted model.** A proxy would put the text you are reading
    on a server, and add cost, rate-limiting and an abuse surface. The whole
    point of the on-device-first design is that it doesn't.
@@ -52,8 +60,7 @@ so the ~GB download happens at most once per browser, not once per extension.
 - The summary is "the main points as the text states them", capped to the
   article's opening for a long piece, and labelled when it was clipped.
 - Store answer to "do you use remote code?" stays **No**: the built-in AI is part
-  of the browser, and a Gemini request is data sent to the user's own account,
-  not fetched code.
+  of the browser; ReadTune makes no network request for this feature at all.
 
 ## Not in v1
 
