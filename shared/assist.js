@@ -59,9 +59,6 @@ async function availabilityOf(name) {
   }
 }
 
-const CAN_USE = new Set(["available", "downloadable", "downloading"]);
-const usable = (s) => CAN_USE.has(s);
-
 /* One aggregate state across the three sub-APIs, best-first, so the UI can
    tell "nothing has started yet" (worth asking first) apart from "a download
    is already running" (nothing to ask, just show progress). */
