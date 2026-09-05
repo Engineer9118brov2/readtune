@@ -1625,6 +1625,12 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     } catch (e) { badRequest = e; }
     assert(badRequest && badRequest.status === 400 && calls === 1, "a 400 is the request's fault — relayChat stops instead of trying the next provider");
 
+    // a bad key / missing model on the first provider must NOT take the path
+    // offline — fall through to the healthy one.
+    const recovered = await R.relayChat(two, "s", "u", (url) =>
+      (String(url).includes("ollama") ? chatErr(401)() : chatOk("second provider")()));
+    assert(recovered === "second provider", "a 401 from the first provider falls through to the next (expired key shouldn't kill Summary)");
+
     let noText;
     try { await R.relayChat(two, "s", "u", chatOk("   ")); } catch (e) { noText = e; }
     assert(noText && noText.status === 502, "an empty model reply is a 502, not a silent pass");

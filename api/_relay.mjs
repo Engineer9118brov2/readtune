@@ -24,6 +24,12 @@ export const OLLAMA_MODEL = "gpt-oss:20b";
 
 const UPSTREAM_TIMEOUT_MS = 30000;
 
+// A status that means *this request* is bad — malformed body, too large,
+// unprocessable — so every provider would reject it identically and there's
+// no point trying the next one. A 401/403 (bad key), 404 (model gone),
+// 408/429, or any 5xx is that one provider's problem: fall through.
+const REQUEST_FATAL = new Set([400, 413, 422]);
+
 // package.json pins no Node version for these functions, so don't assume
 // AbortSignal.timeout() — fall back to a plain AbortController.
 function timeoutSignal(ms) {
@@ -128,11 +134,11 @@ export async function relayChat(providers, system, user, fetchImpl = fetch) {
       return await callChat(provider, system, user, fetchImpl);
     } catch (e) {
       lastErr = e;
-      // 4xx that isn't rate-limiting is the request's fault, not this
-      // provider's — another provider would reject it too, so stop early.
-      if (e && typeof e.status === "number" && e.status >= 400 && e.status < 500 && e.status !== 429) {
-        throw e;
-      }
+      // Stop only for a status that means *this request* is bad and every
+      // provider would reject it the same way (malformed body, too large,
+      // unprocessable). A 401/403 (bad key), 404 (model gone), 408/429, or
+      // any 5xx is that one provider's problem — try the next.
+      if (e && REQUEST_FATAL.has(e.status)) throw e;
     }
   }
   throw lastErr;

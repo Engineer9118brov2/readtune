@@ -49,8 +49,11 @@ it" through the same read-aloud voice.
    (`ollama.com/v1`, `gpt-oss:20b`) first when `OLLAMA_API_KEY` is set — a
    signed-in Ollama account has the larger free daily allowance — then
    **OpenRouter** (`openrouter/free`, its own free-model router). A provider
-   that errors with a 5xx or 429 falls through to the next; a 4xx (the
-   request's own fault) stops the chain. With neither key set the relay
+   that errors falls through to the next — including a bad key (401/403) or a
+   missing model (404), so adding or invalidating one provider's key never
+   takes a working provider offline. Only a `400`/`413`/`422` (the request
+   itself is bad, every provider would reject it) stops the chain. With
+   neither key set the relay
    returns `503` and Summary stays unavailable for cloud-path users.
    **If Redis is configured**,
    responses are cached by normalized article URL (bound to a hash of the
