@@ -45,16 +45,18 @@ it" through the same read-aloud voice.
 2. **ReadTune's own relay, Summary only** (`api/assist.js`, deployed
    alongside the marketing site on Vercel) — the article text (and its URL)
    is sent there, which forwards it to a free chat model and returns the
-   generated text. Provider order (`api/_relay.mjs`): **Ollama Cloud**
-   (`ollama.com/v1`, `gpt-oss:20b`) first when `OLLAMA_API_KEY` is set — a
-   signed-in Ollama account has the larger free daily allowance — then
-   **OpenRouter** (`openrouter/free`, its own free-model router). A provider
-   that errors falls through to the next — including a bad key (401/403) or a
-   missing model (404), so adding or invalidating one provider's key never
-   takes a working provider offline. Only a `400`/`413`/`422` (the request
-   itself is bad, every provider would reject it) stops the chain. With
-   neither key set the relay
-   returns `503` and Summary stays unavailable for cloud-path users.
+   generated text. It goes through **OpenRouter** (`api/_relay.mjs`) with a
+   three-model fallback list passed as OpenRouter's own `models` array —
+   `openai/gpt-oss-120b`, then `google/gemini-3.5-flash-lite`, then
+   `mistralai/ministral-8b-2512`. Each is served by a provider key you add in
+   OpenRouter's BYOK settings (gpt-oss by Cerebras/Groq, the others by their
+   own keys), so all three are free to us and OpenRouter fails over between
+   them itself. `OLLAMA_API_KEY`, if set, adds Ollama Cloud as a first
+   provider ahead of OpenRouter. A provider that errors falls through —
+   including a bad key (401/403) or a missing model (404) — so one bad key
+   never takes Summary offline. Only a `400`/`413`/`422` (the request itself
+   is bad) stops the chain. With no key set the relay returns `503` and
+   Summary stays unavailable for cloud-path users.
    **If Redis is configured**,
    responses are cached by normalized article URL (bound to a hash of the
    text, so no one can overwrite another article's cached summary) so a
@@ -83,10 +85,10 @@ Server-side only — no extension or manifest change to switch providers.
 
 | Env var | Effect |
 | --- | --- |
-| `OLLAMA_API_KEY` | Enables the Ollama Cloud provider (tried first). |
+| `OPENROUTER_API_KEY` | The relay key. BYOK provider keys (Cerebras, Groq, Gemini, Mistral…) are configured inside OpenRouter, not here. |
+| `OPENROUTER_MODEL` | Optional; pins one model and drops the `models` fallback list. Default: the 3-model list in `_relay.mjs`. |
+| `OLLAMA_API_KEY` | Optional; adds Ollama Cloud as a provider ahead of OpenRouter. |
 | `OLLAMA_MODEL` | Optional; defaults to `gpt-oss:20b`. |
-| `OPENROUTER_API_KEY` | Enables the OpenRouter provider (tried after Ollama). |
-| `OPENROUTER_MODEL` | Optional; defaults to `openrouter/free`. |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Optional; enables the cross-reader cache + abuse guard. |
 
 With no provider key set, `/api/assist` returns `503` and the extension keeps

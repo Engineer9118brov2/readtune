@@ -95,18 +95,14 @@ export default async function handler(req, res) {
 
   const text = clip(body.text, MAX_INPUT);
   const speed = Number(body.speed) || 1;
-  const env = {
-    ...process.env,
-    // an explicit per-request voice wins over the env default, but only from a
-    // short allow-shaped token — never forward arbitrary strings as a header.
-    ...(typeof body.voice === "string" && /^[a-z0-9_.:-]{1,40}$/i.test(body.voice)
-      ? { SPEAK_OPENROUTER_VOICE: body.voice, SPEAK_GROQ_VOICE: body.voice, SPEAK_UNREAL_VOICE: body.voice }
-      : {}),
-  };
+  // A per-request voice, but only a short allow-shaped token — never forward an
+  // arbitrary string. The providers themselves decide whether it fits their
+  // voice namespace or they fall back to their own default.
+  const voice = typeof body.voice === "string" && /^[a-z0-9_.:-]{1,40}$/i.test(body.voice) ? body.voice : "";
 
   if (!text) return res.status(400).json({ error: "Nothing to read." });
 
-  const providers = speakProvidersFromEnv(text, speed, env);
+  const providers = speakProvidersFromEnv(text, speed, process.env, voice);
   if (!providers.length) return res.status(503).json({ error: "The premium voice isn't set up yet." });
 
   if (!(await rateLimitOk())) {

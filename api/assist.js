@@ -3,7 +3,7 @@
  *
  * A tiny, stateless proxy: the extension sends article text (and, for a
  * whole-article summary, the article's URL), this relays it to a free chat
- * model — Ollama Cloud first, then OpenRouter (see _relay.mjs) — and hands
+ * model — through OpenRouter with a BYOK model-fallback list (see _relay.mjs) — and hands
  * back the generated text. Nothing here is tied to
  * a person — no accounts, no auth, no per-user storage. The only thing kept
  * around is a cache of { article URL -> generated summary } so a popular
