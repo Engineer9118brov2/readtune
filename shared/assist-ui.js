@@ -102,28 +102,22 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     const note = el("p", { class: "rt-assist-working" }, label);
     const cancel = el("button", { type: "button", class: "rt-assist-cancel" }, "Cancel");
     cancel.addEventListener("click", close);
+    body.setAttribute("aria-busy", "true");
     body.replaceChildren(note, cancel);
     return {
-      progress({ loaded, total }) {
-        note.textContent = total
-          ? `Setting up on-device AI — ${Math.round((loaded / total) * 100)}%. One time.`
-          : "Setting up on-device AI. One time — this can take a minute.";
-      },
+      /* The assistant always has somewhere to run now (on-device when it's
+         already free, ReadTune's cloud relay otherwise) — neither path is a
+         multi-second download anymore, so there's no percentage to show. */
+      progress() {},
     };
   }
 
   async function fail(body, message, retry) {
+    // The assistant always has somewhere to run now — a failure here is
+    // always transient (a network blip, a busy model), so it's always worth
+    // one retry button, not a dead end.
     const parts = [el("p", { class: "rt-assist-error" }, message || "That didn't work.")];
-
-    /* "Nothing to run on" means this browser has no on-device AI at all —
-       that's not a transient failure, so there's no "try again" here, just an
-       honest note. Everything else (a network blip, a model that was busy) is
-       worth one retry button. */
-    let where = { mode: "none" };
-    try { where = await assistant.describe(); } catch {}
-    if (where.mode === "none") {
-      parts.push(el("p", { class: "rt-assist-sub" }, "The rest of ReadTune works the same either way — this is just the optional AI part."));
-    } else if (typeof retry === "function") {
+    if (typeof retry === "function") {
       const again = el("button", { type: "button", class: "rt-assist-btn" }, "Try again");
       again.addEventListener("click", () => retry());
       parts.push(el("div", { class: "rt-assist-actions" }, [again]));

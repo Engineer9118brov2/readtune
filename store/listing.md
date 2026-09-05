@@ -92,8 +92,7 @@ Talk to type
 
 Reading help (optional AI)
 • "Summary" in Reader View — the key points of an article before you commit to reading it
-• "Simplify" — select any passage and get a plain-language rewrite shown beside the original, never in its place, labelled "AI — may not be exact"
-• Runs entirely on your device, using Chrome's built-in AI — no key, no account, nothing uploaded. Where a browser doesn't have that yet, these two helpers simply aren't available there; no key or account is ever asked for as a fallback, and no ReadTune server is ever involved
+• No key, no account, ever. Where your browser has Chrome's built-in AI ready, it runs entirely on your device. Otherwise it runs through ReadTune's free summarization helper — the article text is sent to generate the response, and popular articles may be cached so most requests never even reach the model
 
 Where it works
 • Reader View — pulls the article out of any page and re-renders it
@@ -120,11 +119,11 @@ Read-aloud with follow-along, roomier spacing, and softer contrast have the stro
 
 PRIVACY
 
-No ReadTune server. No account. No analytics or telemetry. Nothing is sold or shared. Your reading profile, check history, reading position and highlights are stored with Chrome's local extension storage, on your device. The extension installs asking only for activeTab, scripting, and storage.
+No account. No analytics or telemetry. Nothing is sold or shared. Your reading profile, check history, reading position and highlights are stored with Chrome's local extension storage, on your device. The extension installs asking for activeTab, scripting, storage, and one required host permission (ReadTune's own summarization helper, used only by "Summary").
 
 Read-aloud runs on your device: the default voice ships inside the extension, so it needs no network. If you pick one of the other voices, its model is downloaded once from Hugging Face and cached locally — the text you read is never sent anywhere.
 
-Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The AI reading helpers run only on your device, using Chrome's built-in AI; where a browser doesn't have that, the helpers just aren't available, and nothing is sent anywhere as a fallback. Nothing else, nowhere else.
+Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. "Summary" runs on your device where Chrome's built-in AI is ready; otherwise the article text is sent to ReadTune's own summarization helper, which forwards it to a third-party AI model to generate the response — this is the one exception to "nothing leaves your device" in this extension. Nothing else, nowhere else.
 
 Free and open source. The full code is at github.com/Engineer9118brov2/readtune
 ```
@@ -201,6 +200,11 @@ Used together with activeTab to inject ReadTune's own content scripts on the use
 Stores, on the user's own device only: the reading profile and check history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and — only if the user enables it — their own ElevenLabs API key for a premium read-aloud voice. None of this is sent to the developer or any server.
 ```
 
+**Required host permission — https://readtune.tech/api/***
+```
+Used by the optional "Summary" feature (Reader View), only when the request is made and only for that feature. Where the user's browser already has Chrome's built-in AI ready, this is never called — the summary is generated on-device and nothing is sent. Otherwise, the article's opening text (and its URL, for cache lookup) is sent to this ReadTune-operated endpoint, which forwards it to a third-party AI model and returns the generated summary. Responses may be cached by the article's URL — shared across all users, not tied to any individual — so a popular article is only summarized once. No account, no auth, no per-user data of any kind is stored.
+```
+
 **Optional host permission — https://api.elevenlabs.io/***
 ```
 Not requested at install. Requested only if the user enters their own ElevenLabs API key to use an ElevenLabs voice for read-aloud. Used only to send the passage being read aloud, from the user's browser to the user's own ElevenLabs account, and to get back audio with word timings.
@@ -227,9 +231,11 @@ remote `<script>`, a remote dynamic `import()`, or `eval()` of fetched text. The
 `wasm-unsafe-eval` CSP entry is for instantiating the *bundled* wasm and does
 not by itself count as remote code. Files fetched at runtime are all data, not
 code: optional neural-voice model weights from Hugging Face (read by the bundled
-onnxruntime engine). The AI reading helpers use only Chrome's own built-in AI,
-which is part of the browser, not fetched by ReadTune, and make no network
-request of their own.
+onnxruntime engine). Where a browser has Chrome's built-in AI ready, "Summary"
+uses only that — part of the browser, not fetched by ReadTune. Otherwise, the
+request to ReadTune's own summarization endpoint (`readtune.tech/api`) sends
+JSON and receives JSON — plain-text data in, plain-text data out, never a
+script or executable of any kind.
 
 *If a reviewer pushes back and you want to switch the answer to "Yes", paste
 this as the justification:*
@@ -249,7 +255,7 @@ personal communications, no location, no web history, no user activity).
 
 If the dashboard gives a free-text box for the disclosure, use:
 ```
-ReadTune processes the text of the page or file the user chooses to read, on the user's device, to reformat it — this is not sent to the developer. Optional, user-initiated features transmit content off the device: "Talk to type" turns on Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (Chrome's engine, not ReadTune's); "ElevenLabs read-aloud", if the user adds their own API key, sends the passage to be spoken and that key from the user's browser to the user's own ElevenLabs account. The AI reading helpers (article summary, plain-language rewrite) run only on Chrome's built-in AI, on the user's device — where a browser doesn't have that, the helpers are simply not available, and nothing is sent anywhere as a fallback. Any API key (ElevenLabs) is stored only in local storage on the device. ReadTune operates no server and receives none of this data.
+ReadTune processes the text of the page or file the user chooses to read, on the user's device, to reformat it — this is not sent to the developer. Optional, user-initiated features transmit content off the device: "Talk to type" turns on Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (Chrome's engine, not ReadTune's); "ElevenLabs read-aloud", if the user adds their own API key, sends the passage to be spoken and that key from the user's browser to the user's own ElevenLabs account. "Summary" runs on Chrome's built-in AI, on the user's device, where that's ready; otherwise the article's opening text (and its URL) is sent to a ReadTune-operated relay, which forwards it to a third-party AI model to generate a summary and may cache the result by URL — not tied to any individual reader. Any API key (ElevenLabs) is stored only in local storage on the device.
 ```
 
 ## Certifications — check all three (all true)

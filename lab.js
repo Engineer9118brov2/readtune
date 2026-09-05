@@ -419,10 +419,10 @@ async function initAssist() {
   try {
     where = await describeAvailability();
   } catch {
-    where = { mode: "none", ready: false, text: "" };
+    where = { mode: "cloud", text: "" };
   }
   status.textContent = where.text || "";
-  badge.textContent = where.mode === "on-device" ? (where.ready ? "On device" : "Downloads once") : "Not available";
+  badge.textContent = where.mode === "on-device" ? "On device" : "Free AI helper";
 }
 
 function applyLaunchState() {

@@ -1354,15 +1354,19 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const AUI = await import("../shared/assist-ui.js");
 
     /* Control the built-in-AI globals so the tests don't depend on whether this
-       Chrome ships them. Each entry is null (absent) or an availability string. */
+       Chrome ships them. Each entry is null (absent) or an availability string.
+       create() is counted per API so tests can prove a merely-"downloadable"
+       model is never triggered into downloading. */
     const realAI = { Summarizer: self.Summarizer, Rewriter: self.Rewriter, LanguageModel: self.LanguageModel };
+    let createCalls = {};
     const setAI = (spec) => {
+      createCalls = { Summarizer: 0, Rewriter: 0, LanguageModel: 0 };
       for (const name of ["Summarizer", "Rewriter", "LanguageModel"]) {
         const v = spec[name];
         if (!v) { delete self[name]; continue; }
         self[name] = {
           availability: async () => v.state,
-          create: async () => v.instance,
+          create: async () => { createCalls[name]++; return v.instance; },
         };
       }
     };
@@ -1372,9 +1376,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         else self[name] = realAI[name];
       }
     };
+    const realFetch = self.fetch;
+    const restoreFetch = () => { self.fetch = realFetch; };
 
     try {
-      // no built-in AI → the assistant explains it's simply not available here
+      // no built-in AI → still has somewhere to run: ReadTune's cloud relay
       setAI({});
       const st = await A.onDeviceStatus();
       assert(
@@ -1382,23 +1388,36 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         "on-device status is 'unavailable' for every API the browser doesn't expose",
       );
       const none = await A.describeAvailability();
-      assert(none.mode === "none" && !none.ready, "no on-device AI → mode is 'none' (there is no bring-your-own-key fallback anymore)");
-      assert(typeof A.geminiKeyWorks === "undefined" && typeof A.hasGeminiPermission === "undefined", "the BYOK API surface is gone, not just unused");
+      assert(none.mode === "cloud" && none.ready, "no on-device AI → mode is 'cloud'; the assistant is still ready (always has somewhere to run)");
+      assert(typeof A.geminiKeyWorks === "undefined" && typeof A.hasGeminiPermission === "undefined", "there is no bring-your-own-key API surface");
 
-      // it refuses cleanly rather than hanging when it has nothing to run on —
-      // the reason rides on the rejection, not a side-channel callback
-      const stuck = A.createAssistant({
-        getArticleText: () => "Tide pools reset twice a day and shelter small crabs.",
-      });
-      let stuckErr = "";
-      try { await stuck.summarize(); } catch (e) { stuckErr = (e && e.message) || ""; }
-      assert(/on-device AI/.test(stuckErr), "summarize with no engine rejects with a message that explains why");
+      // no on-device AI + the cloud relay succeeds → summarize resolves normally
+      self.fetch = async (url, opts) => {
+        assert(String(url).includes("/api/assist"), "the cloud path calls ReadTune's own relay");
+        const body = JSON.parse(opts.body);
+        assert(body.kind === "summary" && /tide pools/i.test(body.text), "the request carries the kind and the article text");
+        return { ok: true, json: async () => ({ text: "CLOUD SUMMARY", cached: false }) };
+      };
+      const cloudOut = await A.createAssistant({ getArticleText: () => "Tide pools reset twice a day and shelter small crabs." }).summarize();
+      assert(cloudOut.text === "CLOUD SUMMARY", "with no on-device AI, summarize succeeds through the cloud relay");
+
+      // the cloud relay failing surfaces a real message, never a silent hang
+      self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
+      let cloudErr = "";
+      try { await A.createAssistant({ getArticleText: () => "Some article text." }).summarize(); } catch (e) { cloudErr = (e && e.message) || ""; }
+      assert(/boom/.test(cloudErr), "a cloud relay failure surfaces its message");
+
+      self.fetch = async () => ({ ok: false, status: 429, json: async () => ({}) });
+      let busyErr = "";
+      try { await A.createAssistant({ getArticleText: () => "Some article text." }).summarize(); } catch (e) { busyErr = (e && e.message) || ""; }
+      assert(/busy/i.test(busyErr), "a 429 from the cloud relay reads as 'busy', not a generic error");
+
       let threw2 = false;
-      try { await stuck.simplify(""); } catch { threw2 = true; }
-      assert(threw2, "simplify with an empty selection is rejected");
+      try { await A.createAssistant({}).simplify(""); } catch { threw2 = true; }
+      assert(threw2, "simplify with an empty selection is rejected before any network call");
 
-      // a cancelled request rejects AS an abort — never remapped to a network
-      // error, so the UI's signal.aborted check keeps it quiet
+      // a cancelled on-device request rejects AS an abort — never remapped to
+      // a network error, so the UI's signal.aborted check keeps it quiet
       const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
       setAI({
         LanguageModel: {
@@ -1420,27 +1439,66 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       ac.abort();
       let abortName = "";
       try { await pending; } catch (e) { abortName = (e && e.name) || ""; }
-      assert(abortName === "AbortError", "a cancelled summary rejects as AbortError, not a masked network error");
+      assert(abortName === "AbortError", "a cancelled on-device summary rejects as AbortError, not a masked error");
 
-      // a downloadable on-device model still counts as usable
-      setAI({ Summarizer: { state: "downloadable" } });
-      assert((await A.describeAvailability()).mode === "on-device", "a model that only needs downloading is still 'on-device'");
-      assert((await A.describeAvailability()).needsDownload === true, "and it flags that a one-time download is needed");
+      // the same holds for a cancelled cloud request — the mock only rejects
+      // once the passed-in signal itself aborts, so this actually proves the
+      // signal reaches fetch() rather than passing on an unconditional reject
+      setAI({});
+      self.fetch = (_url, opts) =>
+        new Promise((_resolve, reject) => {
+          const signal = opts && opts.signal;
+          if (!signal) { reject(new Error("fetch called without a signal")); return; }
+          if (signal.aborted) { reject(abortErr()); return; }
+          signal.addEventListener("abort", () => reject(abortErr()));
+        });
+      const ac2 = new AbortController();
+      const pending2 = A.createAssistant({ getArticleText: () => "Article text." }).summarize({ signal: ac2.signal });
+      ac2.abort();
+      let abortName2 = "";
+      try { await pending2; } catch (e) { abortName2 = (e && e.name) || ""; }
+      assert(abortName2 === "AbortError", "a cancelled cloud request also rejects as AbortError, not a masked network error");
 
-      // routing: a task-specific API is used ahead of the Prompt API and any key
+      // a "downloadable" (not yet ready) on-device model is skipped entirely —
+      // ReadTune never triggers Chrome's one-time download itself
+      setAI({ Summarizer: { state: "downloadable", instance: { summarize: async () => "SHOULD NOT RUN", destroy() {} } } });
+      self.fetch = async () => ({ ok: true, json: async () => ({ text: "CLOUD FALLBACK" }) });
+      const downloadableOut = await A.createAssistant({ getArticleText: () => "Some article text to summarize here." }).summarize();
+      assert(downloadableOut.text === "CLOUD FALLBACK", "a 'downloadable' on-device model is skipped — the cloud relay handles it instead");
+      assert(createCalls.Summarizer === 0, "and Summarizer.create() is never called for a merely 'downloadable' model — no download is ever triggered");
+
+      // routing: a task-specific on-device API is used ahead of the Prompt API
+      // and the cloud relay, once it's already ready
       setAI({
         Summarizer: { state: "available", instance: { summarize: async (t) => "KEY POINTS: " + t.slice(0, 20), destroy() {} } },
         LanguageModel: { state: "available", instance: { prompt: async () => "PROMPT FALLBACK", destroy() {} } },
       });
       const sOut = await A.createAssistant({ getArticleText: () => "Tide pools reset twice a day. Crabs shelter there." }).summarize();
-      assert(/^KEY POINTS:/.test(sOut.text), "summarize uses the Summarizer API when the browser has one");
+      assert(/^KEY POINTS:/.test(sOut.text), "summarize uses the Summarizer API when the browser already has one ready");
 
       setAI({ LanguageModel: { state: "available", instance: { prompt: async (p) => "SIMPLE: " + p.slice(-10), destroy() {} } } });
       const rOut = await A.createAssistant({}).simplify("The tide pool's ecosystem exhibits diurnal periodicity in its hydration.");
-      assert(/^SIMPLE:/.test(rOut.text), "simplify falls back to the Prompt API when there is no Rewriter");
+      assert(/^SIMPLE:/.test(rOut.text), "simplify falls back to the Prompt API when there is no Rewriter but the Prompt API is ready");
 
-      // the UI degrades to a readable error and tears down cleanly
+      // Simplify is disclosed as on-device-only — unlike summarize, it must
+      // NOT fall back to the cloud relay when no on-device model is ready,
+      // or it would send a reader's selection somewhere ReadTune never said it would
       setAI({});
+      let cloudCalledForSimplify = false;
+      self.fetch = async () => { cloudCalledForSimplify = true; return { ok: true, json: async () => ({ text: "SHOULD NOT BE USED" }) }; };
+      let simplifyThrew = false;
+      try {
+        await A.createAssistant({}).simplify("A passage with no on-device model ready to rewrite it right now.");
+      } catch {
+        simplifyThrew = true;
+      }
+      assert(simplifyThrew, "simplify with no on-device model ready fails rather than silently using the cloud relay");
+      assert(!cloudCalledForSimplify, "simplify never calls fetch() — the cloud relay is Summary-only");
+
+      // the UI degrades to a readable error — with a retry, since the
+      // assistant always has somewhere to run now — and tears down cleanly
+      setAI({});
+      self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "cloud is down" }) });
       let uiError = "";
       const ui = AUI.createAssistUi({
         assistant: A.createAssistant({ getArticleText: () => "Some text." }),
@@ -1460,13 +1518,13 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(cardEl && cardEl.contains(document.activeElement), "opening the assistant card moves focus into it");
       assert(cardEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the card body is a polite live region");
       assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
-      assert(!cardEl.querySelector('input[type="password"]'), "there is no key form anymore — no engine means an honest 'not available' note, not a form");
+      assert(cardEl.textContent.includes("Try again"), "a cloud failure still offers a retry — nothing is a dead end anymore");
       ui.destroy();
       assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
       assert(document.activeElement === opener, "closing the card hands focus back to whatever opened it");
       opener.remove();
 
-      // an engine that fails transiently gets a plain "Try again"
+      // an on-device engine that fails transiently also gets a plain "Try again"
       setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });
       const ui2 = AUI.createAssistUi({
         assistant: A.createAssistant({ getArticleText: () => "Some article text to summarize." }),
@@ -1475,13 +1533,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       await ui2.openSummary();
       await new Promise((r) => setTimeout(r, 0));
       const card2 = document.querySelector(".rt-assist-card");
-      assert(card2 && /Try again/.test(card2.textContent) && !card2.querySelector('input[type="password"]'), "a transient engine failure offers a retry, still no key form");
+      assert(card2 && /Try again/.test(card2.textContent), "a transient engine failure offers a retry");
       ui2.destroy();
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();
     } finally {
       restoreAI();
+      restoreFetch();
     }
   }
 

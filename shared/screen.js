@@ -132,9 +132,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   /* Optional AI help: a plain-language rewrite of a passage you select, and a
      "what is this about" for the whole article. On-device (Chrome built-in AI)
-     only — nothing ReadTune-hosted, and no key to paste when it's absent. */
+     when it's already free, ReadTune's cloud relay otherwise — see
+     shared/assist.js for why on-device is opportunistic-only now. */
   const assistant = createAssistant({
     getArticleText: () => view.getPlainText(),
+    getArticleUrl: () => pageUrl,
   });
   const assist = createAssistUi({
     assistant,
@@ -211,7 +213,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       {
         label: "Summary",
         title:
-          "Key points for this article before you commit to it. Runs on your device — nothing you read leaves it. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
+          "Key points for this article before you commit to it. Runs on your device where it can, otherwise through ReadTune's free AI helper. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
         onClick: () => assist.openSummary(),
       },
     ]);

@@ -38,13 +38,15 @@
       <h2>Talk to type (dictation)</h2>
       <p>If you use the dictation feature, ReadTune turns on Chrome's built-in speech recognition. Chrome sends the audio from your microphone to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you are typing in. ReadTune does not record, store, or transmit the audio or the transcript itself.</p>
       <h2>AI reading help</h2>
-      <p>Reader View has two optional helpers: "Summary" (key points for the article) and "Simplify" (a plain-language rewrite of a passage you select). They run only where your browser provides on-device AI — Chrome's built-in Summarizer, Rewriter, or Prompt API: the model is downloaded and kept by Chrome, shared across every site, and neither the article nor your selection leaves your device. ReadTune adds no network access for this feature.</p>
-      <p>Where a browser doesn't have on-device AI, these two helpers simply aren't available there — nothing is sent anywhere as a fallback, and the rest of ReadTune works exactly the same. A rewrite can be wrong, so it is always shown beside the original, never in its place.</p>
+      <p>Reader View has an optional "Summary" helper — key points for the article, before you commit to reading it. Where your browser already has Chrome's built-in AI ready, it runs there: nothing leaves your device for this feature.</p>
+      <p>Otherwise, the article text is sent to <strong>ReadTune's own summarization relay</strong> (hosted alongside this website), which forwards it to a third-party AI model to generate the response. This is the one part of ReadTune where article text leaves your device by default — every "no server" / "nothing leaves your device" statement elsewhere on this page should be read with this one exception. Where caching is set up, the relay may cache the generated summary by the article's URL — so a popular article is summarized once, not once per reader — but keeps no record of who asked for it. A rewrite can be wrong, so results are always shown beside the original, never in its place.</p>
+      <p>The "Simplify" rewrite pill (for a passage you select) is <strong>on-device only for now</strong> — it does not use the relay above. If your browser doesn't already have a ready model, it says so rather than sending your selection anywhere.</p>
       <h2>Permissions</h2>
       <ul>
         <li><strong>Active tab and scripting:</strong> used only when you invoke ReadTune on the current tab — to open Reader View, restyle the page in place, or start dictation. Access ends when you navigate away.</li>
         <li><strong>Local storage:</strong> keeps your settings and progress on your device.</li>
         <li><strong>Optional site access:</strong> requested only if you turn on automatic Reader View or restyle for a specific site.</li>
+        <li><strong>Network access to ReadTune's own relay</strong> (readtune.tech/api): used only when you use "Summary" and your browser doesn't already have on-device AI ready, as described above.</li>
         <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io): requested only when you choose an extra Piper voice or add an ElevenLabs key, as described above.</li>
       </ul>
       <h2>What ReadTune does not do</h2>
