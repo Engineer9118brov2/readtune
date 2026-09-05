@@ -14,12 +14,14 @@
  */
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// Chat models in preference order, passed as OpenRouter's `models` fallback
-// array (max 3). Each is served by a provider key you add in OpenRouter's BYOK
-// settings — gpt-oss-120b by Cerebras/Groq, the Gemini and Mistral entries by
-// their own keys — so all three are free to us and don't touch OpenRouter's
-// own free-tier limit. OpenRouter still falls back to its public endpoints for
-// the first model if every BYOK route is down.
+// Chat models in preference order. The first is the request's `model`; the
+// rest go in OpenRouter's `models` fallback array (max 3 total). Each is served
+// by a provider key added in OpenRouter's BYOK settings — gpt-oss-120b by
+// Cerebras/Groq, the Gemini and Mistral entries by their own keys. Those BYOK
+// routes are free to us as long as each key's "shared capacity" is left
+// disabled in OpenRouter; with it enabled OpenRouter may fall back to its own
+// paid endpoints when every BYOK route is down. `zdr: true` (below) keeps the
+// text on providers that don't retain or train on it.
 export const OPENROUTER_MODELS = [
   "openai/gpt-oss-120b",
   "google/gemini-3.5-flash-lite",
@@ -67,8 +69,12 @@ export function providersFromEnv(env = {}) {
       url: OPENROUTER_URL,
       key: env.OPENROUTER_API_KEY,
       model: env.OPENROUTER_MODEL || OPENROUTER_MODEL,
-      // No `models` fallback list when a single model is pinned via env.
-      models: env.OPENROUTER_MODEL ? null : OPENROUTER_MODELS,
+      // The fallback list is everything AFTER the primary — the primary is
+      // already the `model` field, and OpenRouter tries that first. No list
+      // when a single model is pinned via env.
+      models: env.OPENROUTER_MODEL ? null : OPENROUTER_MODELS.slice(1),
+      // Route only to providers that don't retain or train on the text.
+      zdr: true,
       extraHeaders: { "HTTP-Referer": "https://readtune.tech", "X-Title": "ReadTune" },
     },
   ].filter(Boolean);
@@ -91,6 +97,7 @@ export async function callChat(provider, system, user, fetchImpl = fetch) {
       body: JSON.stringify({
         model: provider.model,
         ...(provider.models && provider.models.length ? { models: provider.models } : {}),
+        ...(provider.zdr ? { provider: { zdr: true } } : {}),
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },

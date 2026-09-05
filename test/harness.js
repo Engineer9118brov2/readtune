@@ -1792,14 +1792,18 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     // The OpenRouter entry carries a 3-model fallback list, and callChat sends
     // it as `models` so OpenRouter itself fails over between BYOK providers.
     const or = R.providersFromEnv({ OPENROUTER_API_KEY: "b" })[0];
-    assert(Array.isArray(or.models) && or.models.length === 3 && or.models[0] === "openai/gpt-oss-120b",
-      "the OpenRouter provider carries a 3-model BYOK fallback list");
+    assert(or.model === "openai/gpt-oss-120b" && Array.isArray(or.models) && or.models.length === 2 &&
+      or.models[0] === "google/gemini-3.5-flash-lite",
+      "the OpenRouter fallback list is the models AFTER the primary (primary is `model`)");
     let sentBody = null;
     await R.callChat(or, "s", "u", async (_url, opts) => {
       sentBody = JSON.parse(opts.body);
       return { ok: true, json: async () => ({ choices: [{ message: { content: "hi" } }] }) };
     });
-    assert(Array.isArray(sentBody.models) && sentBody.models.length === 3, "callChat forwards the models[] fallback list to OpenRouter");
+    assert(sentBody.model === "openai/gpt-oss-120b" && Array.isArray(sentBody.models) && sentBody.models.length === 2 &&
+      !sentBody.models.includes("openai/gpt-oss-120b"),
+      "callChat sends model + a fallback list that doesn't repeat the primary");
+    assert(sentBody.provider && sentBody.provider.zdr === true, "callChat asks OpenRouter for zero-data-retention routing");
     // Pinning a single model via env drops the fallback list.
     const pinned = R.providersFromEnv({ OPENROUTER_API_KEY: "b", OPENROUTER_MODEL: "x/y" })[0];
     assert(pinned.model === "x/y" && !pinned.models, "OPENROUTER_MODEL pins one model and drops the fallback list");
@@ -1833,8 +1837,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const built = SP.speakProvidersFromEnv("Hello there.", 1.5, { OPENROUTER_API_KEY: "a", CARTESIA_API_KEY: "c" }, "aura-2-orion-en");
     assert(
       built[0].body.model === "deepgram/aura-2" && built[0].body.input === "Hello there." &&
-        built[0].body.voice === "aura-2-orion-en" && built[0].body.speed === 1.5 && built[0].url.includes("openrouter.ai"),
-      "Aura-2 body carries text, the caller's aura voice, a multiplier speed, and hits OpenRouter's speech endpoint",
+        built[0].body.voice === "aura-2-orion-en" && built[0].body.speed === 1.5 && built[0].url.includes("openrouter.ai") &&
+        built[0].body.provider && built[0].body.provider.zdr === true,
+      "Aura-2 body carries text, the caller's aura voice, a multiplier speed, ZDR routing, and hits OpenRouter's speech endpoint",
     );
     assert(
       built[1].body.voice === "flux-alexis-en" && !("speed" in built[1].body) &&

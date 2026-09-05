@@ -45,13 +45,15 @@ it" through the same read-aloud voice.
 2. **ReadTune's own relay, Summary only** (`api/assist.js`, deployed
    alongside the marketing site on Vercel) — the article text (and its URL)
    is sent there, which forwards it to a free chat model and returns the
-   generated text. It goes through **OpenRouter** (`api/_relay.mjs`) with a
-   three-model fallback list passed as OpenRouter's own `models` array —
-   `openai/gpt-oss-120b`, then `google/gemini-3.5-flash-lite`, then
-   `mistralai/ministral-8b-2512`. Each is served by a provider key you add in
-   OpenRouter's BYOK settings (gpt-oss by Cerebras/Groq, the others by their
-   own keys), so all three are free to us and OpenRouter fails over between
-   them itself. `OLLAMA_API_KEY`, if set, adds Ollama Cloud as a first
+   generated text. It goes through **OpenRouter** (`api/_relay.mjs`):
+   `openai/gpt-oss-120b` as the primary, with `google/gemini-3.5-flash-lite`
+   and `mistralai/ministral-8b-2512` in OpenRouter's `models` fallback array.
+   Each is served by a provider key you add in OpenRouter's BYOK settings
+   (gpt-oss by Cerebras/Groq, the others by their own keys) — free to us as
+   long as those keys' "shared capacity" is left disabled — and OpenRouter
+   fails over between them itself. The request carries `provider: { zdr: true }`
+   so the text is only routed to providers under a zero-data-retention policy
+   (no retention, no training). `OLLAMA_API_KEY`, if set, adds Ollama Cloud as a first
    provider ahead of OpenRouter. A provider that errors falls through —
    including a bad key (401/403) or a missing model (404) — so one bad key
    never takes Summary offline. Only a `400`/`413`/`422` (the request itself

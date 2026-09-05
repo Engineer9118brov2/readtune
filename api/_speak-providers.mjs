@@ -65,6 +65,8 @@ function openRouterSpeech(spec, text, speed, voice, env) {
     input: text,
     voice: useVoice,
     response_format: "mp3",
+    // Route only to providers that don't retain or train on the sentence text.
+    provider: { zdr: true },
   };
   if (spec.speed) body.speed = speed;
   return {
