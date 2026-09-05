@@ -14,9 +14,18 @@
  */
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// OpenRouter's own free-model router — it picks a working free model behind
-// this single id, so there's no per-model list to keep up to date here.
-export const OPENROUTER_MODEL = "openrouter/free";
+// Chat models in preference order, passed as OpenRouter's `models` fallback
+// array (max 3). Each is served by a provider key you add in OpenRouter's BYOK
+// settings — gpt-oss-120b by Cerebras/Groq, the Gemini and Mistral entries by
+// their own keys — so all three are free to us and don't touch OpenRouter's
+// own free-tier limit. OpenRouter still falls back to its public endpoints for
+// the first model if every BYOK route is down.
+export const OPENROUTER_MODELS = [
+  "openai/gpt-oss-120b",
+  "google/gemini-3.5-flash-lite",
+  "mistralai/ministral-8b-2512",
+];
+export const OPENROUTER_MODEL = OPENROUTER_MODELS[0];
 
 export const OLLAMA_URL = "https://ollama.com/v1/chat/completions";
 // gpt-oss:20b is Ollama Cloud's smallest always-on free model.
@@ -58,6 +67,8 @@ export function providersFromEnv(env = {}) {
       url: OPENROUTER_URL,
       key: env.OPENROUTER_API_KEY,
       model: env.OPENROUTER_MODEL || OPENROUTER_MODEL,
+      // No `models` fallback list when a single model is pinned via env.
+      models: env.OPENROUTER_MODEL ? null : OPENROUTER_MODELS,
       extraHeaders: { "HTTP-Referer": "https://readtune.tech", "X-Title": "ReadTune" },
     },
   ].filter(Boolean);
@@ -79,6 +90,7 @@ export async function callChat(provider, system, user, fetchImpl = fetch) {
       },
       body: JSON.stringify({
         model: provider.model,
+        ...(provider.models && provider.models.length ? { models: provider.models } : {}),
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },

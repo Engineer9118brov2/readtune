@@ -1788,6 +1788,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     let noText;
     try { await R.relayChat(two, "s", "u", chatOk("   ")); } catch (e) { noText = e; }
     assert(noText && noText.status === 502, "an empty model reply is a 502, not a silent pass");
+
+    // The OpenRouter entry carries a 3-model fallback list, and callChat sends
+    // it as `models` so OpenRouter itself fails over between BYOK providers.
+    const or = R.providersFromEnv({ OPENROUTER_API_KEY: "b" })[0];
+    assert(Array.isArray(or.models) && or.models.length === 3 && or.models[0] === "openai/gpt-oss-120b",
+      "the OpenRouter provider carries a 3-model BYOK fallback list");
+    let sentBody = null;
+    await R.callChat(or, "s", "u", async (_url, opts) => {
+      sentBody = JSON.parse(opts.body);
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "hi" } }] }) };
+    });
+    assert(Array.isArray(sentBody.models) && sentBody.models.length === 3, "callChat forwards the models[] fallback list to OpenRouter");
+    // Pinning a single model via env drops the fallback list.
+    const pinned = R.providersFromEnv({ OPENROUTER_API_KEY: "b", OPENROUTER_MODEL: "x/y" })[0];
+    assert(pinned.model === "x/y" && !pinned.models, "OPENROUTER_MODEL pins one model and drops the fallback list");
   }
 
   /* ---- premium (cloud) TTS relay fan-out (api/_speak-providers.mjs) ---- */
@@ -1806,23 +1821,41 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
     assert(SP.speakProvidersFromEnv("hi", 1, {}).length === 0, "no keys set → no speak providers");
     assert(
-      SP.speakProvidersFromEnv("hi", 1, { OPENROUTER_API_KEY: "a", GROQ_API_KEY: "b", UNREALSPEECH_API_KEY: "c" }).map((p) => p.name).join() ===
-        "openrouter,groq,unreal",
-      "speak providers list in order: OpenRouter, Groq, Unreal",
+      SP.speakProvidersFromEnv("hi", 1, { OPENROUTER_API_KEY: "a" }).map((p) => p.name).join() ===
+        "openrouter:aura2,openrouter:flux-free,openrouter:fish-free",
+      "OpenRouter key alone → Aura-2 then the two free speech models, in order",
     );
-    const built = SP.speakProvidersFromEnv("Hello there.", 1.5, { OPENROUTER_API_KEY: "a", UNREALSPEECH_API_KEY: "c" });
-    assert(built[0].body.input === "Hello there." && built[0].body.speed === 1.5, "OpenRouter body carries the text and a multiplier speed");
-    assert(built[1].body.Text === "Hello there." && built[1].body.Speed === 0.5, "Unreal body carries Text and a -1..1 speed offset (1.5× → +0.5)");
+    assert(
+      SP.speakProvidersFromEnv("hi", 1, { OPENROUTER_API_KEY: "a", CARTESIA_API_KEY: "c" }).map((p) => p.name).join() ===
+        "openrouter:aura2,openrouter:flux-free,openrouter:fish-free,cartesia",
+      "Cartesia (its own key, no OpenRouter BYOK) is appended last",
+    );
+    const built = SP.speakProvidersFromEnv("Hello there.", 1.5, { OPENROUTER_API_KEY: "a", CARTESIA_API_KEY: "c" }, "aura-2-orion-en");
+    assert(
+      built[0].body.model === "deepgram/aura-2" && built[0].body.input === "Hello there." &&
+        built[0].body.voice === "aura-2-orion-en" && built[0].body.speed === 1.5 && built[0].url.includes("openrouter.ai"),
+      "Aura-2 body carries text, the caller's aura voice, a multiplier speed, and hits OpenRouter's speech endpoint",
+    );
+    assert(
+      built[1].body.voice === "flux-alexis-en" && !("speed" in built[1].body) &&
+        built[2].body.voice === "alloy" && !("speed" in built[2].body),
+      "the free models ignore an aura voice they can't use and carry no speed param",
+    );
+    assert(
+      built[3].url.includes("cartesia.ai") && built[3].headers["X-API-Key"] === "c" &&
+        built[3].body.transcript === "Hello there." && built[3].body.voice.mode === "id",
+      "Cartesia body is its own shape (transcript + voice.id) on a direct key",
+    );
     assert(SP.speakProvidersFromEnv("x", 9, { OPENROUTER_API_KEY: "a" })[0].body.speed === 3, "speed is clamped to the sane TTS range");
 
     let none;
     try { await SP.relaySpeak([], audioRes()); } catch (e) { none = e; }
     assert(none && none.status === 503, "relaySpeak with no providers → 503 (extension keeps Piper)");
 
-    const three = SP.speakProvidersFromEnv("read me", 1, { OPENROUTER_API_KEY: "a", GROQ_API_KEY: "b", UNREALSPEECH_API_KEY: "c" });
+    const three = SP.speakProvidersFromEnv("read me", 1, { OPENROUTER_API_KEY: "a", CARTESIA_API_KEY: "c" });
     let tried = 0;
-    const out = await SP.relaySpeak(three, (url) => { tried++; return (url.includes("groq") ? audioRes()() : jsonErr(500)()); });
-    assert(out && out.audio.byteLength === 2048 && tried === 2 && out.contentType.includes("audio"), "relaySpeak falls past a failing provider and returns the first real audio");
+    const out = await SP.relaySpeak(three, () => { tried++; return (tried >= 3 ? audioRes()() : jsonErr(500)()); });
+    assert(out && out.audio.byteLength === 2048 && tried === 3 && out.contentType.includes("audio"), "relaySpeak falls past two failing providers and returns the first real audio");
 
     let soft;
     try { await SP.relaySpeak(SP.speakProvidersFromEnv("x", 1, { OPENROUTER_API_KEY: "a" }), soft200()); } catch (e) { soft = e; }
@@ -1833,7 +1866,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     let tried400 = 0;
     let fell;
     try { await SP.relaySpeak(three, () => { tried400++; return jsonErr(400)(); }); } catch (e) { fell = e; }
-    assert(tried400 === 3 && fell && fell.status === 400, "a provider 400 falls through to the rest, then the last error propagates");
+    assert(tried400 === three.length && fell && fell.status === 400, "a provider 400 falls through to the rest, then the last error propagates");
 
     // A 413/422 is the payload itself — every provider rejects it, so stop early.
     let tried413 = 0;
