@@ -211,61 +211,6 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
     }
   }
 
-  const dimMap = new Map();
-  for (const meta of runMeta) {
-    for (const d of meta.dims) {
-      const cur = dimMap.get(d.key) || {
-        key: d.key,
-        label: labelForDimension(d.key),
-        topWins: 0,
-        keptRuns: 0,
-        seen: 0,
-        helpTotal: 0,
-      };
-      cur.seen += 1;
-      cur.helpTotal += Number(d.help) || 0;
-      if (meta.top && meta.top.key === d.key) cur.topWins += 1;
-      if (meta.kept.includes(d.key)) cur.keptRuns += 1;
-      dimMap.set(d.key, cur);
-    }
-  }
-
-  const leaderboard = [...dimMap.values()]
-    .map((d) => ({
-      ...d,
-      avgHelp: d.seen ? d.helpTotal / d.seen : 0,
-      summary:
-        d.keptRuns > 0
-          ? `Kept in ${d.keptRuns} of ${runs.length} run${runs.length === 1 ? "" : "s"}`
-          : d.topWins > 0
-          ? `Won ${d.topWins} run${d.topWins === 1 ? "" : "s"}, but not by enough to keep every time`
-          : "Never separated itself clearly from standard",
-    }))
-    .sort((a, b) => {
-      if (b.keptRuns !== a.keptRuns) return b.keptRuns - a.keptRuns;
-      if (b.topWins !== a.topWins) return b.topWins - a.topWins;
-      return b.avgHelp - a.avgHelp;
-    });
-
-  const timeline = runMeta
-    .map((meta) => {
-      const title = meta.kept.length
-        ? `Kept ${listify(humanizeKept(meta.kept))}`
-        : meta.top
-        ? `${labelForDimension(meta.top.key)} nudged ahead`
-        : "Standard held up best";
-      const body = meta.kept.length
-        ? describeProfile((meta.run && meta.run.profile) || profile || {})
-        : "No change cleared the keep threshold this time.";
-      return {
-        at: meta.run && meta.run.at,
-        dateLabel: formatDate(meta.run && meta.run.at),
-        title,
-        body,
-      };
-    })
-    .reverse();
-
   const useCases = [
     {
       title: "Articles in Reader View",
@@ -339,15 +284,8 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
     stabilityBody,
     signalTitle,
     signalBody,
-    leaderboard,
-    timeline,
     useCases,
     nextStepTitle,
     nextStepBody,
-    trustPoints: [
-      "It is a quick estimate from six short readings, not a diagnosis.",
-      "A repeated winner matters more than a single dramatic result.",
-      "If the result feels close, retaking on another day is the right move.",
-    ],
   };
 }
