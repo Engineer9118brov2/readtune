@@ -62,6 +62,17 @@ async function availabilityOf(name) {
 const CAN_USE = new Set(["available", "downloadable", "downloading"]);
 const usable = (s) => CAN_USE.has(s);
 
+/* One aggregate state across the three sub-APIs, best-first, so the UI can
+   tell "nothing has started yet" (worth asking first) apart from "a download
+   is already running" (nothing to ask, just show progress). */
+function aggregateState(s) {
+  const vals = [s.summarizer, s.rewriter, s.prompt];
+  if (vals.includes("available")) return "available";
+  if (vals.includes("downloading")) return "downloading";
+  if (vals.includes("downloadable")) return "downloadable";
+  return "unavailable";
+}
+
 /**
  * Per-API on-device availability.
  * @returns {{summarizer:string, rewriter:string, prompt:string}}
@@ -79,20 +90,25 @@ export async function onDeviceStatus() {
 /** One line describing where the assistant will run, for the panel / popup. */
 export async function describeAvailability() {
   const s = await onDeviceStatus();
-  const anyOnDevice = usable(s.summarizer) || usable(s.rewriter) || usable(s.prompt);
-  if (anyOnDevice) {
-    const ready = s.summarizer === "available" || s.rewriter === "available" || s.prompt === "available";
+  const state = aggregateState(s);
+  if (state !== "unavailable") {
+    const ready = state === "available";
     return {
       mode: "on-device",
+      state,
       ready,
       needsDownload: !ready,
-      text: ready
-        ? "On-device AI is ready. Nothing you read leaves your device."
-        : "On-device AI is available to download — one time, about 2 GB, kept by Chrome and shared with every site.",
+      text:
+        state === "available"
+          ? "On-device AI is ready. Nothing you read leaves your device."
+          : state === "downloading"
+          ? "On-device AI is downloading — one time, about 2 GB, kept by Chrome and shared with every site."
+          : "On-device AI is available to download — one time, about 2 GB, kept by Chrome and shared with every site. It uses storage on this device and isn't shared with your other devices.",
     };
   }
   return {
     mode: "none",
+    state: "unavailable",
     ready: false,
     needsDownload: false,
     text: "This browser doesn't have on-device AI yet, so the reading assistant isn't available here. The rest of ReadTune works the same either way.",

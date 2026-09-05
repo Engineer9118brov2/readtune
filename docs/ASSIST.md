@@ -22,6 +22,17 @@ Two entry points in Reader View:
   the reading flow. Rewrites that passage and shows it **beside the original**,
   never in its place, under an "AI — may not be exact" line.
 
+**Download consent:** the on-device model is a one-time ~2 GB download, kept by
+Chrome and shared across every site — but it lives on *this* device, not synced
+to a reader's other devices, and it's real storage cost on a device that may
+not have much to spare. So the first time a reader hits Summary/Simplify on a
+browser where the model is "downloadable" (offered, not yet started), the card
+shows a plain "Set it up" / "Not now" choice instead of silently starting a
+multi-GB download. `create()` — the call that actually starts it — only runs
+after "Set it up" is clicked, which is itself a fresh user gesture, so the
+"requires a live gesture" rule below still holds. Already-downloading or
+already-available skips straight through; there's nothing new to ask.
+
 Both render in one dismissible card (`shared/assist-ui.js`), modelled on the
 word-lookup popup: Escape / click-outside / Cancel, a copy button, and "Hear it"
 through the same read-aloud voice.

@@ -1427,6 +1427,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert((await A.describeAvailability()).mode === "on-device", "a model that only needs downloading is still 'on-device'");
       assert((await A.describeAvailability()).needsDownload === true, "and it flags that a one-time download is needed");
 
+      // the UI asks before starting a fresh ~2 GB download rather than just
+      // showing a progress bar mid-download — create() must not fire until
+      // the reader explicitly agrees
+      let createCalls = 0;
+      setAI({ Summarizer: { state: "downloadable", instance: { summarize: async (t) => "KEY POINTS: " + t.slice(0, 10), destroy() {} } } });
+      const realCreate = self.Summarizer.create;
+      self.Summarizer.create = async (...args) => { createCalls++; return realCreate(...args); };
+
+      const ui3 = AUI.createAssistUi({ assistant: A.createAssistant({ getArticleText: () => "Tide pools reset twice a day." }), getSelectionText: () => "" });
+      await ui3.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const card3 = document.querySelector(".rt-assist-card");
+      assert(card3 && /Set it up/.test(card3.textContent) && /Not now/.test(card3.textContent), "a downloadable model shows a consent step (Set it up / Not now) before starting the download");
+      assert(createCalls === 0, "the consent step never calls create() until the reader agrees");
+      [...card3.querySelectorAll("button")].find((b) => b.textContent === "Set it up").click();
+      await new Promise((r) => setTimeout(r, 0));
+      assert(createCalls === 1, "clicking 'Set it up' proceeds to actually create the on-device session");
+      assert(/KEY POINTS/.test(card3.textContent), "and the summary completes normally after that");
+      ui3.destroy();
+
+      createCalls = 0;
+      const ui4 = AUI.createAssistUi({ assistant: A.createAssistant({ getArticleText: () => "Tide pools reset twice a day." }), getSelectionText: () => "" });
+      await ui4.openSummary();
+      await new Promise((r) => setTimeout(r, 0));
+      const card4 = document.querySelector(".rt-assist-card");
+      [...card4.querySelectorAll("button")].find((b) => b.textContent === "Not now").click();
+      assert(!document.querySelector(".rt-assist-card"), "'Not now' closes the card");
+      assert(createCalls === 0, "and never calls create() at all");
+
       // routing: a task-specific API is used ahead of the Prompt API and any key
       setAI({
         Summarizer: { state: "available", instance: { summarize: async (t) => "KEY POINTS: " + t.slice(0, 20), destroy() {} } },

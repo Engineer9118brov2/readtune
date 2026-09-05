@@ -102,6 +102,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     const note = el("p", { class: "rt-assist-working" }, label);
     const cancel = el("button", { type: "button", class: "rt-assist-cancel" }, "Cancel");
     cancel.addEventListener("click", close);
+    body.setAttribute("aria-busy", "true");
     body.replaceChildren(note, cancel);
     return {
       progress({ loaded, total }) {
@@ -179,20 +180,54 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   const disclaimer = () =>
     el("p", { class: "rt-assist-note" }, "AI — may not be exact. Check anything that matters against the original.");
 
+  /* Chrome's on-device model is a one-time ~2 GB download — kept by Chrome and
+     shared across every site, but it uses storage on THIS device only; it
+     isn't synced to a reader's other devices. Worth asking before it starts,
+     not just showing a progress bar mid-download. Already downloading,
+     already available, or not offered at all: nothing new to ask, so this
+     runs `go` straight away in all of those cases. Clicking "Not now" closes
+     the card without starting anything or leaving a preference behind — the
+     next Summary/Simplify simply asks again. */
+  async function withDownloadConsent(body, go) {
+    working(body, "Checking on-device AI…"); // avoids a blank card while describe() resolves
+    let where = null;
+    try {
+      where = await assistant.describe();
+    } catch {
+      /* describe() itself failed — fall through and let `go` surface the real error */
+    }
+    if (!where || where.state !== "downloadable") {
+      await go();
+      return;
+    }
+    const note = el(
+      "p",
+      { class: "rt-assist-sub" },
+      "This needs a one-time download — about 2 GB, kept by Chrome and shared with every site you use it on. It uses storage on this device only, and isn't sent anywhere.",
+    );
+    const yes = el("button", { type: "button", class: "rt-assist-btn" }, "Set it up");
+    const not = el("button", { type: "button", class: "rt-assist-btn" }, "Not now");
+    yes.addEventListener("click", () => go());
+    not.addEventListener("click", () => close());
+    fill(body, note, el("div", { class: "rt-assist-actions" }, [yes, not]));
+  }
+
   async function openSummary() {
     const body = frame("What this is about");
-    const w = working(body, "Reading the article…");
     const signal = controller.signal;
-    try {
-      const { text, clipped } = await assistant.summarize({ signal, onProgress: (p) => w.progress(p) });
-      if (signal.aborted) return;
-      const kids = [];
-      if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
-      kids.push(resultBlock(text), disclaimer(), actions(() => text, signal));
-      fill(body, ...kids);
-    } catch (err) {
-      if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
-    }
+    await withDownloadConsent(body, async () => {
+      const w = working(body, "Reading the article…");
+      try {
+        const { text, clipped } = await assistant.summarize({ signal, onProgress: (p) => w.progress(p) });
+        if (signal.aborted) return;
+        const kids = [];
+        if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
+        kids.push(resultBlock(text), disclaimer(), actions(() => text, signal));
+        fill(body, ...kids);
+      } catch (err) {
+        if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
+      }
+    });
   }
 
   async function simplifySelection(passageArg) {
@@ -202,23 +237,25 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       return;
     }
     const body = frame("In plainer words");
-    const w = working(body, "Rewriting the passage…");
     const signal = controller.signal;
-    try {
-      const { text } = await assistant.simplify(passage, { signal, onProgress: (p) => w.progress(p) });
-      if (signal.aborted) return;
-      fill(
-        body,
-        el("div", { class: "rt-assist-pair" }, [
-          el("div", { class: "rt-assist-col" }, [el("h4", {}, "Original"), el("p", { class: "rt-assist-orig" }, passage)]),
-          el("div", { class: "rt-assist-col" }, [el("h4", {}, "In plainer words"), resultBlock(text)]),
-        ]),
-        disclaimer(),
-        actions(() => text, signal),
-      );
-    } catch (err) {
-      if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be rewritten.", () => simplifySelection(passage));
-    }
+    await withDownloadConsent(body, async () => {
+      const w = working(body, "Rewriting the passage…");
+      try {
+        const { text } = await assistant.simplify(passage, { signal, onProgress: (p) => w.progress(p) });
+        if (signal.aborted) return;
+        fill(
+          body,
+          el("div", { class: "rt-assist-pair" }, [
+            el("div", { class: "rt-assist-col" }, [el("h4", {}, "Original"), el("p", { class: "rt-assist-orig" }, passage)]),
+            el("div", { class: "rt-assist-col" }, [el("h4", {}, "In plainer words"), resultBlock(text)]),
+          ]),
+          disclaimer(),
+          actions(() => text, signal),
+        );
+      } catch (err) {
+        if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be rewritten.", () => simplifySelection(passage));
+      }
+    });
   }
 
   /* A "Simplify" pill that surfaces over a selection inside the reading flow —
