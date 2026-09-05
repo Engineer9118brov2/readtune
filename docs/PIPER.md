@@ -36,7 +36,7 @@ speed is baked in for both (Piper's `length_scale`, the cloud provider's own
   `loadTTSConfig()` migrates anyone previously on them to Linden.
 - Extra (non-bundled) voices download once from Hugging Face (~60 MB) and need
   the `huggingface.co` optional permission, requested at that moment.
-- **Zip size: ~60 MB** (`readtune-0.9.0.zip`). The bundled voice is
+- **Zip size: ~60 MB** (`readtune-0.9.3.zip`). The bundled voice is
   ~63 MB compressed to ~60; ORT SIMD wasm ~10.6 MB; espeak-ng data trimmed to
   ~0.94 MB (English only). Already done: dropped the non-SIMD `ort-wasm.wasm`,
   English-only espeak repack. Remaining trim path: host the model on our own
