@@ -1,10 +1,10 @@
 /*
- * ReadTune — reading-assistant UI
+ * ReadTune — reading-assistant UI: Simplify
  *
- * One dismissible card for both jobs:
- *   • Summary   — key points for the article, before you commit to it
- *   • Simplify  — a plain-language rewrite of the passage you selected, shown
- *                 next to the original, never replacing it
+ * A dismissible card for a plain-language rewrite of the passage you
+ * selected, shown next to the original, never replacing it. (Summary lives
+ * in its own docked sidebar now — see assist-sidebar.js — since it's the
+ * headline AI feature and reads better as a persistent panel than a modal.)
  *
  * The card always carries an "AI — may not be exact" line. The rewrite is an
  * aid, not a substitute for the words on the page, and a reader who leans on it
@@ -12,18 +12,7 @@
  * the label stays honest.
  */
 
-function el(tag, attrs, kids) {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (v === false || v == null) continue;
-    if (v === true) n.setAttribute(k, "");
-    else n.setAttribute(k, v);
-  }
-  for (const c of kids == null ? [] : Array.isArray(kids) ? kids : [kids]) {
-    n.append(c instanceof Node ? c : document.createTextNode(String(c)));
-  }
-  return n;
-}
+import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-render.js";
 
 /**
  * @param {object} opts
@@ -99,38 +88,21 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   };
 
   function working(body, label) {
-    const note = el("p", { class: "rt-assist-working" }, label);
-    const cancel = el("button", { type: "button", class: "rt-assist-cancel" }, "Cancel");
-    cancel.addEventListener("click", close);
     body.setAttribute("aria-busy", "true");
-    body.replaceChildren(note, cancel);
+    body.replaceChildren(...workingNodes(label, close));
     return {
-      /* The assistant always has somewhere to run now (on-device when it's
-         already free, ReadTune's cloud relay otherwise) — neither path is a
-         multi-second download anymore, so there's no percentage to show. */
+      /* Simplify only ever runs on-device (Rewriter / Prompt API, whichever
+         is already ready) — never a multi-second download, so there's no
+         percentage to show. */
       progress() {},
     };
   }
 
   async function fail(body, message, retry) {
-    // The assistant always has somewhere to run now — a failure here is
-    // always transient (a network blip, a busy model), so it's always worth
-    // one retry button, not a dead end.
-    const parts = [el("p", { class: "rt-assist-error" }, message || "That didn't work.")];
-    if (typeof retry === "function") {
-      const again = el("button", { type: "button", class: "rt-assist-btn" }, "Try again");
-      again.addEventListener("click", () => retry());
-      parts.push(el("div", { class: "rt-assist-actions" }, [again]));
-    }
-    fill(body, ...parts);
-  }
-
-  function resultBlock(text) {
-    const box = el("div", { class: "rt-assist-result" });
-    for (const line of String(text).split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
-      box.append(el("p", {}, line.replace(/^[-•*]\s*/, "• ")));
-    }
-    return box;
+    // Worth a retry even when the cause is "no on-device model ready" —
+    // that can change moment to moment as Chrome's own state does — as well
+    // as an actual transient failure of a ready model.
+    fill(body, ...failNodes(message, retry));
   }
 
   function actions(getText, signal) {
@@ -168,25 +140,6 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       row.append(hear);
     }
     return row;
-  }
-
-  const disclaimer = () =>
-    el("p", { class: "rt-assist-note" }, "AI — may not be exact. Check anything that matters against the original.");
-
-  async function openSummary() {
-    const body = frame("What this is about");
-    const w = working(body, "Reading the article…");
-    const signal = controller.signal;
-    try {
-      const { text, clipped } = await assistant.summarize({ signal, onProgress: (p) => w.progress(p) });
-      if (signal.aborted) return;
-      const kids = [];
-      if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
-      kids.push(resultBlock(text), disclaimer(), actions(() => text, signal));
-      fill(body, ...kids);
-    } catch (err) {
-      if (!signal.aborted) await fail(body, (err && err.message) || "The summary couldn't be generated.", openSummary);
-    }
   }
 
   async function simplifySelection(passageArg) {
@@ -280,7 +233,6 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
   }
 
   return {
-    openSummary,
     simplifySelection,
     mountSelectionTrigger,
     isOpen: () => !!card,

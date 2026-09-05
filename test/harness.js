@@ -1352,6 +1352,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   {
     const A = await import("../shared/assist.js");
     const AUI = await import("../shared/assist-ui.js");
+    const ASB = await import("../shared/assist-sidebar.js");
 
     /* Control the built-in-AI globals so the tests don't depend on whether this
        Chrome ships them. Each entry is null (absent) or an availability string.
@@ -1495,46 +1496,79 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(simplifyThrew, "simplify with no on-device model ready fails rather than silently using the cloud relay");
       assert(!cloudCalledForSimplify, "simplify never calls fetch() — the cloud relay is Summary-only");
 
-      // the UI degrades to a readable error — with a retry, since the
-      // assistant always has somewhere to run now — and tears down cleanly
+      // the Simplify card UI degrades to a readable error — with a retry,
+      // since a retry is worth it even for "no on-device model ready" — and
+      // tears down cleanly. It no longer exposes openSummary at all: that's
+      // the sidebar's job now.
       setAI({});
-      self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "cloud is down" }) });
       let uiError = "";
       const ui = AUI.createAssistUi({
         assistant: A.createAssistant({ getArticleText: () => "Some text." }),
         getSelectionText: () => "",
         onError: (m) => { uiError = m; },
       });
-      assert(typeof ui.openSummary === "function" && typeof ui.mountSelectionTrigger === "function", "the assistant UI exposes its actions");
+      assert(
+        typeof ui.simplifySelection === "function" && typeof ui.mountSelectionTrigger === "function" && typeof ui.openSummary === "undefined",
+        "the Simplify UI exposes only its own actions — Summary moved to the sidebar",
+      );
       ui.simplifySelection();
       assert(/Select a sentence or paragraph/.test(uiError), "Simplify with nothing selected asks you to select something");
 
-      // focus moves into the card on open and back to the opener on close
+      // the Summary sidebar: cloud failure surfaces a retry, and focus moves
+      // in on open / back to the opener on close, same contract as the card had
+      self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "cloud is down" }) });
       const opener = document.body.appendChild(Object.assign(document.createElement("button"), { textContent: "open" }));
       opener.focus();
-      await ui.openSummary();
+      const sidebar = ASB.createAssistSidebar({
+        assistant: A.createAssistant({ getArticleText: () => "Some text." }),
+      });
+      await sidebar.open();
       await new Promise((r) => setTimeout(r, 0));
-      const cardEl = document.querySelector(".rt-assist-card");
-      assert(cardEl && cardEl.contains(document.activeElement), "opening the assistant card moves focus into it");
-      assert(cardEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the card body is a polite live region");
-      assert(cardEl && /assist-error/.test(cardEl.innerHTML), "the summary card shows a failure message rather than hanging");
-      assert(cardEl.textContent.includes("Try again"), "a cloud failure still offers a retry — nothing is a dead end anymore");
-      ui.destroy();
-      assert(!document.querySelector(".rt-assist-card"), "closing the card removes it");
-      assert(document.activeElement === opener, "closing the card hands focus back to whatever opened it");
+      const panelEl = document.querySelector(".rt-assist-sidebar");
+      assert(panelEl && panelEl.contains(document.activeElement), "opening the summary sidebar moves focus into it");
+      assert(panelEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the sidebar body is a polite live region");
+      assert(panelEl && /assist-error/.test(panelEl.innerHTML), "the sidebar shows a failure message rather than hanging");
+      assert(panelEl.textContent.includes("Try again"), "a cloud failure still offers a retry — nothing is a dead end anymore");
+      assert(sidebar.isOpen(), "isOpen reflects the mounted panel");
+      sidebar.destroy();
+      assert(!document.querySelector(".rt-assist-sidebar"), "closing the sidebar removes it");
+      assert(!sidebar.isOpen(), "isOpen reflects the panel being torn down");
+      assert(document.activeElement === opener, "closing the sidebar hands focus back to whatever opened it");
       opener.remove();
 
       // an on-device engine that fails transiently also gets a plain "Try again"
       setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });
-      const ui2 = AUI.createAssistUi({
+      const sidebar2 = ASB.createAssistSidebar({
         assistant: A.createAssistant({ getArticleText: () => "Some article text to summarize." }),
-        getSelectionText: () => "",
       });
-      await ui2.openSummary();
+      await sidebar2.open();
       await new Promise((r) => setTimeout(r, 0));
-      const card2 = document.querySelector(".rt-assist-card");
-      assert(card2 && /Try again/.test(card2.textContent), "a transient engine failure offers a retry");
-      ui2.destroy();
+      const panel2 = document.querySelector(".rt-assist-sidebar");
+      assert(panel2 && /Try again/.test(panel2.textContent), "a transient engine failure offers a retry");
+      sidebar2.destroy();
+
+      // the sidebar's Play button reads the summary aloud via the passed-in
+      // speak(), and toggles to Stop while it's reading
+      setAI({ Summarizer: { state: "available", instance: { summarize: async () => "Key points here.", destroy() {} } } });
+      let spoke = "";
+      let resolveSpeak;
+      const speakPromise = new Promise((r) => { resolveSpeak = r; });
+      const sidebar3 = ASB.createAssistSidebar({
+        assistant: A.createAssistant({ getArticleText: () => "Article text for the play button test." }),
+        speak: async (text) => { spoke = text; return speakPromise; },
+      });
+      await sidebar3.open();
+      await new Promise((r) => setTimeout(r, 0));
+      const playBtn = document.querySelector(".rt-assist-sidebar .rt-assist-play");
+      assert(playBtn && /Play/.test(playBtn.textContent), "the sidebar shows a Play button once the summary is in");
+      playBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+      assert(spoke === "Key points here.", "Play reads the generated summary text aloud");
+      assert(/Stop/.test(playBtn.textContent), "Play toggles to Stop while the voice is reading");
+      resolveSpeak();
+      await new Promise((r) => setTimeout(r, 0));
+      sidebar3.destroy();
+
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();

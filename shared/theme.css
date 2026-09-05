@@ -861,3 +861,27 @@ body.rt-reading-page > .rt-surface {
 }
 @keyframes rt-assist-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .rt-assist-pill { animation: none; } }
+
+/* Summary's docked sidebar — a persistent left panel, not a modal. Reading
+   keeps working underneath it; it's dismissed with ×, Escape, or a click
+   outside it, same as the Simplify card. */
+.rt-assist-sidebar {
+  position: fixed;
+  z-index: 2147483000;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(88vw, 340px);
+  display: flex;
+  flex-direction: column;
+  background: var(--rt-ui-panel, #fff);
+  color: var(--rt-ui-ink, #1f2430);
+  border-right: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .14));
+  box-shadow: 22px 0 60px -30px rgba(0, 0, 0, .45);
+  font-family: var(--rt-ui-font, system-ui, sans-serif);
+  animation: rt-assist-slide-in .16s ease-out;
+}
+@keyframes rt-assist-slide-in { from { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .rt-assist-sidebar { animation: none; } }
+.rt-assist-sidebar .rt-assist-body { flex: 1; }
+.rt-assist-play { min-width: 84px; }
