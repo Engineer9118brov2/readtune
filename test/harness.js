@@ -762,7 +762,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       "wordDurationWeights returns a rising cumulative curve ending at 1",
     );
     const wpPause = TTS.wordDurationWeights(["Wait.", "Go"]);
-    assert(wpPause[0] > 0.5, "a sentence-ending word carries a pause, so it takes more than its share of the clip");
+    assert(wpPause[0] > 0.5, "a mid-sentence word ending in a mark carries a pause, so it takes more than its share of the clip");
+    assert(
+      TTS.wordDurationWeights(["Go", "now."])[0] === TTS.wordDurationWeights(["Go", "now"])[0],
+      "terminal punctuation on the last word doesn't shift the earlier boundaries (it can't extend a hold that already runs to the end)",
+    );
     assert(
       TTS.wordAtFraction(wp, 0) === 0 && TTS.wordAtFraction(wp, 1) === 3 && TTS.wordAtFraction(wp, 0.99) === 3,
       "wordAtFraction maps elapsed fraction to the word being spoken, clamped at the ends",

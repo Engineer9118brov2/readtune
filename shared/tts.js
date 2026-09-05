@@ -32,12 +32,19 @@ const CHUNK_CHARS = 550;
  * mark, normalised to a 0–1 cumulative curve the driver walks against elapsed
  * fraction. Pure + exported for the harness. */
 export function wordDurationWeights(words) {
-  const raw = words.map((w) => {
+  const last = words.length - 1;
+  const raw = words.map((w, idx) => {
     const s = String(w || "");
     const letters = Math.max(1, s.replace(/[^A-Za-z0-9À-ɏ']/g, "").length || s.length);
     let pause = 0;
-    if (/[.!?…]["')\]]?$/.test(s)) pause = 6;
-    else if (/[,;:—–)]["']?$/.test(s)) pause = 3;
+    /* A pause bonus only matters *between* words. The last word is held to the
+       end of the clip regardless, so giving it one just inflates the total and
+       pulls every earlier boundary forward — the mark would lead the voice.
+       (trimSilence removes its trailing silence anyway.) */
+    if (idx < last) {
+      if (/[.!?…]["')\]]?$/.test(s)) pause = 6;
+      else if (/[,;:—–)]["']?$/.test(s)) pause = 3;
+    }
     return letters + 1 + pause; // +1 so a bare "a"/"I" still has some duration
   });
   const total = raw.reduce((a, b) => a + b, 0) || 1;
@@ -367,8 +374,14 @@ export function createTTS({
     return p;
   }
 
-  function clearPiperPrefetch() {
+  /* Drop the one-ahead cache. `keep` (a sentence index) survives if its blob
+     is still in flight and at the current rate — stepping straight to a
+     sentence we were already prefetching shouldn't launch a duplicate
+     inference on the single-threaded worker. */
+  function clearPiperPrefetch(keep) {
+    const kept = keep != null ? piperPrefetch.get(keep) : null;
     piperPrefetch = new Map();
+    if (kept && piperPrefetchRate === rate) piperPrefetch.set(keep, kept);
   }
 
   async function piperSpeak() {
@@ -379,8 +392,16 @@ export function createTTS({
     markSentence(i);
     try {
       ensurePiper();
-      const blob = await synthPiper(i);
+      const atRate = rate;
+      let blob = await synthPiper(i);
       if (!playing || mine !== run) return;
+      /* Reader nudged the speed while this sentence was still synthesising.
+         Playback hasn't started, so redo it once at the new rate rather than
+         open at the old tempo. setRate already cleared the prefetch map. */
+      if (rate !== atRate) {
+        blob = await synthPiper(i);
+        if (!playing || mine !== run) return;
+      }
       piperPrefetch.delete(i);
       stopPiperAudio();
       piperUrl = URL.createObjectURL(blob);
@@ -440,11 +461,11 @@ export function createTTS({
     onState({ playing: false, done: true, index: sentences.length, total: sentences.length });
   }
 
-  function halt() {
+  function halt(keepPrefetch) {
     run++;
     stopAudioEl();
     stopPiperAudio();
-    clearPiperPrefetch();
+    clearPiperPrefetch(keepPrefetch);
   }
 
   function resolveProvider() {
@@ -569,7 +590,7 @@ export function createTTS({
     step(dir) {
       i = Math.max(0, Math.min(sentences.length - 1, i + dir));
       if (playing) {
-        halt();
+        halt(i); // a one-ahead prefetch for exactly this sentence is still good
         playing = true;
         speakCurrent();
       } else {
@@ -581,7 +602,7 @@ export function createTTS({
       collect();
       i = Math.round(fraction * (sentences.length - 1 || 0));
       if (playing) {
-        halt();
+        halt(i);
         playing = true;
         speakCurrent();
       } else {
