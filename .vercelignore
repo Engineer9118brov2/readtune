@@ -27,7 +27,11 @@ inpage.js
 inpage.css
 background.js
 manifest.json
-package.json
-package-lock.json
+# Anchored to the repo root: the microsite build must not see the extension's
+# package.json (its "build" script produces the .zip). But api/package.json —
+# which only sets "type": "module" so Vercel runs the handlers as native ESM
+# instead of compiling them to CommonJS — must ship.
+/package.json
+/package-lock.json
 README.md
 PRIVACY.md
