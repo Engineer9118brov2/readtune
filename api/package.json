@@ -1,0 +1,4 @@
+{
+  "//": "Makes Vercel run api/*.js as native ES modules instead of compiling them to CommonJS. Without this the compiled require() of the _relay.mjs / _speak-providers.mjs helpers throws ERR_REQUIRE_ESM at runtime. The repo-root package.json is hidden from Vercel by .vercelignore, so the type declaration has to live here.",
+  "type": "module"
+}
