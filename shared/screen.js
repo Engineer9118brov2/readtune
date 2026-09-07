@@ -224,6 +224,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
   });
 
+  let lastAloudPlaying = null;
+
   const controls = buildControls(profile, change, { onToggle: (open) => syncRail("right", open) });
   controls.toggle.textContent = "";
   controls.toggle.append(railGlyph("settings"), document.createTextNode("Reading settings"));
@@ -256,8 +258,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     }
   });
   document.body.append(orb);
-
-  let lastAloudPlaying = null;
 
   function syncVoiceOrb() {
     // RSVP and one-sentence pacing run their own flow — the orb only makes
