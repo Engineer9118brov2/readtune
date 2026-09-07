@@ -534,12 +534,14 @@ export async function loadReaderUi() {
   }
 }
 
-export async function saveReaderUi(patch) {
+/** Persist the full rail state. The caller (screen.js) holds the authoritative
+    in-memory copy and passes the whole object, so there's no read-modify-write
+    here for two quick toggles to race on. */
+export async function saveReaderUi(state) {
   try {
-    const current = await loadReaderUi();
     const next = {
-      railLeft: patch && "railLeft" in patch ? !!patch.railLeft : current.railLeft,
-      railRight: patch && "railRight" in patch ? !!patch.railRight : current.railRight,
+      railLeft: !!(state && state.railLeft),
+      railRight: !!(state && state.railRight),
     };
     await chrome.storage.local.set({ [READER_UI_KEY]: next });
     return next;

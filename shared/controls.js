@@ -464,11 +464,13 @@ export function buildControls(profile, onChange, opts = {}) {
 
   /* ---- open / close ---- */
   const isOpen = () => !panel.hidden;
-  const open = () => {
+  const open = (opts = {}) => {
     panel.hidden = false; // the rail (onToggle) handles its own visibility too
     toggleBtn.setAttribute("aria-expanded", "true");
     if (onToggle) onToggle(true);
-    closeBtn.focus({ preventScroll: true });
+    // Startup restore passes { focus: false } — reopening a remembered rail
+    // must not yank focus off the article on load.
+    if (opts.focus !== false) closeBtn.focus({ preventScroll: true });
   };
   const close = () => {
     panel.hidden = true;

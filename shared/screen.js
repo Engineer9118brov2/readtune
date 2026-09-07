@@ -69,10 +69,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   function syncRail(side, open) {
     const el = side === "left" ? railLeftEl : railRightEl;
     el.hidden = !open;
+    if (side === "left") askToggle.setAttribute("aria-expanded", open ? "true" : "false");
     const key = side === "left" ? "railLeft" : "railRight";
     if (readerUi[key] !== !!open) {
+      // Keep the authoritative copy here and persist the whole object — two
+      // quick toggles must not race on a read-modify-write inside settings.js.
       readerUi = { ...readerUi, [key]: !!open };
-      saveReaderUi({ [key]: !!open });
+      saveReaderUi(readerUi);
     }
   }
   let memory = { scroll: 0, highlights: [] };
@@ -242,6 +245,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   askToggle.type = "button";
   askToggle.className = "rt-rail-open rt-rail-open-left";
   askToggle.setAttribute("aria-controls", "rail-left");
+  askToggle.setAttribute("aria-expanded", "false");
   askToggle.append(railGlyph("spark"), document.createTextNode("Ask AI"));
   askToggle.addEventListener("click", () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()));
 
@@ -682,7 +686,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   // reopen the settings rail if it was left expanded. The Ask AI rail isn't
   // auto-reopened — open() runs a summary, and re-summarising every article
   // you open just because the rail was left expanded is a surprising cost.
-  if (readerUi.railRight) controls.open();
+  if (readerUi.railRight) controls.open({ focus: false });
 
   // restore per-page memory
   if (pageUrl) {
