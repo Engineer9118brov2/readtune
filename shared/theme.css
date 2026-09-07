@@ -315,9 +315,11 @@ body.rt-shell > .rt-rail-right {
   animation: none;
   transition: none;
 }
-.rt-rail > .rt-panel[hidden] {
-  display: block !important;
-  transform: none;
+
+/* wrapper only exists to put the fixed chrome first in the DOM (tab order);
+   it must not become a grid item */
+.rt-reader-chrome {
+  display: contents;
 }
 
 /* the two corner buttons that open the rails */

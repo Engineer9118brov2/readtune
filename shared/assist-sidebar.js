@@ -74,9 +74,11 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       [el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Ask AI"), closeBtn]), body],
     );
     (mountEl || document.body).appendChild(panel);
+    // Reveal the rail first — focusing a still-hidden element sends focus to
+    // <body> instead.
+    if (onToggle) onToggle(true);
     panel.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey, true);
-    if (onToggle) onToggle(true);
     return body;
   }
 

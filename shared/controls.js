@@ -463,18 +463,15 @@ export function buildControls(profile, onChange, opts = {}) {
   body.append(resetBtn);
 
   /* ---- open / close ---- */
-  let shown = false;
-  const isOpen = () => (onToggle ? shown : !panel.hidden);
+  const isOpen = () => !panel.hidden;
   const open = () => {
-    shown = true;
-    if (!onToggle) panel.hidden = false;
+    panel.hidden = false; // the rail (onToggle) handles its own visibility too
     toggleBtn.setAttribute("aria-expanded", "true");
     if (onToggle) onToggle(true);
     closeBtn.focus({ preventScroll: true });
   };
   const close = () => {
-    shown = false;
-    if (!onToggle) panel.hidden = true;
+    panel.hidden = true;
     toggleBtn.setAttribute("aria-expanded", "false");
     if (onToggle) onToggle(false);
     toggleBtn.focus({ preventScroll: true });

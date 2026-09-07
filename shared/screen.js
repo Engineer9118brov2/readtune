@@ -46,19 +46,19 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   /* ---- the two side rails (Ask AI on the left, Settings on the right) ---- */
   document.body.classList.add("rt-shell");
-  const ensureRail = (id, cls) => {
+  const ensureRail = (id, cls, place) => {
     let node = document.getElementById(id);
     if (!node) {
       node = document.createElement("aside");
       node.id = id;
       node.className = `rt-rail ${cls}`;
       node.hidden = true;
-      (id === "rail-left" ? document.body.prepend(node) : surface.after(node));
+      place(node);
     }
     return node;
   };
-  const railLeftEl = ensureRail("rail-left", "rt-rail-left");
-  const railRightEl = ensureRail("rail-right", "rt-rail-right");
+  const railLeftEl = ensureRail("rail-left", "rt-rail-left", (n) => document.body.prepend(n));
+  const railRightEl = ensureRail("rail-right", "rt-rail-right", (n) => surface.after(n));
   railLeftEl.hidden = true;
   railRightEl.hidden = true;
 
@@ -226,11 +226,15 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   let lastAloudPlaying = null;
 
+  /* The chrome controls sit visually at the page edges but go FIRST in the
+     DOM, so a keyboard user reaches them before tabbing the whole article. */
+  const chrome_ = document.createElement("div");
+  chrome_.className = "rt-reader-chrome";
+
   const controls = buildControls(profile, change, { onToggle: (open) => syncRail("right", open) });
   controls.toggle.textContent = "";
   controls.toggle.append(railGlyph("settings"), document.createTextNode("Reading settings"));
   railRightEl.append(controls.panel);
-  document.body.append(controls.toggle);
 
   /* Left rail opener — icon first, then a short label. (A dyslexic reader
      spots the mark faster than the word, so the icon leads.) */
@@ -240,7 +244,6 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   askToggle.setAttribute("aria-controls", "rail-left");
   askToggle.append(railGlyph("spark"), document.createTextNode("Ask AI"));
   askToggle.addEventListener("click", () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()));
-  document.body.append(askToggle);
 
   /* Floating "listen from here" control. Icon only — no text label. Starts
      read-aloud at the reader's scroll position, then mirrors play / pause. */
@@ -257,7 +260,9 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       syncVoiceOrb();
     }
   });
-  document.body.append(orb);
+
+  chrome_.append(askToggle, controls.toggle, orb);
+  document.body.prepend(chrome_);
 
   function syncVoiceOrb() {
     // RSVP and one-sentence pacing run their own flow — the orb only makes
@@ -674,9 +679,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
 
   applyAll(profile);
 
-  // reopen whichever rails were left expanded last time
+  // reopen the settings rail if it was left expanded. The Ask AI rail isn't
+  // auto-reopened — open() runs a summary, and re-summarising every article
+  // you open just because the rail was left expanded is a surprising cost.
   if (readerUi.railRight) controls.open();
-  if (readerUi.railLeft) assistSidebar.open();
 
   // restore per-page memory
   if (pageUrl) {
@@ -721,10 +727,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       clearTimeout(seekTimer);
       document.removeEventListener("keydown", onKeyDown);
       view.getFlowEl().removeEventListener("click", onFlowClick);
-      controls.toggle.remove();
+      chrome_.remove();
       controls.panel.remove();
-      askToggle.remove();
-      orb.remove();
       document.body.classList.remove("rt-shell");
       view.destroy();
     },
