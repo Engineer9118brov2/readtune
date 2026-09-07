@@ -35,10 +35,11 @@ const CLOUD_URL = "https://readtune.tech/api/assist";
 
 const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutError");
 
-/* Cloud relay is disclosed (privacy.html / PRIVACY.md) as a Summary-only path.
-   Simplify stays on-device-only until its own cloud migration is built and
-   disclosed — see docs/ASSIST.md. */
-const CLOUD_KINDS = new Set(["summary"]);
+/* Which kinds may use ReadTune's cloud relay — disclosed in privacy.html /
+   PRIVACY.md. Summary and Ask send the article text (Ask also sends the
+   reader's typed question); Simplify stays on-device-only until its own cloud
+   path is built and disclosed — see docs/ASSIST.md. */
+const CLOUD_KINDS = new Set(["summary", "ask"]);
 
 /* Never forward a query string or fragment to the relay — a URL can carry a
    session token or other identifying junk. The relay re-normalizes on receipt
@@ -57,6 +58,10 @@ function sanitizeUrl(url) {
    matches the cap the cloud relay re-enforces server-side. */
 const MAX_SUMMARY_INPUT = 12000;
 const MAX_SIMPLIFY_INPUT = 2400;
+/* Ask sends the article as context alongside the question — a tighter cap than
+   Summary so a huge page plus the Q still fits the model's window. */
+const MAX_ASK_CONTEXT = 9000;
+const MAX_ASK_QUESTION = 500;
 
 const SIMPLIFY_SYSTEM =
   "You rewrite a passage in plain language for a reader who finds dense text hard to follow. " +
@@ -67,6 +72,11 @@ const SIMPLIFY_SYSTEM =
 const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
   "Three to five short plain lines, each a single idea, no preamble. Only what the text says.";
+
+const ASK_SYSTEM =
+  "You answer a reader's question about an article they are reading. Use the article as your main source and stay close to what it says. " +
+  "If the article does not address the question, say that plainly first, then answer briefly from general knowledge and mark that part as outside the article. " +
+  "Short paragraphs, plain words, no preamble. Do not claim to have read anything the reader did not give you.";
 
 /* ---------- on-device: Chrome built-in AI (opportunistic only) ---------- */
 
@@ -119,14 +129,14 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, url, signal) {
+async function cloudGenerate(kind, text, url, signal, question = "") {
   let res;
   try {
     res = await fetch(CLOUD_URL, {
       method: "POST",
       signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind, text, url }),
+      body: JSON.stringify(question ? { kind, text, url, question } : { kind, text, url }),
     });
   } catch (e) {
     if (isAbort(e)) throw e;
@@ -164,7 +174,7 @@ const clip = (s, n) => {
  * @param {() => string}  [opts.getArticleUrl] the article's URL, for cache keying server-side
  */
 export function createAssistant({ getArticleText = () => "", getArticleUrl = () => "" } = {}) {
-  async function run({ kind, text, onProgress, signal }) {
+  async function run({ kind, text, question = "", onProgress, signal }) {
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
     // 1 — on-device, but only when it's already ready. No `.create()` call
@@ -201,15 +211,16 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       }
     }
     if (status.prompt === "available") {
-      const lm = await make("LanguageModel", {
-        initialPrompts: [{ role: "system", content: kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM }],
-      });
+      const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
+      const lm = await make("LanguageModel", { initialPrompts: [{ role: "system", content: system }] });
       if (lm) {
         try {
           const ask =
             kind === "summary"
               ? `Main points of this article:\n\n${text}`
-              : `Rewrite this passage in plain language:\n\n${text}`;
+              : kind === "ask"
+                ? `Article:\n\n${text}\n\nReader's question: ${question}`
+                : `Rewrite this passage in plain language:\n\n${text}`;
           return await lm.prompt(ask, { signal });
         } finally {
           safeDestroy(lm);
@@ -217,7 +228,7 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       }
     }
 
-    // 2 — ReadTune's cloud relay, Summary only (see CLOUD_KINDS above).
+    // 2 — ReadTune's cloud relay (Summary + Ask; see CLOUD_KINDS above).
     // Simplify has no cloud path yet: if on-device wasn't ready above, it
     // fails here rather than silently sending the reader's selection off
     // their device — that's not what ReadTune tells anyone it does today.
@@ -225,7 +236,7 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
     }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal);
+    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question);
   }
 
   return {
@@ -245,6 +256,16 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       const { text, clipped } = clip(passage, MAX_SIMPLIFY_INPUT);
       if (!text) throw new Error("Select a sentence or paragraph first.");
       return { text: await run({ kind: "simplify", text, onProgress, signal }), clipped };
+    },
+
+    /** Freeform question about the current article. The article is sent as
+        context alongside the question — see ASK_SYSTEM for the guardrails. */
+    async ask(question, { onProgress, signal } = {}) {
+      const q = String(question || "").replace(/\s+/g, " ").trim().slice(0, MAX_ASK_QUESTION);
+      if (!q) throw new Error("Type a question first.");
+      const { text, clipped } = clip(getArticleText(), MAX_ASK_CONTEXT);
+      if (!text) throw new Error("There's no article text to ask about.");
+      return { text: await run({ kind: "ask", text, question: q, onProgress, signal }), clipped };
     },
   };
 }
