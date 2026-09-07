@@ -1117,3 +1117,30 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   cursor: pointer;
 }
 .rt-assist-send:hover { filter: brightness(1.05); }
+
+.rt-assist-diag {
+  flex: none;
+  margin: 0 14px 10px;
+  border-top: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .12));
+  padding-top: 8px;
+  font-size: .8rem;
+}
+.rt-assist-diag > summary {
+  cursor: pointer;
+  color: var(--rt-ui-ink-soft, #5b5d53);
+  font-weight: 600;
+}
+.rt-assist-diag-log {
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .72rem;
+  line-height: 1.5;
+  color: var(--rt-ui-ink, #1f2430);
+  background: color-mix(in srgb, var(--rt-ui-ink, #000) 5%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
