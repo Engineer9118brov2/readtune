@@ -1,8 +1,9 @@
-# Reading assistant (Summary + Simplify)
+# Reading assistant (Ask AI + Simplify)
 
-**Goal:** the two AI helpers that actually earn their place for a struggling
-reader — a short "what is this about" before committing to a long article, and a
-plain-language rewrite of the one paragraph that won't come together.
+**Goal:** the AI helpers that actually earn their place for a struggling
+reader — a short "what is this about" before committing to a long article,
+answers to the questions the article raises, and a plain-language rewrite of
+the one paragraph that won't come together.
 
 **History, briefly:** shipped on-device-only in 0.9.0 (Chrome's built-in
 Gemini Nano). Then the bring-your-own-key fallback was removed — pasting a
@@ -13,12 +14,18 @@ Chromebooks that don't keep a local profile between logins would re-download
 the ~2 GB model every single sign-in. ReadTune now never triggers that
 download at all.
 
-## As shipped (Summary only — Simplify's cloud path is next)
+## As shipped
 
-- **Summary** — opened from the "Ask AI" rail in Reader View. Key points for
-  the article (its opening, if the article is long — capped at ~12k
-  characters). Routed to on-device AI when it's already ready, otherwise
-  ReadTune's cloud relay (see below).
+- **Ask AI** — a docked left rail in Reader View (`shared/assist-sidebar.js`).
+  On open it summarises the article (its opening, if it's long — capped at
+  ~12k characters). A composer at the bottom takes **freeform questions about
+  the article**; quick-ask chips pre-run "Summarise", "Key terms", "Explain
+  simply". Each answer gets a Play button. Single-turn — a new question
+  replaces the last answer; there's no running transcript yet. Routed to
+  on-device AI when it's already ready, otherwise ReadTune's cloud relay
+  (see below). `kind: "ask"` sends the article as context plus the typed
+  question; the answer budget is larger (`ASK_MAX_TOKENS`, 800) than a
+  summary's.
 - **Simplify** — a pill that appears over any selection of ~12+ characters
   inside the reading flow. Rewrites that passage and shows it **beside the
   original**, never in its place, under an "AI — may not be exact" line.
@@ -28,9 +35,11 @@ download at all.
   become one silently; that migration (and the UI/UX pass for it) comes
   after Summary's cloud path is verified solid.
 
-Both render in one dismissible card (`shared/assist-ui.js`), modelled on the
-word-lookup popup: Escape / click-outside / Cancel, a copy button, and "Hear
-it" through the same read-aloud voice.
+Simplify renders in a dismissible card (`shared/assist-ui.js`), modelled on
+the word-lookup popup: Escape / click-outside / Cancel, a copy button, and
+"Hear it" through the same read-aloud voice. Ask AI lives in the persistent
+rail — Escape or its × collapse it, and it does **not** close when you click
+the article.
 
 ## How a request is routed (`shared/assist.js`)
 
@@ -42,10 +51,11 @@ it" through the same read-aloud voice.
    (Chrome's own, or another site's) already triggered it, this path is free,
    instant, and fully private. Otherwise, straight to step 2 — no download,
    no prompt, no "requires a user gesture" dance.
-2. **ReadTune's own relay, Summary only** (`api/assist.js`, deployed
-   alongside the marketing site on Vercel) — the article text (and its URL)
-   is sent there, which forwards it to a free chat model and returns the
-   generated text. It goes through **OpenRouter** (`api/_relay.mjs`):
+2. **ReadTune's own relay, Summary + Ask** (`api/assist.js`, deployed
+   alongside the marketing site on Vercel) — the article text (and its URL,
+   and for a question the typed question) is sent there, which forwards it to
+   a free chat model and returns the generated text. It goes through
+   **OpenRouter** (`api/_relay.mjs`):
    `openai/gpt-oss-120b` as the primary, with `google/gemini-3.5-flash-lite`
    and `mistralai/ministral-8b-2512` in OpenRouter's `models` fallback array.
    Each is served by a provider key you add in OpenRouter's BYOK settings
@@ -69,10 +79,12 @@ it" through the same read-aloud voice.
 3. **Never a ReadTune-hosted model.** The relay calls a third-party model;
    it doesn't run one itself. **Never for Simplify** — see above.
 
-This is the one place in ReadTune where article text leaves the device by
-default. Every other claim ReadTune makes elsewhere — "no ReadTune server",
+This is the one place in ReadTune where article text — and anything the
+reader types into the Ask box — leaves the device by default. A typed
+question can be more personal than article text; the UI and privacy copy say
+so. Every other claim ReadTune makes elsewhere — "no ReadTune server",
 "nothing leaves your device", "no accounts, no analytics" — should be read
-with this one Summary exception; see `privacy.html` / `PRIVACY.md` for the
+with this one Ask AI exception; see `privacy.html` / `PRIVACY.md` for the
 plain disclosure with that exception spelled out. Every other feature
 (calibration, Reader View, Piper read-aloud, PDF mode, and Simplify as
 shipped today) still sends nothing anywhere. `describeAvailability()` reports
@@ -107,12 +119,17 @@ Summary on-device-only. To change preference order, reorder the array in
   original is always on screen next to it.
 - The summary is "the main points as the text states them", capped to the
   article's opening for a long piece, and labelled when it was clipped.
+- Ask AI answers **about the article you're reading** — the article is always
+  sent as context, and `ASK_SYSTEM` tells the model to stay close to it and
+  to flag plainly when the article doesn't cover the question. It is not
+  positioned as a general chatbot, and every answer carries the "AI — may not
+  be exact" line.
 - Store answer to "do you use remote code?" stays **No**: this sends and
-  receives data (article text in, generated text out), it doesn't fetch or
+  receives data (text in, generated text out), it doesn't fetch or
   execute code. The on-device path, where it applies, is part of the browser.
 
 ## Not in v1
 
-Freeform "ask about this article" chat. Open Q&A is the shape most likely to
-read as "ReadTune understood the article for you". Revisit once
-summarize/simplify has real user feedback.
+A running multi-turn transcript in the Ask rail (each question currently
+replaces the last answer). Simplify's cloud path — still on-device-only,
+still not disclosed as a cloud feature.

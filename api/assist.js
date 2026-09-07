@@ -19,6 +19,8 @@ import { createHash } from "node:crypto";
 import { providersFromEnv, relayChat } from "./_relay.mjs";
 
 const MAX_INPUT = 12000; // matches shared/assist.js's MAX_SUMMARY_INPUT
+const MAX_ASK_QUESTION = 500; // matches shared/assist.js's MAX_ASK_QUESTION
+const ASK_MAX_TOKENS = 800; // a Q&A answer needs more room than a 3-5 line summary
 
 const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
@@ -29,6 +31,11 @@ const SIMPLIFY_SYSTEM =
   "Keep every fact, name, number and step. Use short sentences and common words. " +
   "Do not add information, examples or opinions, and do not leave anything out. " +
   "Reply with only the rewritten passage.";
+
+const ASK_SYSTEM =
+  "You answer a reader's question about an article they are reading. Use the article as your main source and stay close to what it says. " +
+  "If the article does not address the question, say that plainly first, then answer briefly from general knowledge and mark that part as outside the article. " +
+  "Short paragraphs, plain words, no preamble. Do not claim to have read anything the reader did not give you.";
 
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -49,14 +56,16 @@ function normalizeUrl(url) {
   }
 }
 
-function cacheKeyFor(kind, url, text) {
+function cacheKeyFor(kind, url, text, question = "") {
   const norm = url ? normalizeUrl(url) : "";
   // Bind the entry to the submitted text even when it's URL-keyed — otherwise
   // anyone can overwrite a real article's cached summary with arbitrary text
   // by POSTing that url with different text (no auth on this endpoint).
   // Identical text for the same URL still shares one entry, so the
-  // cross-reader cache saving is unaffected.
-  const basis = norm ? `url:${norm}:${hash(text)}` : `text:${hash(text)}`;
+  // cross-reader cache saving is unaffected. Ask also folds in the question so
+  // two readers asking the same thing about the same article share an answer.
+  const body = question ? `${hash(text)}:${hash(question)}` : hash(text);
+  const basis = norm ? `url:${norm}:${body}` : `text:${body}`;
   return `assist:${kind}:${basis}`;
 }
 
@@ -142,17 +151,23 @@ export default async function handler(req, res) {
   }
   body = body && typeof body === "object" ? body : {};
 
-  // v1 ships Summary only; the shape already supports Simplify for later.
-  const kind = body.kind === "simplify" ? "simplify" : "summary";
+  // "summary" and "ask" send the article; "simplify" sends a selection; an
+  // unknown kind collapses to "summary".
+  const kind = body.kind === "simplify" ? "simplify" : body.kind === "ask" ? "ask" : "summary";
   const text = clip(body.text, MAX_INPUT);
   const url = typeof body.url === "string" ? body.url : "";
+  const question = kind === "ask" ? clip(body.question, MAX_ASK_QUESTION) : "";
 
   if (!text) {
-    res.status(400).json({ error: "No text to summarize." });
+    res.status(400).json({ error: "No article text to work with." });
+    return;
+  }
+  if (kind === "ask" && !question) {
+    res.status(400).json({ error: "No question to answer." });
     return;
   }
 
-  const cacheKey = cacheKeyFor(kind, url, text);
+  const cacheKey = cacheKeyFor(kind, url, text, question);
   const cached = await cacheGet(cacheKey);
   if (cached) {
     res.status(200).json({ text: cached, cached: true });
@@ -166,8 +181,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const system = kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM;
-    const generated = await relayChat(providersFromEnv(process.env), system, text);
+    const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
+    const user = kind === "ask" ? `Article:\n\n${text}\n\nReader's question: ${question}` : text;
+    const generated = await relayChat(
+      providersFromEnv(process.env),
+      system,
+      user,
+      undefined,
+      kind === "ask" ? ASK_MAX_TOKENS : undefined,
+    );
     await cacheSet(cacheKey, generated);
     res.status(200).json({ text: generated, cached: false });
   } catch (err) {
