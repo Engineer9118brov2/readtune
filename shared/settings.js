@@ -18,6 +18,7 @@ export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
 export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
 export const CAL_SEEN_KEY = "readtune_cal_seen"; // calibration passage ids already shown (for no-repeat draw)
+export const READER_UI_KEY = "readtune_reader_ui"; // Reader View chrome: which side rails are expanded
 
 export const FONTS = {
   sans: { label: "System Sans", stack: 'var(--rt-reading-font)' },
@@ -510,6 +511,42 @@ export async function markSetupStep(step) {
   if (step === "calibrated") return saveSetup({ calibratedAt: at });
   if (step === "voiceFit") return saveSetup({ voiceFitAt: at });
   return loadSetup();
+}
+
+/* ---- Reader View chrome: the two side rails (Ask AI, Settings) ---- */
+
+const DEFAULT_READER_UI = { railLeft: false, railRight: false };
+
+/** Which side rails were left expanded. Both start collapsed so a first-time
+    reader gets a clean page — the corner buttons and the voice orb are the
+    only chrome until they open something. */
+export async function loadReaderUi() {
+  try {
+    const got = await chrome.storage.local.get(READER_UI_KEY);
+    const v = got && got[READER_UI_KEY];
+    return {
+      railLeft: !!(v && v.railLeft),
+      railRight: !!(v && v.railRight),
+    };
+  } catch (err) {
+    console.warn("[ReadTune] loadReaderUi failed:", err);
+    return { ...DEFAULT_READER_UI };
+  }
+}
+
+export async function saveReaderUi(patch) {
+  try {
+    const current = await loadReaderUi();
+    const next = {
+      railLeft: patch && "railLeft" in patch ? !!patch.railLeft : current.railLeft,
+      railRight: patch && "railRight" in patch ? !!patch.railRight : current.railRight,
+    };
+    await chrome.storage.local.set({ [READER_UI_KEY]: next });
+    return next;
+  } catch (err) {
+    console.warn("[ReadTune] saveReaderUi failed:", err);
+    return null;
+  }
 }
 
 /* ---- article hand-off ---- */

@@ -6,8 +6,11 @@
   position: fixed;
   top: 14px;
   right: 14px;
-  z-index: 30;
+  z-index: 34;
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   border: 1px solid var(--rt-ui-line);
   background: var(--rt-ui-panel);
   color: var(--rt-ui-ink);
@@ -18,6 +21,11 @@
   border-radius: 999px;
   cursor: pointer;
   box-shadow: var(--rt-ui-shadow);
+}
+.rt-panel-toggle svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
 }
 .rt-panel-toggle:hover {
   border-color: #cfccc0;
@@ -558,7 +566,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (max-width: 560px) {
-  .rt-panel {
+  /* the standalone (non-rail) panel becomes a bottom sheet */
+  .rt-panel:not(.rt-rail > .rt-panel) {
     width: 100%;
     height: 84%;
     top: auto;
@@ -567,7 +576,7 @@ input[type="range"]::-moz-range-thumb {
     border-top: 1px solid var(--rt-ui-line);
     border-radius: 16px 16px 0 0;
   }
-  .rt-panel[hidden] {
+  .rt-panel:not(.rt-rail > .rt-panel)[hidden] {
     transform: translateY(100%);
   }
   .rt-mode-grid {

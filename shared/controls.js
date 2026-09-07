@@ -81,8 +81,12 @@ function el(tag, attrs, kids) {
   return n;
 }
 
-export function buildControls(profile, onChange) {
+export function buildControls(profile, onChange, opts = {}) {
   const state = { ...profile };
+  // When the panel lives inside a docked rail, the rail owns show/hide — we
+  // just report the intent so screen.js can flip the rail. Standalone (tests,
+  // any future embed) it falls back to toggling panel.hidden itself.
+  const onToggle = typeof opts.onToggle === "function" ? opts.onToggle : null;
   const reg = { seg: {}, slider: {}, toggle: {}, swatch: null, voice: null };
 
   const toggleBtn = el(
@@ -459,20 +463,26 @@ export function buildControls(profile, onChange) {
   body.append(resetBtn);
 
   /* ---- open / close ---- */
+  let shown = false;
+  const isOpen = () => (onToggle ? shown : !panel.hidden);
   const open = () => {
-    panel.hidden = false;
+    shown = true;
+    if (!onToggle) panel.hidden = false;
     toggleBtn.setAttribute("aria-expanded", "true");
-    closeBtn.focus();
+    if (onToggle) onToggle(true);
+    closeBtn.focus({ preventScroll: true });
   };
   const close = () => {
-    panel.hidden = true;
+    shown = false;
+    if (!onToggle) panel.hidden = true;
     toggleBtn.setAttribute("aria-expanded", "false");
-    toggleBtn.focus();
+    if (onToggle) onToggle(false);
+    toggleBtn.focus({ preventScroll: true });
   };
-  toggleBtn.addEventListener("click", () => (panel.hidden ? open() : close()));
+  toggleBtn.addEventListener("click", () => (isOpen() ? close() : open()));
   closeBtn.addEventListener("click", close);
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !panel.hidden) close();
+    if (e.key === "Escape" && isOpen()) close();
   });
 
   function emit(patch) {
@@ -548,7 +558,7 @@ export function buildControls(profile, onChange) {
       reg.statusLine.textContent = "On-device voice selected. The default voice is built into ReadTune.";
       reg.statusLine.dataset.kind = "info";
     } else if (cloud) {
-      reg.statusLine.textContent = "Premium voice selected. Press Listen — it falls back to the on-device voice if the relay is busy.";
+      reg.statusLine.textContent = "Premium voice selected. It falls back to the on-device voice if the relay is busy.";
       reg.statusLine.dataset.kind = "info";
     } else if (t.hasKey) {
       reg.statusLine.textContent = canList ? `Connected · ${t.voices.length} voices ready` : "Connected · custom voice ready";
@@ -574,6 +584,7 @@ export function buildControls(profile, onChange) {
     panel,
     open,
     close,
+    isOpen,
     sync(next) {
       Object.assign(state, next);
       paint();

@@ -251,6 +251,167 @@ body.rt-reading-page > .rt-surface {
   padding: clamp(28px, 7vh, 72px) clamp(18px, 5vw, 30px) 28vh;
 }
 
+/* ---- reading shell: article flanked by two collapsible rails ---- */
+/* The middle track holds the reading surface; opening a rail narrows that
+   track and the column re-centres in it (the column keeps its own
+   max-width). Below 900px the rails stop pushing and slide in as overlays. */
+body.rt-shell {
+  --rt-rail-w: clamp(290px, 24vw, 350px);
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+  align-items: start;
+  transition: grid-template-columns 0.2s ease;
+}
+body.rt-shell:has(#rail-left:not([hidden])) {
+  grid-template-columns: var(--rt-rail-w) minmax(0, 1fr) 0;
+}
+body.rt-shell:has(#rail-right:not([hidden])) {
+  grid-template-columns: 0 minmax(0, 1fr) var(--rt-rail-w);
+}
+body.rt-shell:has(#rail-left:not([hidden])):has(#rail-right:not([hidden])) {
+  grid-template-columns: var(--rt-rail-w) minmax(0, 1fr) var(--rt-rail-w);
+}
+/* pin each area to its track — the fixed-position openers / orb / toast are
+   out of flow and never take a grid cell */
+body.rt-shell > .rt-rail-left {
+  grid-column: 1;
+}
+body.rt-shell > .rt-surface {
+  grid-column: 2;
+}
+body.rt-shell > .rt-rail-right {
+  grid-column: 3;
+}
+
+.rt-rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--rt-ui-panel);
+  color: var(--rt-ui-ink);
+  font-family: var(--rt-ui-font);
+  z-index: 33;
+}
+.rt-rail-left {
+  border-right: 1px solid var(--rt-ui-line);
+}
+.rt-rail-right {
+  border-left: 1px solid var(--rt-ui-line);
+}
+/* The panel / sidebar mounted inside a rail drops its own fixed positioning
+   and fills the rail instead. */
+.rt-rail > .rt-panel,
+.rt-rail > .rt-assist-sidebar {
+  position: static;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+  animation: none;
+  transition: none;
+}
+.rt-rail > .rt-panel[hidden] {
+  display: block !important;
+  transform: none;
+}
+
+/* the two corner buttons that open the rails */
+.rt-rail-open {
+  position: fixed;
+  top: 14px;
+  z-index: 34;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-panel);
+  color: var(--rt-ui-ink);
+  font-family: var(--rt-ui-font);
+  font-size: 0.9rem;
+  font-weight: 550;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--rt-ui-shadow);
+}
+.rt-rail-open:hover {
+  border-color: color-mix(in srgb, var(--rt-ui-accent) 35%, var(--rt-ui-line));
+}
+.rt-rail-open-left {
+  left: 14px;
+}
+.rt-rail-open svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+/* the right-rail opener is controls.js's .rt-panel-toggle (kept for continuity) */
+body.rt-shell:has(#rail-left:not([hidden])) .rt-rail-open-left,
+body.rt-shell:has(#rail-right:not([hidden])) .rt-panel-toggle {
+  display: none;
+}
+
+/* floating "listen from here" control — icon only, no text label */
+.rt-voice-orb {
+  position: fixed;
+  right: 18px;
+  top: 45vh;
+  z-index: 34;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--rt-ui-accent) 60%, #000 4%);
+  background: var(--rt-ui-accent);
+  color: #fff;
+  box-shadow: var(--rt-ui-shadow);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.rt-voice-orb:hover {
+  filter: brightness(1.05);
+}
+.rt-voice-orb svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+/* out of the way while the settings rail is open */
+body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  body.rt-shell {
+    display: block;
+  }
+  body.rt-shell > .rt-rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    height: auto;
+    width: min(360px, 88vw);
+    box-shadow: var(--rt-ui-shadow);
+  }
+  body.rt-shell > .rt-rail-left {
+    left: 0;
+  }
+  body.rt-shell > .rt-rail-right {
+    right: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.rt-shell {
+    transition: none;
+  }
+}
+
 .rt-doc-head {
   margin-bottom: calc(var(--rt-para-space) * 1.4);
   padding-bottom: calc(var(--rt-para-space) * 1.1);
