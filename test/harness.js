@@ -174,10 +174,20 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   }
   assert(readerDoc.querySelectorAll(".rt-s").length >= 6, "Reader View renders a captured article into readable sentences");
   assert(/Tide pools/i.test(readerFrame.contentWindow.document.title), "Reader View keeps a clean article title");
-  assert(!!readerDoc.querySelector(".rt-panel-toggle") && !!readerDoc.querySelector(".rt-doc-action"), "Reader View creates settings and Listen controls");
-  readerDoc.querySelector(".rt-doc-action").click();
+  assert(
+    !!readerDoc.querySelector(".rt-panel-toggle") &&
+      !!readerDoc.querySelector(".rt-rail-open-left") &&
+      !!readerDoc.querySelector(".rt-voice-orb") &&
+      !readerDoc.querySelector(".rt-doc-actions .rt-doc-action"),
+    "Reader View creates the two rail openers and the voice orb, not header pills",
+  );
+  readerDoc.querySelector(".rt-voice-orb").click();
   await new Promise((resolve) => setTimeout(resolve, 80));
-  assert(!readerDoc.querySelector(".rt-transport").hidden && !!readerDoc.querySelector(".rt-speak-sentence"), "Reader View starts read-aloud and highlights the sentence");
+  assert(!readerDoc.querySelector(".rt-transport").hidden && !!readerDoc.querySelector(".rt-speak-sentence"), "the voice orb starts read-aloud and highlights the sentence");
+  assert(
+    readerDoc.querySelector(".rt-voice-orb").getAttribute("aria-label") === "Pause read-aloud",
+    "the voice orb switches to a pause control while it's reading",
+  );
 
   /* ---- Voice Fit Lab: only curated Piper choices may be shown ---- */
   const labFrame = document.getElementById("lab-frame");
@@ -707,9 +717,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(screen.getProfile().pacing === "aloud", "listen shortcut enters aloud mode");
+  const askOpener = document.querySelector(".rt-rail-open-left");
   assert(
-    [...document.querySelectorAll(".rt-doc-action")].some((b) => b.textContent === "Summary"),
-    "the reading screen offers the assistant's Summary action",
+    askOpener && /Ask AI/.test(askOpener.textContent),
+    "the reading screen offers an Ask AI rail opener",
+  );
+  askOpener.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(
+    !document.getElementById("rail-left").hidden &&
+      !!document.querySelector("#rail-left .rt-assist-sidebar"),
+    "the Ask AI opener expands the left rail with the assistant panel inside it",
   );
   document.querySelector(".rt-reset").click();
   await new Promise((resolve) => setTimeout(resolve, 20));

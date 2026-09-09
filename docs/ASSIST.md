@@ -15,10 +15,10 @@ download at all.
 
 ## As shipped (Summary only — Simplify's cloud path is next)
 
-- **Summary** — a header action in Reader View. Key points for the article
-  (its opening, if the article is long — capped at ~12k characters). Routed
-  to on-device AI when it's already ready, otherwise ReadTune's cloud relay
-  (see below).
+- **Summary** — opened from the "Ask AI" rail in Reader View. Key points for
+  the article (its opening, if the article is long — capped at ~12k
+  characters). Routed to on-device AI when it's already ready, otherwise
+  ReadTune's cloud relay (see below).
 - **Simplify** — a pill that appears over any selection of ~12+ characters
   inside the reading flow. Rewrites that passage and shows it **beside the
   original**, never in its place, under an "AI — may not be exact" line.

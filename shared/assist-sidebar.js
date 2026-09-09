@@ -1,14 +1,14 @@
 /*
- * ReadTune — reading-assistant UI: Summary sidebar
+ * ReadTune — reading-assistant UI: the "Ask AI" rail
  *
- * The headline AI feature gets a persistent left-hand panel, not a modal —
- * opened on demand by the "Summary" header action, closed by its own ×,
- * Escape, or clicking outside it. Reading keeps working underneath it; it
- * isn't a dialog blocking the page.
+ * The headline AI feature lives in a docked left-hand rail (see shared/theme.css
+ * `.rt-rail`). It's opened from the corner button, collapsed by its own × or
+ * Escape. Reading keeps working alongside it — it isn't a dialog and it does
+ * NOT close when you click the article.
  *
- * Key points for the article, a Play button that reads them aloud through
- * the same voice as everything else in ReadTune (no separate audio system),
- * and the same honest working/fail states as the Simplify card.
+ * Key points for the article, a Play button that reads them aloud through the
+ * same voice as everything else in ReadTune (no separate audio system), and the
+ * same honest working/fail states as the Simplify card.
  */
 
 import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-render.js";
@@ -18,8 +18,10 @@ import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-r
  * @param {ReturnType<import("./assist.js").createAssistant>} opts.assistant
  * @param {(t:string, signal?:AbortSignal)=>Promise<any>} [opts.speak] reads text aloud through the shared voice
  * @param {(m:string)=>void} [opts.onError]
+ * @param {HTMLElement} [opts.mountEl] rail element to render into (falls back to <body>)
+ * @param {(open:boolean)=>void} [opts.onToggle] told when the panel opens / collapses
  */
-export function createAssistSidebar({ assistant, speak, onError = () => {} } = {}) {
+export function createAssistSidebar({ assistant, speak, onError = () => {}, mountEl = null, onToggle = null } = {}) {
   let panel = null;
   let controller = null; // the open request (summarize)
   let speakController = null; // a separate, shorter-lived one for Play/Stop
@@ -41,21 +43,19 @@ export function createAssistSidebar({ assistant, speak, onError = () => {} } = {
   }
 
   function close(restoreFocus = true) {
+    const wasOpen = !!panel;
     stop();
     if (panel) panel.remove();
     panel = null;
     document.removeEventListener("keydown", onKey, true);
-    document.removeEventListener("mousedown", onDown, true);
     if (restoreFocus && lastFocus && document.contains(lastFocus) && typeof lastFocus.focus === "function") {
       lastFocus.focus({ preventScroll: true });
     }
     if (restoreFocus) lastFocus = null;
+    if (wasOpen && onToggle) onToggle(false);
   }
   function onKey(e) {
     if (e.key === "Escape") { e.stopPropagation(); close(); }
-  }
-  function onDown(e) {
-    if (panel && !panel.contains(e.target)) close();
   }
 
   function mount() {
@@ -64,19 +64,21 @@ export function createAssistSidebar({ assistant, speak, onError = () => {} } = {
     lastFocus = opener && opener !== document.body && document.contains(opener) ? opener : null;
     controller = new AbortController();
 
-    const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Close" }, "×");
-    closeBtn.addEventListener("click", close);
+    const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Collapse" }, "×");
+    closeBtn.addEventListener("click", () => close());
 
     const body = el("div", { class: "rt-assist-body", "aria-live": "polite", "aria-busy": "true" });
     panel = el(
       "aside",
-      { class: "rt-assist-sidebar", role: "complementary", "aria-label": "What this is about", tabindex: "-1" },
-      [el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Summary"), closeBtn]), body],
+      { class: "rt-assist-sidebar", role: "complementary", "aria-label": "Ask AI about this article", tabindex: "-1" },
+      [el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Ask AI"), closeBtn]), body],
     );
-    document.body.appendChild(panel);
+    (mountEl || document.body).appendChild(panel);
+    // Reveal the rail first — focusing a still-hidden element sends focus to
+    // <body> instead.
+    if (onToggle) onToggle(true);
     panel.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey, true);
-    document.addEventListener("mousedown", onDown, true);
     return body;
   }
 

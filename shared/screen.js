@@ -19,6 +19,8 @@ import {
   applyDyslexicUi,
   nextTtsRate,
   clampRate,
+  loadReaderUi,
+  saveReaderUi,
   DEFAULT_PROFILE,
 } from "./settings.js";
 import { applyTypography, paintPage } from "./render.js";
@@ -40,6 +42,42 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   let profile = await loadProfile();
   applyDyslexicUi(profile.dyslexicUiMode);
   let ttsConfig = await loadTTSConfig();
+  let readerUi = await loadReaderUi();
+
+  /* ---- the two side rails (Ask AI on the left, Settings on the right) ---- */
+  document.body.classList.add("rt-shell");
+  const ensureRail = (id, cls, place) => {
+    let node = document.getElementById(id);
+    if (!node) {
+      node = document.createElement("aside");
+      node.id = id;
+      node.className = `rt-rail ${cls}`;
+      node.hidden = true;
+      place(node);
+    }
+    return node;
+  };
+  const railLeftEl = ensureRail("rail-left", "rt-rail-left", (n) => document.body.prepend(n));
+  const railRightEl = ensureRail("rail-right", "rt-rail-right", (n) => surface.after(n));
+  railLeftEl.hidden = true;
+  railRightEl.hidden = true;
+
+  /* The rail's owning component (controls.js / assist-sidebar.js) reports open
+     / collapse through onToggle; this just shows the rail and remembers it.
+     The corner buttons and the startup restore drive the component directly,
+     so this only ever runs as a one-way sync and never loops back. */
+  function syncRail(side, open) {
+    const el = side === "left" ? railLeftEl : railRightEl;
+    el.hidden = !open;
+    if (side === "left") askToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    const key = side === "left" ? "railLeft" : "railRight";
+    if (readerUi[key] !== !!open) {
+      // Keep the authoritative copy here and persist the whole object — two
+      // quick toggles must not race on a read-modify-write inside settings.js.
+      readerUi = { ...readerUi, [key]: !!open };
+      saveReaderUi(readerUi);
+    }
+  }
   let memory = { scroll: 0, highlights: [] };
   let saveTimer = 0;
   let autoRAF = 0;
@@ -51,8 +89,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       ? {
           kind: "info",
           message: piperVoiceNeedsDownload(ttsConfig.piperVoice)
-            ? "Your local voice is selected. Press Listen to prepare the one-time download."
-            : "Your local voice is built in. Press Listen to start.",
+            ? "Your local voice is selected. Start read-aloud to prepare the one-time download."
+            : "Your local voice is built in. Start read-aloud to begin.",
           percent: null,
         }
       : { kind: "", message: "", percent: null };
@@ -91,13 +129,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       syncReadAlong(st.index);
       transport.setPlaying(st.playing);
       transport.setProgress(st.total ? st.index / st.total : 0, `${st.index + 1} / ${st.total}`);
-      /* The header button reads Pause / Resume from this — but setActions()
-         rebuilds the button, so doing it on every sentence transition would
-         take focus off Pause from under a keyboard user mid-paragraph. Only
-         when the label would actually change. */
+      /* The voice orb mirrors play / pause — only repaint it when that state
+         actually flips, not on every sentence transition. */
       if (st.playing !== lastAloudPlaying) {
         lastAloudPlaying = st.playing;
-        syncHeaderActions();
+        syncVoiceOrb();
       }
       if (st.done) {
         clearReadAlong();
@@ -163,6 +199,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     assistant,
     speak: speakDucked,
     onError: (m) => toast(m),
+    mountEl: railLeftEl,
+    onToggle: (open) => syncRail("left", open),
   });
 
   const transport = createTransport({
@@ -189,50 +227,59 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
   });
 
-  const controls = buildControls(profile, change);
-  document.body.append(controls.toggle, controls.panel);
-
   let lastAloudPlaying = null;
 
-  function syncHeaderActions() {
-    if (typeof view.setActions !== "function") return;
-    view.setActions([
-      {
-        /* Reading aloud is a thing you pause, not a thing you abandon: stopping
-           throws away your place, and this button is the one most people reach
-           for mid-paragraph. Stop still lives on the transport bar. */
-        label:
-          profile.pacing !== "aloud"
-            ? "Listen here"
-            : tts && tts.isPlaying()
-              ? "Pause"
-              : "Resume",
-        primary: profile.pacing === "aloud",
-        pressed: profile.pacing === "aloud" && !!tts && tts.isPlaying(),
-        title:
-          profile.pacing !== "aloud"
-            ? "Start from the sentence near the middle of the page. While listening, click any sentence to jump there."
-            : tts && tts.isPlaying()
-              ? "Pause read-aloud and keep your place."
-              : "Carry on from where you paused.",
-        onClick: () => {
-          if (profile.pacing !== "aloud") {
-            startAloudAt(currentSentenceIndex(), { preserveScroll: true });
-          } else if (tts) {
-            tts.toggle();
-            syncTransport();
-            lastAloudPlaying = tts.isPlaying();
-            syncHeaderActions();
-          }
-        },
-      },
-      {
-        label: "Summary",
-        title:
-          "Key points for this article before you commit to it. Runs on your device where it can, otherwise through ReadTune's free AI helper. To rewrite one passage in plainer words, select it and use the Simplify button that appears.",
-        onClick: () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()),
-      },
-    ]);
+  /* The chrome controls sit visually at the page edges but go FIRST in the
+     DOM, so a keyboard user reaches them before tabbing the whole article. */
+  const chrome_ = document.createElement("div");
+  chrome_.className = "rt-reader-chrome";
+
+  const controls = buildControls(profile, change, { onToggle: (open) => syncRail("right", open) });
+  controls.toggle.textContent = "";
+  controls.toggle.append(railGlyph("settings"), document.createTextNode("Reading settings"));
+  railRightEl.append(controls.panel);
+
+  /* Left rail opener — icon first, then a short label. (A dyslexic reader
+     spots the mark faster than the word, so the icon leads.) */
+  const askToggle = document.createElement("button");
+  askToggle.type = "button";
+  askToggle.className = "rt-rail-open rt-rail-open-left";
+  askToggle.setAttribute("aria-controls", "rail-left");
+  askToggle.setAttribute("aria-expanded", "false");
+  askToggle.append(railGlyph("spark"), document.createTextNode("Ask AI"));
+  askToggle.addEventListener("click", () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()));
+
+  /* Floating "listen from here" control. Icon only — no text label. Starts
+     read-aloud at the reader's scroll position, then mirrors play / pause. */
+  const orb = document.createElement("button");
+  orb.type = "button";
+  orb.className = "rt-voice-orb";
+  orb.addEventListener("click", () => {
+    if (profile.pacing !== "aloud") {
+      startAloudAt(currentSentenceIndex(), { preserveScroll: true });
+    } else if (tts) {
+      tts.toggle();
+      syncTransport();
+      lastAloudPlaying = tts.isPlaying();
+      syncVoiceOrb();
+    }
+  });
+
+  chrome_.append(askToggle, controls.toggle, orb);
+  document.body.prepend(chrome_);
+
+  function syncVoiceOrb() {
+    // RSVP and one-sentence pacing run their own flow — the orb only makes
+    // sense for scroll reading and read-aloud.
+    const show = profile.pacing !== "word" && profile.pacing !== "sentence";
+    orb.hidden = !show;
+    if (!show) return;
+    const playing = profile.pacing === "aloud" && !!tts && tts.isPlaying();
+    orb.setAttribute("aria-label", playing ? "Pause read-aloud" : "Listen from here");
+    orb.title = playing
+      ? "Pause read-aloud and keep your place."
+      : "Read aloud from the sentence near the middle of the page. While listening, click any sentence to jump there.";
+    orb.replaceChildren(voiceIcon(playing ? "pause" : "play"));
   }
 
   function sentenceIndexFromNode(node) {
@@ -310,7 +357,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       tts.start(next);
       syncReadAlong(next);
       syncTransport();
-      syncHeaderActions();
+      syncVoiceOrb();
       return;
     }
     change({ pacing: "aloud" });
@@ -449,8 +496,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
         ? {
             kind: "info",
             message: piperVoiceNeedsDownload(ttsConfig && ttsConfig.piperVoice)
-              ? "Your local voice is selected. Press Listen to prepare the one-time download."
-              : "Your local voice is selected and built in. Press Listen to start.",
+              ? "Your local voice is selected. Start read-aloud to prepare the one-time download."
+              : "Your local voice is selected and built in. Start read-aloud to begin.",
             percent: null,
           }
         : { kind: "", message: "", percent: null };
@@ -585,7 +632,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     controls.sync(p);
     if (tts) tts.setRate(p.ttsRate);
     syncTransport();
-    syncHeaderActions();
+    syncVoiceOrb();
   }
 
   function change(patch) {
@@ -629,12 +676,17 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       preserveScrollOnPacingChange = false;
     }
     syncTransport();
-    syncHeaderActions();
+    syncVoiceOrb();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveProfile(patch), 200);
   }
 
   applyAll(profile);
+
+  // reopen the settings rail if it was left expanded. The Ask AI rail isn't
+  // auto-reopened — open() runs a summary, and re-summarising every article
+  // you open just because the rail was left expanded is a surprising cost.
+  if (readerUi.railRight) controls.open({ focus: false });
 
   // restore per-page memory
   if (pageUrl) {
@@ -679,11 +731,59 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       clearTimeout(seekTimer);
       document.removeEventListener("keydown", onKeyDown);
       view.getFlowEl().removeEventListener("click", onFlowClick);
-      controls.toggle.remove();
+      chrome_.remove();
       controls.panel.remove();
+      document.body.classList.remove("rt-shell");
       view.destroy();
     },
   };
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+/** Line icon (stroke, currentColor). `fill` paths are opt-in per entry as
+    `{ d, fill: true }`. */
+function svg(paths, size = 16) {
+  const node = document.createElementNS(SVG_NS, "svg");
+  node.setAttribute("viewBox", "0 0 24 24");
+  node.setAttribute("width", String(size));
+  node.setAttribute("height", String(size));
+  node.setAttribute("aria-hidden", "true");
+  for (const spec of Array.isArray(paths) ? paths : [paths]) {
+    const { d, fill } = typeof spec === "string" ? { d: spec, fill: false } : spec;
+    const p = document.createElementNS(SVG_NS, "path");
+    p.setAttribute("d", d);
+    if (fill) {
+      p.setAttribute("fill", "currentColor");
+    } else {
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", "currentColor");
+      p.setAttribute("stroke-width", "2");
+      p.setAttribute("stroke-linecap", "round");
+      p.setAttribute("stroke-linejoin", "round");
+    }
+    node.append(p);
+  }
+  return node;
+}
+
+/** Small mark for the two rail-opener buttons. */
+function railGlyph(kind) {
+  if (kind === "spark") {
+    // a four-point sparkle
+    return svg({ d: "M12 3c.6 3.6 1.8 4.8 5.4 5.4C13.8 9 12.6 10.2 12 13.8 11.4 10.2 10.2 9 6.6 8.4 10.2 7.8 11.4 6.6 12 3z", fill: true }, 15);
+  }
+  // settings: three sliders
+  return svg(["M5 8h9M17 8h2M5 16h2M11 16h8", "M14 6v4M8 14v4"], 15);
+}
+
+/** Play / pause icon for the floating voice orb. */
+function voiceIcon(state) {
+  return svg(
+    state === "pause"
+      ? [{ d: "M8 5h3v14H8zM13 5h3v14h-3z", fill: true }]
+      : [{ d: "M8 5l11 7-11 7z", fill: true }],
+    22,
+  );
 }
 
 /** Small transient status line (read-aloud fell back, key rejected, …). */
