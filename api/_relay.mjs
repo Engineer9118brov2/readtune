@@ -80,9 +80,12 @@ export function providersFromEnv(env = {}) {
   ].filter(Boolean);
 }
 
+const DEFAULT_MAX_TOKENS = 400;
+
 /* One provider call. Throws an Error with a numeric `.status` on any failure
-   so the caller can decide whether to fall through or surface it. */
-export async function callChat(provider, system, user, fetchImpl = fetch) {
+   so the caller can decide whether to fall through or surface it. `maxTokens`
+   lets Ask ask for a longer answer than a Summary needs. */
+export async function callChat(provider, system, user, fetchImpl = fetch, maxTokens = DEFAULT_MAX_TOKENS) {
   const { signal, cancel } = timeoutSignal(UPSTREAM_TIMEOUT_MS);
   let res;
   try {
@@ -103,7 +106,7 @@ export async function callChat(provider, system, user, fetchImpl = fetch) {
           { role: "user", content: user },
         ],
         temperature: 0.3,
-        max_tokens: 400,
+        max_tokens: maxTokens,
       }),
     });
   } catch (e) {
@@ -141,7 +144,7 @@ export async function callChat(provider, system, user, fetchImpl = fetch) {
 /* Walk the provider list, returning the first success. If every provider
    fails, throw the last error (so its `.status` propagates). With no
    providers configured at all, that's a 503 "not set up yet". */
-export async function relayChat(providers, system, user, fetchImpl = fetch) {
+export async function relayChat(providers, system, user, fetchImpl = fetch, maxTokens = DEFAULT_MAX_TOKENS) {
   if (!providers.length) {
     const err = new Error("The AI helper isn't set up yet.");
     err.status = 503;
@@ -150,7 +153,7 @@ export async function relayChat(providers, system, user, fetchImpl = fetch) {
   let lastErr;
   for (const provider of providers) {
     try {
-      return await callChat(provider, system, user, fetchImpl);
+      return await callChat(provider, system, user, fetchImpl, maxTokens);
     } catch (e) {
       lastErr = e;
       // Stop only for a status that means *this request* is bad and every

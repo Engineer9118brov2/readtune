@@ -1589,6 +1589,25 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       try { await A.createAssistant({}).simplify(""); } catch { threw2 = true; }
       assert(threw2, "simplify with an empty selection is rejected before any network call");
 
+      // Ask: freeform question about the article, through the same relay
+      let askBody = null;
+      self.fetch = async (url, opts) => {
+        askBody = JSON.parse(opts.body);
+        assert(String(url).includes("/api/assist"), "Ask goes through ReadTune's own relay");
+        return { ok: true, json: async () => ({ text: "ANSWER", cached: false }) };
+      };
+      const askOut = await A.createAssistant({
+        getArticleText: () => "Tide pools shelter crabs and anemones between the tides.",
+      }).ask("  Which animals live there?  ");
+      assert(askOut.text === "ANSWER", "ask() resolves with the relay's answer");
+      assert(
+        askBody.kind === "ask" && askBody.question === "Which animals live there?" && /tide pools/i.test(askBody.text),
+        "the ask request carries kind:'ask', the trimmed question, and the article as context",
+      );
+      let askEmpty = false;
+      try { await A.createAssistant({ getArticleText: () => "x" }).ask("   "); } catch { askEmpty = true; }
+      assert(askEmpty, "ask() with a blank question is rejected before any network call");
+
       // a cancelled on-device request rejects AS an abort — never remapped to
       // a network error, so the UI's signal.aborted check keeps it quiet
       const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
@@ -1741,6 +1760,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       await new Promise((r) => setTimeout(r, 0));
       sidebar3.destroy();
 
+      // the Ask AI composer: a typed question runs assistant.ask and renders
+      // the question + answer + a Play button
+      setAI({});
+      self.fetch = async (url, opts) => {
+        const b = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ text: b.kind === "ask" ? `A: ${b.question}` : "SUMMARY", cached: false }) };
+      };
+      const sidebar4 = ASB.createAssistSidebar({
+        assistant: A.createAssistant({ getArticleText: () => "Article about tide pools and the animals in them." }),
+        speak: async () => {},
+      });
+      await sidebar4.open();
+      await new Promise((r) => setTimeout(r, 0));
+      const panel4 = document.querySelector(".rt-assist-sidebar");
+      const composer = panel4.querySelector(".rt-assist-input");
+      const sendBtn = panel4.querySelector(".rt-assist-send");
+      assert(composer && sendBtn && panel4.querySelectorAll(".rt-assist-chip").length === 3,
+        "the Ask AI rail has a question box, a send button, and quick-ask chips");
+      composer.value = "What lives in a tide pool?";
+      sendBtn.click();
+      await new Promise((r) => setTimeout(r, 10));
+      assert(/What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-q").textContent),
+        "the rail echoes the question the reader asked");
+      assert(/A: What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-result").textContent),
+        "the rail shows the answer to a typed question");
+      assert(composer.value === "" && !!panel4.querySelector(".rt-assist-play"),
+        "the box clears after asking and the answer gets a Play button");
+      sidebar4.destroy();
+
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();
@@ -1822,6 +1870,13 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       !sentBody.models.includes("openai/gpt-oss-120b"),
       "callChat sends model + a fallback list that doesn't repeat the primary");
     assert(sentBody.provider && sentBody.provider.zdr === true, "callChat asks OpenRouter for zero-data-retention routing");
+    assert(sentBody.max_tokens === 400, "callChat defaults to a short answer budget");
+    let askSent = null;
+    await R.callChat(or, "s", "u", async (_url, opts) => {
+      askSent = JSON.parse(opts.body);
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "hi" } }] }) };
+    }, 800);
+    assert(askSent.max_tokens === 800, "callChat honours a larger max_tokens (Ask needs room for a real answer)");
     // Pinning a single model via env drops the fallback list.
     const pinned = R.providersFromEnv({ OPENROUTER_API_KEY: "b", OPENROUTER_MODEL: "x/y" })[0];
     assert(pinned.model === "x/y" && !pinned.models, "OPENROUTER_MODEL pins one model and drops the fallback list");

@@ -35,10 +35,33 @@ const CLOUD_URL = "https://readtune.tech/api/assist";
 
 const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutError");
 
-/* Cloud relay is disclosed (privacy.html / PRIVACY.md) as a Summary-only path.
-   Simplify stays on-device-only until its own cloud migration is built and
-   disclosed — see docs/ASSIST.md. */
-const CLOUD_KINDS = new Set(["summary"]);
+// Ceilings so a stalled model / connection turns into a logged failure instead
+// of a permanent "Reading the article…" spinner.
+const ON_DEVICE_TIMEOUT_MS = 15000;
+const CLOUD_TIMEOUT_MS = 30000;
+
+/** Reject with a tagged error if `promise` doesn't settle within `ms`. */
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_res, rej) => {
+    timer = setTimeout(() => {
+      const e = new Error(`${label} timed out after ${Math.round(ms / 1000)}s`);
+      e.name = "AssistTimeout";
+      e.timedOut = true;
+      rej(e);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+const now = () =>
+  (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());
+
+/* Which kinds may use ReadTune's cloud relay — disclosed in privacy.html /
+   PRIVACY.md. Summary and Ask send the article text (Ask also sends the
+   reader's typed question); Simplify stays on-device-only until its own cloud
+   path is built and disclosed — see docs/ASSIST.md. */
+const CLOUD_KINDS = new Set(["summary", "ask"]);
 
 /* Never forward a query string or fragment to the relay — a URL can carry a
    session token or other identifying junk. The relay re-normalizes on receipt
@@ -57,6 +80,10 @@ function sanitizeUrl(url) {
    matches the cap the cloud relay re-enforces server-side. */
 const MAX_SUMMARY_INPUT = 12000;
 const MAX_SIMPLIFY_INPUT = 2400;
+/* Ask sends the article as context alongside the question — a tighter cap than
+   Summary so a huge page plus the Q still fits the model's window. */
+const MAX_ASK_CONTEXT = 9000;
+const MAX_ASK_QUESTION = 500;
 
 const SIMPLIFY_SYSTEM =
   "You rewrite a passage in plain language for a reader who finds dense text hard to follow. " +
@@ -67,6 +94,11 @@ const SIMPLIFY_SYSTEM =
 const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
   "Three to five short plain lines, each a single idea, no preamble. Only what the text says.";
+
+const ASK_SYSTEM =
+  "You answer a reader's question about an article they are reading. Use the article as your main source and stay close to what it says. " +
+  "If the article does not address the question, say that plainly first, then answer briefly from general knowledge and mark that part as outside the article. " +
+  "Short paragraphs, plain words, no preamble. Do not claim to have read anything the reader did not give you.";
 
 /* ---------- on-device: Chrome built-in AI (opportunistic only) ---------- */
 
@@ -119,31 +151,56 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, url, signal) {
+async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}) {
+  if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+  // Our own abort timer, kept separate from the caller's signal so a timeout
+  // reads as a timeout in the log and not as "the reader cancelled".
+  const timer = new AbortController();
+  const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
+  const onCallerAbort = () => timer.abort();
+  if (signal) signal.addEventListener("abort", onCallerAbort, { once: true });
+  const started = now();
+  log(`cloud → POST ${CLOUD_URL} (kind=${kind}${question ? ", +question" : ""}, ${text.length} chars)`);
   let res;
   try {
     res = await fetch(CLOUD_URL, {
       method: "POST",
-      signal,
+      signal: timer.signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind, text, url }),
+      body: JSON.stringify(question ? { kind, text, url, question } : { kind, text, url }),
     });
   } catch (e) {
-    if (isAbort(e)) throw e;
+    clearTimeout(to);
+    if (signal && signal.aborted) throw e; // the reader really did cancel
+    if (isAbort(e)) {
+      log(`cloud ✗ no response in ${CLOUD_TIMEOUT_MS / 1000}s (${Math.round(now() - started)}ms elapsed)`);
+      throw new Error(`The AI helper didn't respond within ${CLOUD_TIMEOUT_MS / 1000}s.`);
+    }
+    log(`cloud ✗ fetch threw: ${(e && e.message) || e}`);
     throw new Error("Couldn't reach the AI helper. Check your connection.");
+  } finally {
+    if (signal) signal.removeEventListener("abort", onCallerAbort);
   }
+  clearTimeout(to);
+  log(`cloud ← HTTP ${res.status} in ${Math.round(now() - started)}ms`);
   let data = {};
   try {
     data = await res.json();
   } catch (e) {
     if (isAbort(e)) throw e; // cancelled mid-read, not a bad response — don't report it as one
+    log(`cloud ✗ response body was not JSON`);
   }
   if (!res.ok) {
+    log(`cloud ✗ error body: ${JSON.stringify(data).slice(0, 200)}`);
     if (res.status === 429) throw new Error("The AI helper is busy right now. Try again in a bit.");
     throw new Error((data && data.error) || `The AI helper couldn't handle that (${res.status}).`);
   }
   const text_ = data && data.text;
-  if (!text_) throw new Error("The AI helper returned nothing usable.");
+  if (!text_) {
+    log(`cloud ✗ 200 OK but no text field`);
+    throw new Error("The AI helper returned nothing usable.");
+  }
+  log(`cloud ✓ ${text_.length} chars${data.cached ? " (cached)" : ""}`);
   return text_;
 }
 
@@ -164,68 +221,86 @@ const clip = (s, n) => {
  * @param {() => string}  [opts.getArticleUrl] the article's URL, for cache keying server-side
  */
 export function createAssistant({ getArticleText = () => "", getArticleUrl = () => "" } = {}) {
-  async function run({ kind, text, onProgress, signal }) {
+  async function run({ kind, text, question = "", onProgress, onLog, signal }) {
+    const log = typeof onLog === "function" ? (m) => onLog(m) : () => {};
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
     // 1 — on-device, but only when it's already ready. No `.create()` call
     // here ever triggers a download: every status checked below is either
     // "available" (use it) or something else (skip straight to the cloud).
     const status = await onDeviceStatus();
+    log(`on-device: summarizer=${status.summarizer} rewriter=${status.rewriter} prompt=${status.prompt}`);
     const make = async (name, opts) => {
       const API = globalApi(name);
       if (!API) return null;
       try {
         return await API.create(opts);
-      } catch {
+      } catch (e) {
+        log(`on-device ${name}.create() failed: ${(e && e.message) || e}`);
         return null; // ready a moment ago, not ready now — fall through
       }
     };
-    if (kind === "summary" && status.summarizer === "available") {
-      const s = await make("Summarizer", { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM });
-      if (s) {
-        try {
-          return await s.summarize(text, { context: "Deciding whether to read this.", signal });
-        } finally {
-          safeDestroy(s);
-        }
+    // Try an on-device engine; return its text, or null to fall through to the
+    // cloud. A timeout or a mid-flight failure is logged and falls through —
+    // never a permanent hang.
+    const tryEngine = async (name, factoryOpts, invoke) => {
+      const inst = await make(name, factoryOpts);
+      if (!inst) return null;
+      const t0 = now();
+      try {
+        const out = await withTimeout(invoke(inst), ON_DEVICE_TIMEOUT_MS, `on-device ${name}`);
+        log(`on-device ${name} ✓ ${String(out).length} chars in ${Math.round(now() - t0)}ms`);
+        return out;
+      } catch (e) {
+        if (isAbort(e) && signal && signal.aborted) throw e;
+        log(`on-device ${name} ✗ ${(e && e.message) || e} — falling back`);
+        return null;
+      } finally {
+        safeDestroy(inst);
       }
-    }
-    if (kind === "simplify" && status.rewriter === "available") {
-      const r = await make("Rewriter", { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM });
-      if (r) {
-        try {
-          return await r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal });
-        } finally {
-          safeDestroy(r);
-        }
-      }
-    }
-    if (status.prompt === "available") {
-      const lm = await make("LanguageModel", {
-        initialPrompts: [{ role: "system", content: kind === "summary" ? SUMMARY_SYSTEM : SIMPLIFY_SYSTEM }],
-      });
-      if (lm) {
-        try {
-          const ask =
-            kind === "summary"
-              ? `Main points of this article:\n\n${text}`
-              : `Rewrite this passage in plain language:\n\n${text}`;
-          return await lm.prompt(ask, { signal });
-        } finally {
-          safeDestroy(lm);
-        }
-      }
-    }
+    };
 
-    // 2 — ReadTune's cloud relay, Summary only (see CLOUD_KINDS above).
+    let out = null;
+    if (kind === "summary" && status.summarizer === "available") {
+      out = await tryEngine(
+        "Summarizer",
+        { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM },
+        (s) => s.summarize(text, { context: "Deciding whether to read this.", signal }),
+      );
+    }
+    if (out == null && kind === "simplify" && status.rewriter === "available") {
+      out = await tryEngine(
+        "Rewriter",
+        { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM },
+        (r) => r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal }),
+      );
+    }
+    if (out == null && status.prompt === "available") {
+      const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
+      const ask =
+        kind === "summary"
+          ? `Main points of this article:\n\n${text}`
+          : kind === "ask"
+            ? `Article:\n\n${text}\n\nReader's question: ${question}`
+            : `Rewrite this passage in plain language:\n\n${text}`;
+      out = await tryEngine(
+        "LanguageModel",
+        { initialPrompts: [{ role: "system", content: system }] },
+        (lm) => lm.prompt(ask, { signal }),
+      );
+    }
+    if (out != null) return out;
+
+    // 2 — ReadTune's cloud relay (Summary + Ask; see CLOUD_KINDS above).
     // Simplify has no cloud path yet: if on-device wasn't ready above, it
     // fails here rather than silently sending the reader's selection off
     // their device — that's not what ReadTune tells anyone it does today.
     if (!CLOUD_KINDS.has(kind)) {
+      log(`no on-device model for ${kind}, and it has no cloud path`);
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
     }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal);
+    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log);
   }
 
   return {
@@ -234,17 +309,27 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     /** Key points for the whole article (its opening, if it's long). Rejects on
         failure — including an AbortError when the caller cancels — for the UI to
         present; nothing is reported here. */
-    async summarize({ onProgress, signal } = {}) {
+    async summarize({ onProgress, onLog, signal } = {}) {
       const { text, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
       if (!text) throw new Error("There's no article text to summarize.");
-      return { text: await run({ kind: "summary", text, onProgress, signal }), clipped };
+      return { text: await run({ kind: "summary", text, onProgress, onLog, signal }), clipped };
     },
 
     /** Plain-language rewrite of a passage the reader selected. */
-    async simplify(passage, { onProgress, signal } = {}) {
+    async simplify(passage, { onProgress, onLog, signal } = {}) {
       const { text, clipped } = clip(passage, MAX_SIMPLIFY_INPUT);
       if (!text) throw new Error("Select a sentence or paragraph first.");
-      return { text: await run({ kind: "simplify", text, onProgress, signal }), clipped };
+      return { text: await run({ kind: "simplify", text, onProgress, onLog, signal }), clipped };
+    },
+
+    /** Freeform question about the current article. The article is sent as
+        context alongside the question — see ASK_SYSTEM for the guardrails. */
+    async ask(question, { onProgress, onLog, signal } = {}) {
+      const q = String(question || "").replace(/\s+/g, " ").trim().slice(0, MAX_ASK_QUESTION);
+      if (!q) throw new Error("Type a question first.");
+      const { text, clipped } = clip(getArticleText(), MAX_ASK_CONTEXT);
+      if (!text) throw new Error("There's no article text to ask about.");
+      return { text: await run({ kind: "ask", text, question: q, onProgress, onLog, signal }), clipped };
     },
   };
 }

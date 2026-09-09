@@ -6,12 +6,29 @@
  * Escape. Reading keeps working alongside it — it isn't a dialog and it does
  * NOT close when you click the article.
  *
- * Key points for the article, a Play button that reads them aloud through the
- * same voice as everything else in ReadTune (no separate audio system), and the
- * same honest working/fail states as the Simplify card.
+ * On open it summarises the article; a composer at the bottom takes freeform
+ * questions about it (assistant.ask). Every answer gets a Play button that
+ * reads it aloud through the same voice as everything else in ReadTune, and
+ * the same honest working / fail states as the Simplify card.
+ *
+ * A collapsible "Diagnostics" panel at the bottom records what each request
+ * did (which path, HTTP status, timings, why it failed) with a Copy button —
+ * so a stuck request can be reported instead of just spinning.
  */
 
 import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-render.js";
+
+const CHIPS = [
+  { label: "Summarise", run: (a, opts) => a.summarize(opts) },
+  {
+    label: "Key terms",
+    run: (a, opts) => a.ask("What are the key terms, names or numbers in this article, and what does each mean?", opts),
+  },
+  {
+    label: "Explain simply",
+    run: (a, opts) => a.ask("Explain what this article is about in plain language, for someone new to the topic.", opts),
+  },
+];
 
 /**
  * @param {object} opts
@@ -23,7 +40,11 @@ import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-r
  */
 export function createAssistSidebar({ assistant, speak, onError = () => {}, mountEl = null, onToggle = null } = {}) {
   let panel = null;
-  let controller = null; // the open request (summarize)
+  let bodyEl = null;
+  let diagPre = null;
+  let diagWrap = null;
+  let logs = [];
+  let controller = null; // the active request (summary or a question)
   let speakController = null; // a separate, shorter-lived one for Play/Stop
   let lastFocus = null;
 
@@ -47,6 +68,9 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     stop();
     if (panel) panel.remove();
     panel = null;
+    bodyEl = null;
+    diagPre = null;
+    diagWrap = null;
     document.removeEventListener("keydown", onKey, true);
     if (restoreFocus && lastFocus && document.contains(lastFocus) && typeof lastFocus.focus === "function") {
       lastFocus.focus({ preventScroll: true });
@@ -58,20 +82,80 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     if (e.key === "Escape") { e.stopPropagation(); close(); }
   }
 
+  const stamp = () => new Date().toLocaleTimeString([], { hour12: false }) + "." + String(Date.now() % 1000).padStart(3, "0");
+  function pushLog(msg) {
+    logs.push(`${stamp()}  ${msg}`);
+    if (diagPre) diagPre.textContent = logs.join("\n");
+    if (diagWrap) diagWrap.hidden = false;
+  }
+  function resetLog(header) {
+    logs = [];
+    pushLog(header);
+    pushLog(`online=${typeof navigator !== "undefined" ? navigator.onLine : "?"}  ua=${(typeof navigator !== "undefined" && navigator.userAgent || "").slice(0, 80)}`);
+  }
+
   function mount() {
     const opener = document.activeElement;
     close(false);
     lastFocus = opener && opener !== document.body && document.contains(opener) ? opener : null;
-    controller = new AbortController();
 
     const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Collapse" }, "×");
     closeBtn.addEventListener("click", () => close());
 
-    const body = el("div", { class: "rt-assist-body", "aria-live": "polite", "aria-busy": "true" });
+    bodyEl = el("div", { class: "rt-assist-body", "aria-live": "polite", "aria-busy": "true" });
+
+    const input = el("textarea", {
+      class: "rt-assist-input",
+      rows: "2",
+      "aria-label": "Ask a question about this article",
+      placeholder: "Ask about this article…",
+    });
+    const send = el("button", { type: "button", class: "rt-assist-send", "aria-label": "Ask" }, "↑");
+    const submit = () => {
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = "";
+      runTask("ask", q, (a, opts) => a.ask(q, opts));
+    };
+    send.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+    });
+    const composer = el("form", { class: "rt-assist-composer" }, [input, send]);
+    composer.addEventListener("submit", (e) => e.preventDefault());
+
+    diagPre = el("pre", { class: "rt-assist-diag-log" });
+    const copyBtn = el("button", { type: "button", class: "rt-assist-btn" }, "Copy");
+    copyBtn.addEventListener("click", async () => {
+      const text = logs.join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = "Copied";
+        setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+      } catch {
+        // clipboard blocked — select the text so the reader can copy by hand
+        const r = document.createRange();
+        r.selectNodeContents(diagPre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+    });
+    diagWrap = el("details", { class: "rt-assist-diag", hidden: true }, [
+      el("summary", {}, "Diagnostics"),
+      diagPre,
+      el("div", { class: "rt-assist-actions" }, [copyBtn]),
+    ]);
+
     panel = el(
       "aside",
       { class: "rt-assist-sidebar", role: "complementary", "aria-label": "Ask AI about this article", tabindex: "-1" },
-      [el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Ask AI"), closeBtn]), body],
+      [
+        el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Ask AI"), closeBtn]),
+        bodyEl,
+        diagWrap,
+        composer,
+      ],
     );
     (mountEl || document.body).appendChild(panel);
     // Reveal the rail first — focusing a still-hidden element sends focus to
@@ -79,16 +163,16 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     if (onToggle) onToggle(true);
     panel.focus({ preventScroll: true });
     document.addEventListener("keydown", onKey, true);
-    return body;
   }
 
-  const fill = (body, ...kids) => {
-    body.replaceChildren(...kids);
-    body.setAttribute("aria-busy", "false");
+  const fill = (...kids) => {
+    if (!bodyEl) return;
+    bodyEl.replaceChildren(...kids);
+    bodyEl.setAttribute("aria-busy", "false");
   };
 
-  /** Toggles between reading the summary aloud and stopping — reuses the
-      exact voice read-aloud already uses elsewhere, not a new audio system. */
+  /** Toggles between reading the answer aloud and stopping — reuses the exact
+      voice read-aloud already uses elsewhere, not a new audio system. */
   function playButton(getText) {
     const btn = el("button", { type: "button", class: "rt-assist-btn rt-assist-play" }, "▶ Play");
     btn.addEventListener("click", async () => {
@@ -113,22 +197,55 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     return btn;
   }
 
-  async function open() {
-    const body = mount();
-    body.setAttribute("aria-busy", "true");
-    body.replaceChildren(...workingNodes("Reading the article…", close));
-    const signal = controller.signal;
+  function chipRow() {
+    return el(
+      "div",
+      { class: "rt-assist-chips", role: "group", "aria-label": "Quick asks" },
+      CHIPS.map((c) => {
+        const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
+        b.addEventListener("click", () =>
+          runTask(c.label === "Summarise" ? "summary" : "ask", null, c.run));
+        return b;
+      }),
+    );
+  }
+
+  /** Run one task (a chip or a typed question) into the answer area. `question`
+      is echoed above the answer when the reader typed one (null otherwise). */
+  async function runTask(kind, question, invoke) {
+    stopSpeaking();
+    if (controller) { try { controller.abort(); } catch {} }
+    controller = new AbortController();
+    const mine = controller;
+    resetLog(`${kind === "ask" ? "ask" : "summary"} requested${question ? `: "${question.slice(0, 120)}"` : ""}`);
+    fill(...workingNodes(kind === "ask" ? "Reading and thinking…" : "Reading the article…", () => close()));
+    bodyEl.setAttribute("aria-busy", "true");
+    const t0 = Date.now();
     try {
-      const { text, clipped } = await assistant.summarize({ signal });
-      if (signal.aborted) return;
-      const kids = [];
-      if (clipped) kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
+      const { text, clipped } = await invoke(assistant, { signal: mine.signal, onLog: pushLog });
+      if (mine.signal.aborted) return;
+      pushLog(`done in ${Date.now() - t0}ms → showing ${String(text).length} chars`);
+      const kids = [chipRow()];
+      if (question) kids.push(el("p", { class: "rt-assist-q" }, question));
+      if (clipped && kind !== "ask") kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
       kids.push(resultBlock(text), disclaimer());
       if (typeof speak === "function") kids.push(el("div", { class: "rt-assist-actions" }, [playButton(() => text)]));
-      fill(body, ...kids);
+      fill(...kids);
     } catch (err) {
-      if (!signal.aborted) fill(body, ...failNodes((err && err.message) || "The summary couldn't be generated.", open));
+      if (mine.signal.aborted) {
+        pushLog(`cancelled after ${Date.now() - t0}ms`);
+        return;
+      }
+      pushLog(`FAILED after ${Date.now() - t0}ms: ${(err && err.message) || err}`);
+      fill(...failNodes((err && err.message) || "That didn't work.", () => runTask(kind, question, invoke)));
+    } finally {
+      if (controller === mine) controller = null;
     }
+  }
+
+  function open() {
+    mount();
+    return runTask("summary", null, (a, opts) => a.summarize(opts));
   }
 
   return {
