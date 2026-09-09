@@ -39,6 +39,7 @@ const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutErr
 // of a permanent "Reading the article…" spinner.
 const ON_DEVICE_TIMEOUT_MS = 8000;
 const CLOUD_TIMEOUT_MS = 30000;
+const AVAILABILITY_TIMEOUT_MS = 500;
 // Chrome can report a built-in model as available while starting its session
 // still takes tens of seconds. Give the private path a brief head start, then
 // race the relay rather than making the reader wait through two serial stalls.
@@ -118,7 +119,10 @@ async function availabilityOf(name) {
   const A = globalApi(name);
   if (!A || typeof A.availability !== "function") return "unavailable";
   try {
-    return await A.availability();
+    return await Promise.race([
+      A.availability(),
+      new Promise((resolve) => setTimeout(() => resolve("unavailable"), AVAILABILITY_TIMEOUT_MS)),
+    ]);
   } catch {
     return "unavailable";
   }
@@ -234,12 +238,15 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         return null;
       }
     };
-    const tryEngine = async (name, factoryOpts, invoke) => {
+    // Try an on-device engine; return its text, or null to fall through to the
+    // cloud. A timeout or a mid-flight failure is logged and falls through —
+    // never a permanent hang.
+    const tryEngine = async (name, factoryOpts, invoke, engineSignal = signal) => {
       const inst = await make(name, factoryOpts);
       if (!inst) return null;
       const t0 = now();
       try {
-        const out = await withTimeout(invoke(inst), ON_DEVICE_TIMEOUT_MS, `on-device ${name}`);
+        const out = await withTimeout(invoke(inst, engineSignal), ON_DEVICE_TIMEOUT_MS, `on-device ${name}`);
         log(`on-device ${name} ✓ ${String(out).length} chars in ${Math.round(now() - t0)}ms`);
         return out;
       } catch (e) {
@@ -251,20 +258,22 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       }
     };
 
-    const runOnDevice = async () => {
+    const runOnDevice = async (engineSignal = signal) => {
       let out = null;
       if (kind === "summary" && status.summarizer === "available") {
         out = await tryEngine(
           "Summarizer",
           { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM },
-          (s) => s.summarize(text, { context: "Deciding whether to read this.", signal }),
+          (s, activeSignal) => s.summarize(text, { context: "Deciding whether to read this.", signal: activeSignal }),
+          engineSignal,
         );
       }
       if (out == null && kind === "simplify" && status.rewriter === "available") {
         out = await tryEngine(
           "Rewriter",
           { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM },
-          (r) => r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal }),
+          (r, activeSignal) => r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal: activeSignal }),
+          engineSignal,
         );
       }
       if (out == null && status.prompt === "available") {
@@ -278,7 +287,8 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         out = await tryEngine(
           "LanguageModel",
           { initialPrompts: [{ role: "system", content: system }] },
-          (lm) => lm.prompt(ask, { signal }),
+          (lm, activeSignal) => lm.prompt(ask, { signal: activeSignal }),
+          engineSignal,
         );
       }
       if (out == null) throw new Error("No on-device result");
@@ -291,21 +301,33 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       status.prompt === "available";
 
     if (hasLocal && CLOUD_KINDS.has(kind)) {
+      const localController = new AbortController();
+      const cloudController = new AbortController();
+      const abortBranches = () => {
+        localController.abort();
+        cloudController.abort();
+      };
+      if (signal) signal.addEventListener("abort", abortBranches, { once: true });
       let hedgeTimer;
       const cloudAfterHeadStart = new Promise((resolve, reject) => {
         hedgeTimer = setTimeout(() => {
           if (onProgress) onProgress({ phase: "cloud" });
-          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log).then(resolve, reject);
+          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log).then(resolve, reject);
         }, CLOUD_HEDGE_MS);
-        if (signal) signal.addEventListener("abort", () => { clearTimeout(hedgeTimer); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
+        cloudController.signal.addEventListener("abort", () => {
+          clearTimeout(hedgeTimer);
+          reject(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
       });
       try {
-        const result = await Promise.any([runOnDevice(), cloudAfterHeadStart]);
-        clearTimeout(hedgeTimer);
-        return result;
+        return await Promise.any([runOnDevice(localController.signal), cloudAfterHeadStart]);
       } catch (e) {
         if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
         throw (e && e.errors && e.errors[e.errors.length - 1]) || e;
+      } finally {
+        clearTimeout(hedgeTimer);
+        abortBranches();
+        if (signal) signal.removeEventListener("abort", abortBranches);
       }
     }
     if (hasLocal) return await runOnDevice();

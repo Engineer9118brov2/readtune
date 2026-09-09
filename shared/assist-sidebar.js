@@ -169,12 +169,6 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     document.addEventListener("keydown", onKey, true);
   }
 
-  const fill = (...kids) => {
-    if (!bodyEl) return;
-    bodyEl.replaceChildren(...kids);
-    bodyEl.setAttribute("aria-busy", "false");
-  };
-
   /** Toggles between reading the answer aloud and stopping — reuses the exact
       voice read-aloud already uses elsewhere, not a new audio system. */
   function playButton(getText) {
@@ -208,7 +202,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       CHIPS.map((c) => {
         const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
         b.addEventListener("click", () =>
-          runTask(c.label === "Summarise" ? "summary" : "ask", null, c.run));
+          runTask(c.label === "Summarise" ? "summary" : "ask", c.label, c.run));
         return b;
       }),
     );
@@ -216,13 +210,13 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
 
   /** Run one task (a chip or a typed question) into the answer area. `question`
       is echoed above the answer when the reader typed one (null otherwise). */
-  async function runTask(kind, question, invoke) {
+  async function runTask(kind, question, invoke, echoQuestion = true) {
     stopSpeaking();
     if (controller) { try { controller.abort(); } catch {} }
     controller = new AbortController();
     const mine = controller;
     resetLog(`${kind === "ask" ? "ask" : "summary"} requested${question ? `: "${question.slice(0, 120)}"` : ""}`);
-    if (question) bodyEl.append(el("div", { class: "rt-chat-row rt-chat-row-user" }, [el("p", { class: "rt-assist-q" }, question)]));
+    if (question && echoQuestion) bodyEl.append(el("div", { class: "rt-chat-row rt-chat-row-user" }, [el("p", { class: "rt-assist-q" }, question)]));
     const pending = el("div", { class: "rt-chat-row rt-chat-row-ai rt-chat-pending" },
       workingNodes(kind === "ask" ? "Thinking…" : "Making a quick summary…", () => stop()));
     bodyEl.append(pending);
@@ -244,11 +238,12 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     } catch (err) {
       if (mine.signal.aborted) {
         pushLog(`cancelled after ${Date.now() - t0}ms`);
+        pending.remove();
         return;
       }
       pushLog(`FAILED after ${Date.now() - t0}ms: ${(err && err.message) || err}`);
       pending.className = "rt-chat-row rt-chat-row-ai rt-chat-error";
-      pending.replaceChildren(...failNodes((err && err.message) || "That didn't work.", () => runTask(kind, question, invoke)));
+      pending.replaceChildren(...failNodes((err && err.message) || "That didn't work.", () => runTask(kind, question, invoke, false)));
       bodyEl.setAttribute("aria-busy", "false");
     } finally {
       if (controller === mine) controller = null;
