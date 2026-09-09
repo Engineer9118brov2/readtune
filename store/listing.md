@@ -12,13 +12,13 @@ here. The extension ID (draft) is `elcekcoadkgmdjboaflcbcbebghpgpn`.
    word-lookup and line-tint additions, and the optional on-device AI helpers).
 3. The **screenshots** in `store/assets/` predate most of the current UI —
    re-shoot (suggested set is under "Graphic assets").
-4. Upload `readtune-0.9.3.zip` (`npm run build`).
+4. Upload `readtune-0.9.4.zip` (`npm run build`).
 
 ---
 
 # Build tab → Package
 
-- Upload `readtune-0.9.3.zip` (run `npm run build`). ~60 MB — the bundled
+- Upload `readtune-0.9.4.zip` (run `npm run build`). ~60 MB — the bundled
   public-domain Piper voice is most of it; this is expected and allowed.
 - "Verified CRX uploads": optional. Fine to skip for now.
 
