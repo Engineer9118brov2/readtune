@@ -9,18 +9,23 @@ the plan to get past that — after ReadTune is on the Chrome Web Store.
 
 An IT admin evaluating an extension checks, roughly in order:
 
-1. **Does it collect student data / PII?** ReadTune has no accounts, no server,
-   no analytics. Everything is stored in `chrome.storage.local` on the device.
-   There is no data collection to review — which is the fastest possible answer.
+1. **Does it collect student data / PII?** ReadTune has no accounts, no
+   analytics, no telemetry. The reading profile, calibration history, and
+   highlights are stored in `chrome.storage.local` on the device and never
+   leave it. The one exception is Ask AI (below) — opt-in, and disclosed the
+   same way to the admin as to the student.
 2. **What can it touch?** It installs with `activeTab`, `scripting`, `storage`
    only. It cannot read a page until the student clicks the button or presses
    the shortcut. Broader access is an *optional* per-site permission the student
    turns on themselves.
 3. **Does it phone home?** Not by default. Read-aloud uses a neural voice that
-   runs on the device, and the default voice ships inside the extension. Two
-   opt-in features send data: dictation uses Chrome's own speech recognition
-   (audio goes to Google, as it does for any site that uses that browser API),
-   and ElevenLabs read-aloud needs a personal API key students won't have.
+   runs on the device, and the default voice ships inside the extension. Three
+   opt-in features send data: **Ask AI** sends the article text (and, for a
+   typed question, the question) to ReadTune's own relay to generate a summary
+   or answer — only when a student opens the panel and asks, never
+   automatically; dictation uses Chrome's own speech recognition (audio goes
+   to Google, as it does for any site that uses that browser API); and
+   ElevenLabs read-aloud needs a personal API key students won't have.
    Selecting an extra read-aloud voice downloads a one-time model file from
    Hugging Face.
 4. **What does it cost?** Nothing. No per-seat licence, no quote, no renewal.

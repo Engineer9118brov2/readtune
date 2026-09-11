@@ -2,10 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ReadTune</title>
-    <link rel="stylesheet" href="shared/theme.css" />
-    <link rel="stylesheet" href="popup.css" />
+    <title>ReadTune — Popup sandbox</title>
+    <link rel="stylesheet" href="../shared/theme.css" />
+    <link rel="stylesheet" href="../popup.css" />
+    <script>
+      (function () {
+        const profile = {
+          font: "atkinson", fontSize: 20, lineHeight: 1.7, letterSpacing: 0.02, wordSpacing: 0.08,
+          paragraphSpacing: 1.1, columnWidth: 64, bionic: 0, overlay: "cream", customTint: "#eef3f8",
+          contrast: 94, focus: "off", rulerLines: 1, rulerHeight: 40, pacing: "flow", wpm: 260,
+          ttsVoice: "", ttsRate: 1, hyphenate: false, syllables: false, deItalic: false,
+          hideImages: false, freezeMotion: false, dyslexicUiMode: false,
+        };
+        const mem = {
+          local: {
+            readtune_profile: profile,
+            readtune_tts: { provider: "piper", piperVoice: "en_US-lessac-medium" },
+            readtune_calibrations: [
+              { at: Date.now() - 86400000, dims: { dyslexic: { kept: false }, atkinson: { kept: true }, spacing: { kept: true }, bionic: { kept: false } } },
+            ],
+            readtune_setup: { calibratedAt: Date.now() - 86400000, voiceFitAt: 0 },
+          },
+          session: {},
+        };
+        window.chrome = {
+          runtime: { getURL: (path) => new URL("../" + path.replace(/^\.?\//, ""), location.href).href, id: "sandbox" },
+          permissions: { contains: async () => false, request: async () => false, remove: async () => true },
+          tabs: {
+            query: async () => [{ id: 1, url: "https://example.com/article", active: true }],
+            sendMessage: async () => ({}),
+            create: async () => ({}),
+          },
+          scripting: { executeScript: async () => [{ result: null }] },
+          storage: {
+            local: {
+              async get(key) { return key == null ? { ...mem.local } : (Array.isArray(key) ? Object.fromEntries(key.map((k) => [k, mem.local[k]])) : { [key]: mem.local[key] }); },
+              async set(values) { Object.assign(mem.local, values); },
+              async remove(key) { delete mem.local[key]; },
+            },
+            session: {
+              async get(key) { return key == null ? { ...mem.session } : { [key]: mem.session[key] }; },
+              async set(values) { Object.assign(mem.session, values); },
+              async remove(key) { delete mem.session[key]; },
+            },
+          },
+        };
+      })();
+    </script>
   </head>
   <body class="rt-ui">
     <div class="pop">
@@ -66,8 +109,7 @@
       <div class="pop-onboard" id="onboard" hidden>
         <div class="pop-onboard-copy">
           <strong>Stop guessing your reading settings.</strong>
-          <p>
-Five short passages, one change at a time — or skip and start reading. </p>
+          <p>Five short passages, one change at a time — or skip and start reading.</p>
         </div>
         <div class="pop-steps">
           <article class="pop-step"><b>1</b><span>Read five short passages (or skip)</span></article>
@@ -173,6 +215,6 @@ Five short passages, one change at a time — or skip and start reading. </p>
       </footer>
     </div>
 
-    <script type="module" src="popup.js"></script>
+    <script type="module" src="../popup.js"></script>
   </body>
 </html>
