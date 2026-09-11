@@ -38,6 +38,7 @@ const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutErr
 // Ceilings so a stalled model / connection turns into a logged failure instead
 // of a permanent "Reading the article…" spinner.
 const ON_DEVICE_TIMEOUT_MS = 8000;
+const ON_DEVICE_ONLY_TIMEOUT_MS = 15000;
 const CLOUD_TIMEOUT_MS = 30000;
 const AVAILABILITY_TIMEOUT_MS = 500;
 // Chrome can report a built-in model as available while starting its session
@@ -227,6 +228,7 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     // here ever triggers a download: every status checked below is either
     // "available" (use it) or something else (skip straight to the cloud).
     const status = await onDeviceStatus();
+    if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
     log(`on-device: summarizer=${status.summarizer} rewriter=${status.rewriter} prompt=${status.prompt}`);
     const make = async (name, opts) => {
       const API = globalApi(name);
@@ -242,15 +244,25 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     // cloud. A timeout or a mid-flight failure is logged and falls through —
     // never a permanent hang.
     const tryEngine = async (name, factoryOpts, invoke, engineSignal = signal) => {
+      if (engineSignal && engineSignal.aborted) throw new DOMException("Aborted", "AbortError");
       const inst = await make(name, factoryOpts);
       if (!inst) return null;
+      if (engineSignal && engineSignal.aborted) {
+        safeDestroy(inst);
+        throw new DOMException("Aborted", "AbortError");
+      }
       const t0 = now();
+      const timeoutMs = CLOUD_KINDS.has(kind) ? ON_DEVICE_TIMEOUT_MS : ON_DEVICE_ONLY_TIMEOUT_MS;
       try {
-        const out = await withTimeout(invoke(inst, engineSignal), ON_DEVICE_TIMEOUT_MS, `on-device ${name}`);
+        const out = await withTimeout(invoke(inst, engineSignal), timeoutMs, `on-device ${name}`);
         log(`on-device ${name} ✓ ${String(out).length} chars in ${Math.round(now() - t0)}ms`);
         return out;
       } catch (e) {
-        if (isAbort(e) && signal && signal.aborted) throw e;
+        // An aborted engineSignal means the hedged local branch lost (or the
+        // reader cancelled). Don't convert that into "no result" and fall
+        // through to the next on-device engine — session create/prompt would
+        // keep running after the caller already moved on.
+        if (isAbort(e) && ((signal && signal.aborted) || (engineSignal && engineSignal.aborted))) throw e;
         log(`on-device ${name} ✗ ${(e && e.message) || e} — falling back`);
         return null;
       } finally {
@@ -307,6 +319,13 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         localController.abort();
         cloudController.abort();
       };
+      // AbortSignal does not replay abort to late listeners. If the reader
+      // cancelled during onDeviceStatus(), abort both branches immediately
+      // instead of starting a race that can still hit the relay.
+      if (signal && signal.aborted) {
+        abortBranches();
+        throw new DOMException("Aborted", "AbortError");
+      }
       if (signal) signal.addEventListener("abort", abortBranches, { once: true });
       let hedgeTimer;
       const cloudAfterHeadStart = new Promise((resolve, reject) => {
@@ -320,7 +339,11 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         }, { once: true });
       });
       try {
-        return await Promise.any([runOnDevice(localController.signal), cloudAfterHeadStart]);
+        const localAttempt = runOnDevice(localController.signal);
+        const result = await Promise.any([localAttempt, cloudAfterHeadStart]);
+        localAttempt.catch(() => {});
+        cloudAfterHeadStart.catch(() => {});
+        return result;
       } catch (e) {
         if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
         throw (e && e.errors && e.errors[e.errors.length - 1]) || e;

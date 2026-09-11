@@ -174,10 +174,11 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
   function playButton(getText) {
     const btn = el("button", { type: "button", class: "rt-assist-btn rt-assist-play" }, "▶ Play");
     btn.addEventListener("click", async () => {
+      const stoppingThis = speakController && btn.textContent === "■ Stop";
       if (speakController) {
         stopSpeaking();
         btn.textContent = "▶ Play";
-        return;
+        if (stoppingThis) return;
       }
       if (typeof speak !== "function") return;
       speakController = new AbortController();
@@ -225,7 +226,11 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     const t0 = Date.now();
     try {
       const { text, clipped } = await invoke(assistant, { signal: mine.signal, onLog: pushLog });
-      if (mine.signal.aborted) return;
+      if (mine.signal.aborted) {
+        pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
+        return;
+      }
       pushLog(`done in ${Date.now() - t0}ms → showing ${String(text).length} chars`);
       const kids = [];
       if (clipped && kind !== "ask") kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
@@ -239,6 +244,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       if (mine.signal.aborted) {
         pushLog(`cancelled after ${Date.now() - t0}ms`);
         pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
         return;
       }
       pushLog(`FAILED after ${Date.now() - t0}ms: ${(err && err.message) || err}`);

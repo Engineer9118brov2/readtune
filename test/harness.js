@@ -1598,6 +1598,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         "a stalled available on-device model is hedged to the cloud without a serial timeout");
       assert(hedgedLocalDestroyed, "the losing on-device generation is aborted and destroyed after the cloud wins");
 
+      // Drop the forever-pending Summarizer so the following cloud-only error
+      // cases don't race an 8s local timeout against a rejected relay.
+      setAI({});
+
       // the cloud relay failing surfaces a real message, never a silent hang
       self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
       let cloudErr = "";

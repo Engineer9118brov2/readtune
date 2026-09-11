@@ -315,6 +315,20 @@ body.rt-shell > .rt-rail-right {
   animation: none;
   transition: none;
 }
+/* Chat thread needs a bounded height so overflow-y:auto on .rt-assist-thread
+   scrolls the messages, not the whole rail (header / chips / composer stay put). */
+.rt-rail:has(> .rt-assist-sidebar) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.rt-rail > .rt-assist-sidebar {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
 
 /* wrapper only exists to put the fixed chrome first in the DOM (tab order);
    it must not become a grid item */
