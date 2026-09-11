@@ -102,7 +102,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Collapse" }, "×");
     closeBtn.addEventListener("click", () => close());
 
-    bodyEl = el("div", { class: "rt-assist-body", "aria-live": "polite", "aria-busy": "true" });
+    bodyEl = el("div", { class: "rt-assist-body rt-assist-thread", "aria-live": "polite", "aria-busy": "true" });
 
     const input = el("textarea", {
       class: "rt-assist-input",
@@ -141,8 +141,8 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
         sel.addRange(r);
       }
     });
-    diagWrap = el("details", { class: "rt-assist-diag", hidden: true }, [
-      el("summary", {}, "Diagnostics"),
+    diagWrap = el("details", { class: "rt-assist-diag" }, [
+      el("summary", {}, "Request details"),
       diagPre,
       el("div", { class: "rt-assist-actions" }, [copyBtn]),
     ]);
@@ -151,7 +151,11 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       "aside",
       { class: "rt-assist-sidebar", role: "complementary", "aria-label": "Ask AI about this article", tabindex: "-1" },
       [
-        el("div", { class: "rt-assist-head" }, [el("span", { class: "rt-assist-title" }, "Ask AI"), closeBtn]),
+        el("div", { class: "rt-assist-head" }, [
+          el("div", {}, [el("span", { class: "rt-assist-title" }, "Article chat"), el("span", { class: "rt-assist-kicker" }, "Ask about what you're reading")]),
+          closeBtn,
+        ]),
+        chipRow(),
         bodyEl,
         diagWrap,
         composer,
@@ -165,21 +169,16 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
     document.addEventListener("keydown", onKey, true);
   }
 
-  const fill = (...kids) => {
-    if (!bodyEl) return;
-    bodyEl.replaceChildren(...kids);
-    bodyEl.setAttribute("aria-busy", "false");
-  };
-
   /** Toggles between reading the answer aloud and stopping — reuses the exact
       voice read-aloud already uses elsewhere, not a new audio system. */
   function playButton(getText) {
     const btn = el("button", { type: "button", class: "rt-assist-btn rt-assist-play" }, "▶ Play");
     btn.addEventListener("click", async () => {
+      const stoppingThis = speakController && btn.textContent === "■ Stop";
       if (speakController) {
         stopSpeaking();
         btn.textContent = "▶ Play";
-        return;
+        if (stoppingThis) return;
       }
       if (typeof speak !== "function") return;
       speakController = new AbortController();
@@ -204,7 +203,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       CHIPS.map((c) => {
         const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
         b.addEventListener("click", () =>
-          runTask(c.label === "Summarise" ? "summary" : "ask", null, c.run));
+          runTask(c.label === "Summarise" ? "summary" : "ask", c.label, c.run));
         return b;
       }),
     );
@@ -212,32 +211,46 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
 
   /** Run one task (a chip or a typed question) into the answer area. `question`
       is echoed above the answer when the reader typed one (null otherwise). */
-  async function runTask(kind, question, invoke) {
+  async function runTask(kind, question, invoke, echoQuestion = true) {
     stopSpeaking();
     if (controller) { try { controller.abort(); } catch {} }
     controller = new AbortController();
     const mine = controller;
     resetLog(`${kind === "ask" ? "ask" : "summary"} requested${question ? `: "${question.slice(0, 120)}"` : ""}`);
-    fill(...workingNodes(kind === "ask" ? "Reading and thinking…" : "Reading the article…", () => close()));
+    if (question && echoQuestion) bodyEl.append(el("div", { class: "rt-chat-row rt-chat-row-user" }, [el("p", { class: "rt-assist-q" }, question)]));
+    const pending = el("div", { class: "rt-chat-row rt-chat-row-ai rt-chat-pending" },
+      workingNodes(kind === "ask" ? "Thinking…" : "Making a quick summary…", () => stop()));
+    bodyEl.append(pending);
     bodyEl.setAttribute("aria-busy", "true");
+    bodyEl.scrollTop = bodyEl.scrollHeight;
     const t0 = Date.now();
     try {
       const { text, clipped } = await invoke(assistant, { signal: mine.signal, onLog: pushLog });
-      if (mine.signal.aborted) return;
+      if (mine.signal.aborted) {
+        pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
+        return;
+      }
       pushLog(`done in ${Date.now() - t0}ms → showing ${String(text).length} chars`);
-      const kids = [chipRow()];
-      if (question) kids.push(el("p", { class: "rt-assist-q" }, question));
+      const kids = [];
       if (clipped && kind !== "ask") kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
       kids.push(resultBlock(text), disclaimer());
       if (typeof speak === "function") kids.push(el("div", { class: "rt-assist-actions" }, [playButton(() => text)]));
-      fill(...kids);
+      pending.className = "rt-chat-row rt-chat-row-ai";
+      pending.replaceChildren(...kids);
+      bodyEl.setAttribute("aria-busy", "false");
+      bodyEl.scrollTop = bodyEl.scrollHeight;
     } catch (err) {
       if (mine.signal.aborted) {
         pushLog(`cancelled after ${Date.now() - t0}ms`);
+        pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
         return;
       }
       pushLog(`FAILED after ${Date.now() - t0}ms: ${(err && err.message) || err}`);
-      fill(...failNodes((err && err.message) || "That didn't work.", () => runTask(kind, question, invoke)));
+      pending.className = "rt-chat-row rt-chat-row-ai rt-chat-error";
+      pending.replaceChildren(...failNodes((err && err.message) || "That didn't work.", () => runTask(kind, question, invoke, false)));
+      bodyEl.setAttribute("aria-busy", "false");
     } finally {
       if (controller === mine) controller = null;
     }

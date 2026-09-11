@@ -1551,6 +1551,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     };
     const realFetch = self.fetch;
     const restoreFetch = () => { self.fetch = realFetch; };
+    const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
 
     try {
       // no built-in AI → still has somewhere to run: ReadTune's cloud relay
@@ -1573,6 +1574,33 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       };
       const cloudOut = await A.createAssistant({ getArticleText: () => "Tide pools reset twice a day and shelter small crabs." }).summarize();
       assert(cloudOut.text === "CLOUD SUMMARY", "with no on-device AI, summarize succeeds through the cloud relay");
+
+      // A browser can claim its built-in model is ready and then hang while
+      // starting it. The relay should take over promptly, and winning the race
+      // must abort/destroy the now-useless local attempt.
+      let hedgedLocalDestroyed = false;
+      setAI({
+        Summarizer: {
+          state: "available",
+          instance: {
+            summarize: (_text, opts) => new Promise((_resolve, reject) => {
+              opts.signal.addEventListener("abort", () => reject(abortErr()), { once: true });
+            }),
+            destroy() { hedgedLocalDestroyed = true; },
+          },
+        },
+      });
+      self.fetch = async () => ({ ok: true, status: 200, json: async () => ({ text: "FAST CLOUD" }) });
+      const hedgeStarted = performance.now();
+      const hedgedOut = await A.createAssistant({ getArticleText: () => "An article whose local model stalls." }).summarize();
+      await new Promise((r) => setTimeout(r, 0));
+      assert(hedgedOut.text === "FAST CLOUD" && performance.now() - hedgeStarted < 2500,
+        "a stalled available on-device model is hedged to the cloud without a serial timeout");
+      assert(hedgedLocalDestroyed, "the losing on-device generation is aborted and destroyed after the cloud wins");
+
+      // Drop the forever-pending Summarizer so the following cloud-only error
+      // cases don't race an 8s local timeout against a rejected relay.
+      setAI({});
 
       // the cloud relay failing surfaces a real message, never a silent hang
       self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
@@ -1610,7 +1638,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 
       // a cancelled on-device request rejects AS an abort — never remapped to
       // a network error, so the UI's signal.aborted check keeps it quiet
-      const abortErr = () => Object.assign(new Error("aborted"), { name: "AbortError" });
       setAI({
         LanguageModel: {
           state: "available",
@@ -1727,6 +1754,22 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(document.activeElement === opener, "closing the sidebar hands focus back to whatever opened it");
       opener.remove();
 
+      // Cancelling an in-flight chat turn removes its temporary bubble instead
+      // of leaving a permanent loading message in the conversation.
+      const cancellable = ASB.createAssistSidebar({
+        assistant: {
+          summarize: ({ signal }) => new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(abortErr()), { once: true });
+          }),
+        },
+      });
+      const cancelling = cancellable.open();
+      document.querySelector(".rt-assist-sidebar .rt-assist-cancel").click();
+      await cancelling;
+      assert(!document.querySelector(".rt-assist-sidebar .rt-chat-pending"),
+        "cancelling a chat request removes its pending response bubble");
+      cancellable.destroy();
+
       // an on-device engine that fails transiently also gets a plain "Try again"
       setAI({ Summarizer: { state: "available", instance: { summarize: async () => { throw new Error("model busy"); }, destroy() {} } } });
       const sidebar2 = ASB.createAssistSidebar({
@@ -1783,7 +1826,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       await new Promise((r) => setTimeout(r, 10));
       assert(/What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-q").textContent),
         "the rail echoes the question the reader asked");
-      assert(/A: What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-result").textContent),
+      const latestAnswer = [...panel4.querySelectorAll(".rt-assist-result")].at(-1);
+      assert(latestAnswer && /A: What lives in a tide pool\?/.test(latestAnswer.textContent),
         "the rail shows the answer to a typed question");
       assert(composer.value === "" && !!panel4.querySelector(".rt-assist-play"),
         "the box clears after asking and the answer gets a Play button");

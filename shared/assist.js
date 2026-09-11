@@ -37,8 +37,14 @@ const isAbort = (e) => !!e && (e.name === "AbortError" || e.name === "TimeoutErr
 
 // Ceilings so a stalled model / connection turns into a logged failure instead
 // of a permanent "Reading the article…" spinner.
-const ON_DEVICE_TIMEOUT_MS = 15000;
+const ON_DEVICE_TIMEOUT_MS = 8000;
+const ON_DEVICE_ONLY_TIMEOUT_MS = 15000;
 const CLOUD_TIMEOUT_MS = 30000;
+const AVAILABILITY_TIMEOUT_MS = 500;
+// Chrome can report a built-in model as available while starting its session
+// still takes tens of seconds. Give the private path a brief head start, then
+// race the relay rather than making the reader wait through two serial stalls.
+const CLOUD_HEDGE_MS = 700;
 
 /** Reject with a tagged error if `promise` doesn't settle within `ms`. */
 function withTimeout(promise, ms, label) {
@@ -114,7 +120,10 @@ async function availabilityOf(name) {
   const A = globalApi(name);
   if (!A || typeof A.availability !== "function") return "unavailable";
   try {
-    return await A.availability();
+    return await Promise.race([
+      A.availability(),
+      new Promise((resolve) => setTimeout(() => resolve("unavailable"), AVAILABILITY_TIMEOUT_MS)),
+    ]);
   } catch {
     return "unavailable";
   }
@@ -142,7 +151,7 @@ export async function describeAvailability() {
     mode: ready ? "on-device" : "cloud",
     ready: true, // the cloud relay means the assistant always has somewhere to run
     text: ready
-      ? "On-device AI is ready on this browser. Nothing you read leaves your device."
+      ? "On-device AI gets a brief head start. If it is slow, ReadTune's free helper takes over so you are not left waiting; the article text is then sent to generate the response."
       : "Runs through ReadTune's free AI helper. The article text (or the passage you select) is sent to generate the response — everything else in ReadTune stays on your device.",
   };
 }
@@ -215,7 +224,11 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     const log = typeof onLog === "function" ? (m) => onLog(m) : () => {};
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
+    // On-device gets first chance, but only when it's already ready. No `.create()` call
+    // here ever triggers a download: every status checked below is either
+    // "available" (use it) or something else (skip straight to the cloud).
     const status = await onDeviceStatus();
+    if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
     log(`on-device: summarizer=${status.summarizer} rewriter=${status.rewriter} prompt=${status.prompt}`);
     const make = async (name, opts) => {
       const API = globalApi(name);
@@ -227,16 +240,29 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         return null;
       }
     };
-    const tryEngine = async (name, factoryOpts, invoke) => {
+    // Try an on-device engine; return its text, or null to fall through to the
+    // cloud. A timeout or a mid-flight failure is logged and falls through —
+    // never a permanent hang.
+    const tryEngine = async (name, factoryOpts, invoke, engineSignal = signal) => {
+      if (engineSignal && engineSignal.aborted) throw new DOMException("Aborted", "AbortError");
       const inst = await make(name, factoryOpts);
       if (!inst) return null;
+      if (engineSignal && engineSignal.aborted) {
+        safeDestroy(inst);
+        throw new DOMException("Aborted", "AbortError");
+      }
       const t0 = now();
+      const timeoutMs = CLOUD_KINDS.has(kind) ? ON_DEVICE_TIMEOUT_MS : ON_DEVICE_ONLY_TIMEOUT_MS;
       try {
-        const out = await withTimeout(invoke(inst), ON_DEVICE_TIMEOUT_MS, `on-device ${name}`);
+        const out = await withTimeout(invoke(inst, engineSignal), timeoutMs, `on-device ${name}`);
         log(`on-device ${name} ✓ ${String(out).length} chars in ${Math.round(now() - t0)}ms`);
         return out;
       } catch (e) {
-        if (isAbort(e) && signal && signal.aborted) throw e;
+        // An aborted engineSignal means the hedged local branch lost (or the
+        // reader cancelled). Don't convert that into "no result" and fall
+        // through to the next on-device engine — session create/prompt would
+        // keep running after the caller already moved on.
+        if (isAbort(e) && ((signal && signal.aborted) || (engineSignal && engineSignal.aborted))) throw e;
         log(`on-device ${name} ✗ ${(e && e.message) || e} — falling back`);
         return null;
       } finally {
@@ -244,36 +270,90 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
       }
     };
 
-    let out = null;
-    if (kind === "summary" && status.summarizer === "available") {
-      out = await tryEngine(
-        "Summarizer",
-        { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM },
-        (s) => s.summarize(text, { context: "Deciding whether to read this.", signal }),
-      );
+    const runOnDevice = async (engineSignal = signal) => {
+      let out = null;
+      if (kind === "summary" && status.summarizer === "available") {
+        out = await tryEngine(
+          "Summarizer",
+          { type: "key-points", format: "plain-text", length: "short", sharedContext: SUMMARY_SYSTEM },
+          (s, activeSignal) => s.summarize(text, { context: "Deciding whether to read this.", signal: activeSignal }),
+          engineSignal,
+        );
+      }
+      if (out == null && kind === "simplify" && status.rewriter === "available") {
+        out = await tryEngine(
+          "Rewriter",
+          { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM },
+          (r, activeSignal) => r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal: activeSignal }),
+          engineSignal,
+        );
+      }
+      if (out == null && status.prompt === "available") {
+        const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
+        const ask =
+          kind === "summary"
+            ? `Main points of this article:\n\n${text}`
+            : kind === "ask"
+              ? `Article:\n\n${text}\n\nReader's question: ${question}`
+              : `Rewrite this passage in plain language:\n\n${text}`;
+        out = await tryEngine(
+          "LanguageModel",
+          { initialPrompts: [{ role: "system", content: system }] },
+          (lm, activeSignal) => lm.prompt(ask, { signal: activeSignal }),
+          engineSignal,
+        );
+      }
+      if (out == null) throw new Error("No on-device result");
+      return out;
+    };
+
+    const hasLocal =
+      (kind === "summary" && status.summarizer === "available") ||
+      (kind === "simplify" && status.rewriter === "available") ||
+      status.prompt === "available";
+
+    if (hasLocal && CLOUD_KINDS.has(kind)) {
+      const localController = new AbortController();
+      const cloudController = new AbortController();
+      const abortBranches = () => {
+        localController.abort();
+        cloudController.abort();
+      };
+      // AbortSignal does not replay abort to late listeners. If the reader
+      // cancelled during onDeviceStatus(), abort both branches immediately
+      // instead of starting a race that can still hit the relay.
+      if (signal && signal.aborted) {
+        abortBranches();
+        throw new DOMException("Aborted", "AbortError");
+      }
+      if (signal) signal.addEventListener("abort", abortBranches, { once: true });
+      let hedgeTimer;
+      const cloudAfterHeadStart = new Promise((resolve, reject) => {
+        hedgeTimer = setTimeout(() => {
+          if (onProgress) onProgress({ phase: "cloud" });
+          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log).then(resolve, reject);
+        }, CLOUD_HEDGE_MS);
+        cloudController.signal.addEventListener("abort", () => {
+          clearTimeout(hedgeTimer);
+          reject(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+      });
+      try {
+        const localAttempt = runOnDevice(localController.signal);
+        const result = await Promise.any([localAttempt, cloudAfterHeadStart]);
+        localAttempt.catch(() => {});
+        cloudAfterHeadStart.catch(() => {});
+        return result;
+      } catch (e) {
+        if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
+        throw (e && e.errors && e.errors[e.errors.length - 1]) || e;
+      } finally {
+        clearTimeout(hedgeTimer);
+        abortBranches();
+        if (signal) signal.removeEventListener("abort", abortBranches);
+      }
     }
-    if (out == null && kind === "simplify" && status.rewriter === "available") {
-      out = await tryEngine(
-        "Rewriter",
-        { tone: "more-casual", length: "as-is", format: "plain-text", sharedContext: SIMPLIFY_SYSTEM },
-        (r) => r.rewrite(text, { context: "Put this in plainer words for a struggling reader.", signal }),
-      );
-    }
-    if (out == null && status.prompt === "available") {
-      const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
-      const ask =
-        kind === "summary"
-          ? `Main points of this article:\n\n${text}`
-          : kind === "ask"
-            ? `Article:\n\n${text}\n\nReader's question: ${question}`
-            : `Rewrite this passage in plain language:\n\n${text}`;
-      out = await tryEngine(
-        "LanguageModel",
-        { initialPrompts: [{ role: "system", content: system }] },
-        (lm) => lm.prompt(ask, { signal }),
-      );
-    }
-    if (out != null) return out;
+    if (hasLocal) return await runOnDevice();
 
     if (!CLOUD_KINDS.has(kind)) {
       log(`no on-device model for ${kind}, and it has no cloud path`);
