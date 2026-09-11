@@ -1107,6 +1107,8 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   max-width: 88%;
   margin-left: auto;
   box-shadow: 0 5px 14px rgba(0, 0, 0, .09);
+  font-size: .9rem;
+  font-weight: 550;
 }
 .rt-assist-thread {
   min-height: 0;
@@ -1131,10 +1133,6 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
 .rt-chat-row .rt-assist-result { font-size: .92rem; }
 .rt-chat-row .rt-assist-result p { line-height: 1.52; }
 .rt-chat-error { border-color: color-mix(in srgb, #b23b3b 30%, var(--rt-ui-line, #ddd)); }
-.rt-assist-q {
-  font-size: .9rem;
-  font-weight: 550;
-}
 .rt-assist-composer {
   flex: none;
   display: flex;

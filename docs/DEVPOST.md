@@ -71,7 +71,7 @@ with both a reading profile and a chosen on-device voice.
 | Helperbird | manual toggles | ✓ | ✓ | ~$4.99/mo+ | ✕ |
 | MS Immersive Reader | manual toggles | limited | ✓ | needs MS/school account | ✕ |
 | Speechify | manual toggles | ✓ | ✓ | subscription | ✕ |
-| **ReadTune** | **a test finds your settings** | **✓** | **✓** | **✓ — no login, no paywall** | **✓ — no server at all** |
+| **ReadTune** | **a test finds your settings** | **✓** | **✓** | **✓ — no login, no paywall** | **✓ — local by default, one opt-in AI exception** |
 
 ## How it works (for the judges who ask)
 
@@ -118,6 +118,14 @@ bolding). We include the contested ones because readers ask for them, we flag
 them as optional and off by default, and we let the calibration test decide
 per-person instead of asserting they work. The full evidence rundown is in
 [`docs/RESEARCH.md`](../docs/RESEARCH.md).
+
+"Local by default" has exactly one exception, and we say so everywhere rather
+than burying it: **Ask AI**. Fonts, spacing, focus, calibration, highlights,
+and on-device read-aloud never leave the browser. If you open Ask AI and
+request a summary or type a question, that article text — and the question,
+for a typed one — goes to ReadTune's own relay to generate the response, only
+when you ask, never automatically. It's disclosed the same way to a judge, a
+school IT admin, and a reader: [`privacy.html`](https://readtune.tech/privacy.html).
 
 ## What's next
 
