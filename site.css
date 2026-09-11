@@ -143,6 +143,21 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .audio-voice small { font-family: var(--mono); font-size: .58rem; font-weight: 400; letter-spacing: 0; }
 .audio-speed { margin-left: auto; padding: 5px 8px; border: 1px solid var(--line); }
 
+.ask-ai { padding-block: 76px 105px; color: var(--paper); background: var(--ink); }
+.ask-ai .section-label { color: var(--mint); }
+.ask-ai .section-label::after { background: rgba(245,240,229,.17); }
+.ask-ai-grid { display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; gap: clamp(45px, 9vw, 125px); padding: 76px 55px 0; }
+.ask-ai h2 { margin-bottom: 25px; color: var(--paper); font-size: clamp(2.8rem, 5.7vw, 5.2rem); }
+.ask-ai-copy > p:not(.eyebrow) { max-width: 440px; margin-bottom: 18px; color: rgba(245,240,229,.7); font-size: 1.07rem; line-height: 1.43; }
+.ask-ai-copy .text-link { color: var(--mint); }
+.ask-card { padding: 25px 27px 23px; color: var(--ink); background: var(--paper); box-shadow: 12px 12px 0 rgba(169,208,186,.55); }
+.ask-card-top { margin-bottom: 22px; }
+.ask-card .mono-label { color: var(--mint-deep); font-size: .6rem; }
+.ask-bubble-q { width: fit-content; max-width: 85%; margin: 0 0 14px auto; padding: 10px 14px; border-radius: 12px 12px 4px 12px; color: var(--paper); background: var(--ink); font-size: .92rem; }
+.ask-bubble-a { margin-bottom: 22px; font-family: var(--display); font-size: clamp(1.15rem, 2vw, 1.5rem); font-weight: 700; letter-spacing: -.04em; line-height: 1.3; }
+.ask-bubble-a mark { padding: 0 3px; color: var(--ink); background: rgba(169,208,186,.75); }
+.ask-caption { margin-bottom: 0; color: var(--ink-soft); font-family: var(--mono); font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; }
+
 .feature-strip { padding-block: 100px 125px; }
 .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; padding-top: 58px; }
 .feature-grid article { padding-top: 18px; border-top: 2px solid var(--ink); }
@@ -286,8 +301,11 @@ html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.sk
   .hero { grid-template-columns: 1fr; gap: 65px; }
   .hero-copy { max-width: 700px; }
   .specimen { max-width: 700px; }
-  .manifesto-grid, .read-along-grid { grid-template-columns: 1fr; gap: 35px; padding-inline: 0; }
-  .manifesto p, .read-along-copy > p:not(.eyebrow) { max-width: 600px; }
+  .manifesto-grid, .read-along-grid, .ask-ai-grid { grid-template-columns: 1fr; gap: 35px; padding-inline: 0; }
+  .manifesto p, .read-along-copy > p:not(.eyebrow), .ask-ai-copy > p:not(.eyebrow) { max-width: 600px; }
+  .ask-ai-grid { grid-template-areas: "copy" "card"; }
+  .ask-ai-copy { grid-area: copy; }
+  .ask-card { grid-area: card; }
   .feature-grid { grid-template-columns: repeat(2, 1fr); row-gap: 40px; }
 }
 @media (max-width: 650px) {
@@ -314,6 +332,9 @@ html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.sk
   .read-along-grid { padding-top: 60px; }
   .audio-card { padding: 20px; box-shadow: 7px 7px 0 rgba(169,208,186,.55); }
   .audio-card-top { margin-bottom: 35px; }
+  .ask-ai { width: 100%; padding-inline: 18px; }
+  .ask-ai-grid { padding-top: 60px; }
+  .ask-card { padding: 20px; box-shadow: 7px 7px 0 rgba(169,208,186,.55); }
   .feature-grid { grid-template-columns: 1fr; }
   .closing { min-height: 480px; }
   .site-footer { grid-template-columns: 1fr; gap: 17px; padding-block: 28px; text-align: center; }
