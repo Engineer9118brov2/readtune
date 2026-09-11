@@ -18,7 +18,9 @@
           local: {
             readtune_profile: profile,
             readtune_tts: { provider: "piper", piperVoice: "en_US-lessac-medium" },
-            readtune_calibrations: [],
+            readtune_calibrations: [
+              { at: Date.now() - 86400000, dims: { dyslexic: { kept: false }, atkinson: { kept: true }, spacing: { kept: true }, bionic: { kept: false } } },
+            ],
           },
           session: {},
         };
@@ -27,7 +29,7 @@
           permissions: { contains: async () => false, request: async () => false, remove: async () => true },
           storage: {
             local: {
-              async get(key) { return key == null ? { ...mem.local } : { [key]: mem.local[key] }; },
+              async get(key) { return key == null ? { ...mem.local } : (Array.isArray(key) ? Object.fromEntries(key.map((k) => [k, mem.local[k]])) : { [key]: mem.local[key] }); },
               async set(values) { Object.assign(mem.local, values); },
               async remove(key) { delete mem.local[key]; },
             },
@@ -43,14 +45,140 @@
   </head>
   <body class="rt-ui rt-reading-page rt-lab-page">
     <div class="lab-wrap">
-      <header class="lab-hero"><section class="lab-hero-copy"><span class="rt-chip">Reading Lab</span><h1 id="lab-hero-title"></h1><p id="lab-hero-body"></p></section><section class="lab-hero-stats"><article class="lab-stat"><strong id="lab-confidence-label"></strong><p id="lab-confidence-body"></p></article><article class="lab-stat"><strong id="lab-stability-label"></strong><p id="lab-stability-body"></p></article><article class="lab-stat"><strong id="lab-runs-label"></strong><p id="lab-runs-body"></p></article></section></header>
-      <section id="lab-empty" hidden></section><section id="lab-main"><div id="lab-profile-title"></div><div id="lab-profile-desc"></div><div id="lab-profile-tags"></div><div id="lab-preview-surface"><div id="lab-preview-view"></div></div><div id="lab-last-tested"></div><div id="lab-signal-title"></div><div id="lab-signal-body"></div><div id="lab-next-title"></div><div id="lab-next-body"></div></section>
-      <section id="lab-evidence-grid"><div id="lab-foundations"></div><div id="lab-experiments"></div></section><section id="lab-detail-grid"><div id="lab-leaderboard"></div><div id="lab-use-cases"></div></section>
-      <section id="lab-voice-panel"><span id="lab-voice-badge"></span><strong id="lab-voice-title"></strong><p id="lab-voice-body"></p><p id="lab-voice-copy"></p><div id="lab-voice-surface"><div id="lab-voice-preview-view"></div></div><div id="lab-voice-list"></div></section>
-      <section id="lab-assist-panel"><span id="lab-assist-badge"></span><p id="lab-assist-body">"Summary" and "Simplify" in Reader View.</p><p id="lab-assist-status" role="status"></p></section>
-      <section id="lab-history-panel"><div id="lab-timeline"></div></section><section id="lab-trust-panel"><ul id="lab-trust-list"></ul></section>
-      <button id="lab-retake"></button><button id="lab-pdf"></button><button id="lab-apply-starter"></button><button id="lab-close"></button>
+      <header class="lab-hero">
+        <section class="lab-hero-copy">
+          <span class="rt-chip">Reading Lab</span>
+          <h1 id="lab-hero-title">A reading setup you can keep refining</h1>
+          <p id="lab-hero-body">
+            ReadTune starts from the strongest reading-support evidence, then
+            watches whether the same pattern repeats over time.
+          </p>
+          <p class="lab-status" id="lab-status" role="status"></p>
+        </section>
+      </header>
+
+      <section class="lab-empty lab-panel" id="lab-empty" hidden>
+        <h2>Run the calibration once</h2>
+        <p>
+          The lab gets interesting after your first run. That is when ReadTune
+          starts building a profile and tracking what keeps helping.
+        </p>
+      </section>
+
+      <section id="lab-main">
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Current profile</span>
+              <h2 id="lab-profile-title">System Sans</h2>
+            </div>
+            <span class="lab-badge" id="lab-last-tested">Recent</span>
+          </div>
+          <p id="lab-profile-desc"></p>
+          <div class="lab-tags" id="lab-profile-tags"></div>
+          <div class="rt-surface lab-preview" id="lab-preview-surface"><div id="lab-preview-view"></div></div>
+        </article>
+      </section>
+
+      <section class="lab-panel" id="lab-voice-panel">
+        <div class="lab-panel-head">
+          <div>
+            <span class="lab-overline">Voice Fit</span>
+            <h2>Choose your reading voice</h2>
+          </div>
+          <span class="lab-badge" id="lab-voice-badge">Piper local</span>
+        </div>
+        <p id="lab-voice-body">
+          Compare private on-device voices here, or switch on ReadTune's cloud voices
+          from Reader View when you want a more expressive sound.
+        </p>
+        <aside class="lab-cloud-callout" aria-label="How to use cloud voices">
+          <div>
+            <span class="lab-overline">Cloud voices via OpenRouter</span>
+            <strong>Reader View → Reading settings → Read along → Premium voice</strong>
+            <p>No OpenRouter account or key is needed. ReadTune sends the sentence being spoken — and, prepared a moment ahead, the next one — through its relay, and falls back to your local voice if it is busy.</p>
+          </div>
+          <span class="lab-voice-chip">No setup</span>
+        </aside>
+        <div class="lab-voice-grid">
+          <div class="lab-voice-stage">
+            <div class="lab-next lab-voice-status">
+              <span>Current local voice</span>
+              <strong id="lab-voice-title">Lessac</strong>
+              <p id="lab-voice-copy"></p>
+            </div>
+            <div class="rt-surface lab-voice-sample" id="lab-voice-surface">
+              <div id="lab-voice-preview-view"></div>
+            </div>
+          </div>
+          <div class="lab-voice-list" id="lab-voice-list"></div>
+        </div>
+      </section>
+
+      <section class="lab-panel" id="lab-assist-panel">
+        <div class="lab-panel-head">
+          <div>
+            <span class="lab-overline">Reading help</span>
+            <h2>An AI hand with a hard article</h2>
+          </div>
+          <span class="lab-badge" id="lab-assist-badge">Optional</span>
+        </div>
+        <p id="lab-assist-body">
+          In Reader View, the "Ask AI" rail gives a Summary of the article or
+          answers a question you type about it; select a hard passage and
+          Simplify rewrites it in plainer words. No key, no account, ever —
+          nothing runs until you ask. Simplify stays on-device only. Summary
+          and typed questions run on your browser's built-in AI where it's
+          ready, otherwise through ReadTune's free AI helper, which sends the
+          article text — and, for a typed question, the question itself (it
+          can be more personal than the article, so send only what you're
+          comfortable sharing) — and may cache the result, so a popular
+          article or question is generated once instead of per reader.
+        </p>
+        <p class="lab-assist-status" id="lab-assist-status" role="status">Checking what this browser can do…</p>
+        <p class="lab-assist-note">An AI answer is an aid, not a substitute for the words on the page — it can be wrong, so it always says so and points back at the original.</p>
+      </section>
+
+      <section class="lab-grid" id="lab-evidence-grid">
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Research-backed starter</span>
+              <h2>What ReadTune leans on first</h2>
+            </div>
+            <button class="rt-btn rt-primary lab-inline-btn" id="lab-apply-starter" type="button">Use this starter</button>
+          </div>
+          <p>
+            These are the changes with the strongest support across dyslexia and
+            accessible-reading guidance, so ReadTune uses them as the calmest
+            starting point.
+          </p>
+          <div class="lab-evidence-list" id="lab-foundations"></div>
+        </article>
+
+        <article class="lab-panel">
+          <div class="lab-panel-head">
+            <div>
+              <span class="lab-overline">Test, don't assume</span>
+              <h2>Useful experiments, not promises</h2>
+            </div>
+          </div>
+          <p>
+            Popular reading tools often market these as universal fixes. We keep
+            them optional and label the evidence honestly.
+          </p>
+          <div class="lab-evidence-list" id="lab-experiments"></div>
+        </article>
+      </section>
+
+      <div class="lab-actions">
+        <button class="rt-btn rt-primary" id="lab-retake" type="button">Retake the calibration</button>
+        <button class="rt-btn" id="lab-pdf" type="button">Open a PDF</button>
+        <button class="rt-btn" id="lab-close" type="button">Done</button>
+        <a class="lab-feedback-link" id="lab-feedback" href="https://github.com/Engineer9118brov2/readtune/issues/new?template=feedback.yml" target="_blank" rel="noopener">Something off? Send feedback →</a>
+      </div>
     </div>
+
     <script type="module" src="../lab.js"></script>
   </body>
 </html>
