@@ -153,8 +153,6 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}) {
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
-  // Our own abort timer, kept separate from the caller's signal so a timeout
-  // reads as a timeout in the log and not as "the reader cancelled".
   const timer = new AbortController();
   const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
   const onCallerAbort = () => timer.abort();
@@ -171,7 +169,7 @@ async function cloudGenerate(kind, text, url, signal, question = "", log = () =>
     });
   } catch (e) {
     clearTimeout(to);
-    if (signal && signal.aborted) throw e; // the reader really did cancel
+    if (signal && signal.aborted) throw e;
     if (isAbort(e)) {
       log(`cloud ✗ no response in ${CLOUD_TIMEOUT_MS / 1000}s (${Math.round(now() - started)}ms elapsed)`);
       throw new Error(`The AI helper didn't respond within ${CLOUD_TIMEOUT_MS / 1000}s.`);
@@ -187,7 +185,7 @@ async function cloudGenerate(kind, text, url, signal, question = "", log = () =>
   try {
     data = await res.json();
   } catch (e) {
-    if (isAbort(e)) throw e; // cancelled mid-read, not a bad response — don't report it as one
+    if (isAbort(e)) throw e;
     log(`cloud ✗ response body was not JSON`);
   }
   if (!res.ok) {
@@ -206,28 +204,17 @@ async function cloudGenerate(kind, text, url, signal, question = "", log = () =>
 
 /* ---------- the assistant ---------- */
 
-/* Normalise whitespace and cap the length. Returns whether it actually had to
-   cut — sniffing the result for a trailing "…" gets it wrong when the source
-   text ends with one of its own. */
 const clip = (s, n) => {
   const t = String(s || "").replace(/\s+/g, " ").trim();
   if (t.length <= n) return { text: t, clipped: false };
   return { text: t.slice(0, n).replace(/\s+\S*$/, "") + " …", clipped: true };
 };
 
-/**
- * @param {object}   opts
- * @param {() => string}  opts.getArticleText  full reading text, for summaries
- * @param {() => string}  [opts.getArticleUrl] the article's URL, for cache keying server-side
- */
 export function createAssistant({ getArticleText = () => "", getArticleUrl = () => "" } = {}) {
   async function run({ kind, text, question = "", onProgress, onLog, signal }) {
     const log = typeof onLog === "function" ? (m) => onLog(m) : () => {};
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-    // 1 — on-device, but only when it's already ready. No `.create()` call
-    // here ever triggers a download: every status checked below is either
-    // "available" (use it) or something else (skip straight to the cloud).
     const status = await onDeviceStatus();
     log(`on-device: summarizer=${status.summarizer} rewriter=${status.rewriter} prompt=${status.prompt}`);
     const make = async (name, opts) => {
@@ -237,12 +224,9 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
         return await API.create(opts);
       } catch (e) {
         log(`on-device ${name}.create() failed: ${(e && e.message) || e}`);
-        return null; // ready a moment ago, not ready now — fall through
+        return null;
       }
     };
-    // Try an on-device engine; return its text, or null to fall through to the
-    // cloud. A timeout or a mid-flight failure is logged and falls through —
-    // never a permanent hang.
     const tryEngine = async (name, factoryOpts, invoke) => {
       const inst = await make(name, factoryOpts);
       if (!inst) return null;
@@ -291,10 +275,6 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     }
     if (out != null) return out;
 
-    // 2 — ReadTune's cloud relay (Summary + Ask; see CLOUD_KINDS above).
-    // Simplify has no cloud path yet: if on-device wasn't ready above, it
-    // fails here rather than silently sending the reader's selection off
-    // their device — that's not what ReadTune tells anyone it does today.
     if (!CLOUD_KINDS.has(kind)) {
       log(`no on-device model for ${kind}, and it has no cloud path`);
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
@@ -305,25 +285,16 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
 
   return {
     describe: () => describeAvailability(),
-
-    /** Key points for the whole article (its opening, if it's long). Rejects on
-        failure — including an AbortError when the caller cancels — for the UI to
-        present; nothing is reported here. */
     async summarize({ onProgress, onLog, signal } = {}) {
       const { text, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
       if (!text) throw new Error("There's no article text to summarize.");
       return { text: await run({ kind: "summary", text, onProgress, onLog, signal }), clipped };
     },
-
-    /** Plain-language rewrite of a passage the reader selected. */
     async simplify(passage, { onProgress, onLog, signal } = {}) {
       const { text, clipped } = clip(passage, MAX_SIMPLIFY_INPUT);
       if (!text) throw new Error("Select a sentence or paragraph first.");
       return { text: await run({ kind: "simplify", text, onProgress, onLog, signal }), clipped };
     },
-
-    /** Freeform question about the current article. The article is sent as
-        context alongside the question — see ASK_SYSTEM for the guardrails. */
     async ask(question, { onProgress, onLog, signal } = {}) {
       const q = String(question || "").replace(/\s+/g, " ").trim().slice(0, MAX_ASK_QUESTION);
       if (!q) throw new Error("Type a question first.");
