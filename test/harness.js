@@ -1826,7 +1826,8 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       await new Promise((r) => setTimeout(r, 10));
       assert(/What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-q").textContent),
         "the rail echoes the question the reader asked");
-      assert(/A: What lives in a tide pool\?/.test(panel4.querySelector(".rt-assist-result").textContent),
+      const latestAnswer = [...panel4.querySelectorAll(".rt-assist-result")].at(-1);
+      assert(latestAnswer && /A: What lives in a tide pool\?/.test(latestAnswer.textContent),
         "the rail shows the answer to a typed question");
       assert(composer.value === "" && !!panel4.querySelector(".rt-assist-play"),
         "the box clears after asking and the answer gets a Play button");
