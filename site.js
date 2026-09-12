@@ -91,14 +91,6 @@ document.querySelector("[data-demo-focus]")?.addEventListener("click", (button) 
   rule.style.top = isWide ? "83px" : "105px";
 });
 
-document.querySelectorAll(".specimen-control").forEach((control) => {
-  control.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    control.click();
-  });
-});
-
 document.querySelector(".play-button")?.addEventListener("click", (event) => {
   const button = event.currentTarget;
   const playing = button.classList.toggle("is-playing");
