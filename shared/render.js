@@ -327,6 +327,50 @@ function foldLeadingTable(fragment) {
   details.appendChild(node);
 }
 
+/* A "References"/"Sources"/"See also" list can run to 100+ short entries —
+   great for citation-checking, useless to scroll past mid-read. Fold it the
+   same way a leading infobox gets folded: still there, in order, one click
+   from open, but not a wall the reader has to get through first. Unlike the
+   infobox this can appear anywhere (usually near the end), so it's a sweep
+   over the whole fragment rather than a single leading-node check. */
+const LONG_LIST_THRESHOLD = 15;
+
+function foldLongList(list, wordsBefore) {
+  const items = Array.from(list.children).filter((c) => c.tagName === "LI");
+  if (items.length < LONG_LIST_THRESHOLD) return;
+  /* A real listicle ("Top 100 ...") is the article, not a citation dump —
+     folding it away would hide the content the reader came for. Citation
+     lists sit after substantial prose; require that shape rather than
+     guessing from the list alone. */
+  if (wordsBefore < 150) return;
+  const details = document.createElement("details");
+  details.className = "rt-fold";
+  const summary = document.createElement("summary");
+  summary.textContent = `${items.length} items — tap to expand`;
+  list.parentNode.insertBefore(details, list);
+  details.appendChild(list);
+}
+
+function foldLongLists(fragment) {
+  // Snapshot first: folding re-parents each list under a new <details>, so a
+  // live NodeList would skip or duplicate entries mid-walk.
+  const lists = Array.from(fragment.querySelectorAll("ol, ul"));
+  let wordsSoFar = 0;
+  for (const node of Array.from(fragment.children)) {
+    if (node.tagName === "OL" || node.tagName === "UL") {
+      if (lists.includes(node)) foldLongList(node, wordsSoFar);
+    } else {
+      // A list nested inside some other top-level block (a section wrapper,
+      // a blockquote) — fold it in place too, using the running word count
+      // up to that block as its "prose before" evidence.
+      for (const nested of node.querySelectorAll ? node.querySelectorAll("ol, ul") : []) {
+        if (!nested.parentElement.closest("ol, ul")) foldLongList(nested, wordsSoFar);
+      }
+    }
+    wordsSoFar += wordsIn(node.textContent).length;
+  }
+}
+
 export function buildArticleFragment(rawHtml, baseUrl) {
   let base = null;
   try {
@@ -349,6 +393,7 @@ export function buildArticleFragment(rawHtml, baseUrl) {
   const quality = assessArticleQuality(fragment, meta);
   wrapWideTables(fragment);
   foldLeadingTable(fragment);
+  foldLongLists(fragment);
   return { fragment, meta, extracted: extracted && fragment.textContent.trim().length > 0, quality };
 }
 

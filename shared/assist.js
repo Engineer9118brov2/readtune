@@ -266,16 +266,29 @@ const ASK_STOPWORDS = new Set([
 ]);
 const wordsOf = (s) => (String(s || "").toLowerCase().match(/[a-z0-9']+/g) || []);
 
+/* A bare word match misses "employer" in the question against "employers" or
+   "employment" in the article — same idea, different inflection, zero score.
+   Strip the common noun/verb suffixes down to a shared stem so those still
+   line up. Deliberately crude (no dictionary, no exceptions list) — it only
+   has to unify obvious siblings, not lemmatize correctly in general. */
+function stem(w) {
+  for (const suf of ["ments", "ment", "ers", "er", "ies", "ing", "ed", "es", "s"]) {
+    if (w.length - suf.length >= 4 && w.endsWith(suf)) return w.slice(0, w.length - suf.length);
+  }
+  return w;
+}
+const stemsOf = (s) => wordsOf(s).map(stem);
+
 /** Pick the article blocks most likely to answer `question`, in their
     original order, up to `maxChars`. Falls back to the article's start when
     the question shares no real words with any block (a vague or off-topic
     ask) or when there are no block boundaries to work with at all. */
 function selectAskContext(blocks, question, maxChars) {
   if (!Array.isArray(blocks) || blocks.length <= 1) return null;
-  const qWords = new Set(wordsOf(question).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w)));
+  const qWords = new Set(stemsOf(question).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w)));
   if (!qWords.size) return null;
   const scored = blocks.map((text, i) => {
-    const seen = new Set(wordsOf(text));
+    const seen = new Set(stemsOf(text));
     let score = 0;
     for (const w of seen) if (qWords.has(w)) score++;
     return { text, i, score };

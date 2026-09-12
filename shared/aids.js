@@ -179,6 +179,18 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
     const text = range.toString().replace(/\s+/g, " ").trim();
     if (!text) return null;
     const flow = getFlow();
+    /* wrapRange wraps every text node the range touches in a fresh <mark>,
+       even one that's already inside an existing rt-hl mark — surroundContents
+       doesn't reject that, it just nests marks. A repeated "Save as highlight"
+       click, or two auto-annotate quotes that land on the same sentence,
+       produced a visibly doubled underline/dot decoration this way (the CSS
+       reads through both marks). Refuse instead of nesting: same passage,
+       same kind of note already there. */
+    if (flow) {
+      for (const mark of flow.querySelectorAll(".rt-hl")) {
+        if (range.intersectsNode(mark)) return null;
+      }
+    }
     const before = contextBefore(flow, range, 24);
     const id = newHighlightId();
     const marks = wrapRange(range, "rt-hl");
