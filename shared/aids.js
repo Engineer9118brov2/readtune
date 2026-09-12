@@ -384,6 +384,20 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
     if (popover) popover.remove();
   }
 
+  /** Wraps the first occurrence of `text` in the article as a highlight, for
+      callers that only have quoted text (not a live Range) — the AI-annotate
+      flow, which reads back a list of {quote, note} pairs from the model.
+      Unlike addHighlightFromRange there's no "before" context to disambiguate
+      repeats, so this always takes the first match; returns null (not a
+      throw) when the quote isn't found verbatim, since a model can still
+      paraphrase instead of copying exactly despite being told not to. */
+  function addHighlightByText(text, note = "") {
+    const flow = getFlow();
+    if (!flow || !text) return null;
+    const range = rangeFromText(flow, text, "");
+    return createHighlightFromRange(range, note);
+  }
+
   return {
     apply,
     restoreScroll,
@@ -395,6 +409,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
     scrollToHighlight,
     removeHighlight,
     addHighlightFromRange: createHighlightFromRange,
+    addHighlightByText,
   };
 }
 

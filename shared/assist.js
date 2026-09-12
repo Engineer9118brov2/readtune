@@ -68,7 +68,7 @@ const now = () =>
    reader's typed question); Define sends the selected word plus its sentence;
    Explain sends the selected passage. Simplify stays on-device-only until its
    own cloud path is built and disclosed — see docs/ASSIST.md. */
-const CLOUD_KINDS = new Set(["summary", "ask", "define", "explain"]);
+const CLOUD_KINDS = new Set(["summary", "ask", "define", "explain", "annotate"]);
 
 /* Never forward a query string or fragment to the relay — a URL can carry a
    session token or other identifying junk. The relay re-normalizes on receipt
@@ -393,9 +393,17 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
     };
 
     const hasLocal =
-      (kind === "summary" && status.summarizer === "available") ||
-      (kind === "simplify" && status.rewriter === "available") ||
-      status.prompt === "available";
+      kind !== "annotate" && (
+        (kind === "summary" && status.summarizer === "available") ||
+        (kind === "simplify" && status.rewriter === "available") ||
+        status.prompt === "available"
+      );
+    // Annotate always goes straight to the relay — it asks for several
+    // structured {quote, note} entries as strict JSON, which a small
+    // on-device model is much more likely to get subtly wrong (bad JSON,
+    // paraphrased quotes) than a bigger cloud model already told to be
+    // strict about it. Simplify is the mirror case (on-device only); this is
+    // the one kind that's cloud-only.
 
     if (hasLocal && CLOUD_KINDS.has(kind)) {
       const localController = new AbortController();
@@ -485,6 +493,15 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       const { text, clipped } = clip(passage, MAX_EXPLAIN_INPUT);
       if (!text) throw new Error("Select a sentence or paragraph first.");
       return { text: await run({ kind: "explain", text, onProgress, onLog, signal }), clipped };
+    },
+    /** Reads the whole article and asks for several {quote, note, kind}
+        annotations back as a JSON string — the caller (assist-sidebar.js)
+        parses it and turns each into a highlight via aids.js's
+        addHighlightByText. Cloud-only — see the hasLocal comment in run(). */
+    async annotate({ onProgress, onLog, signal } = {}) {
+      const { text, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
+      if (!text) throw new Error("There's no article text to annotate.");
+      return { text: await run({ kind: "annotate", text, onProgress, onLog, signal }), clipped };
     },
   };
 }

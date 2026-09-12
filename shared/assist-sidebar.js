@@ -16,7 +16,18 @@
  * so a stuck request can be reported instead of just spinning.
  */
 
-import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-render.js";
+import { el, resultBlock, disclaimer, workingNodes, failNodes, annotationReview } from "./assist-render.js";
+
+/** The model is told to reply with ONLY a JSON array, but a chat model can
+    still wrap it in prose or a code fence despite that — this pulls out the
+    `[...]` span rather than trusting the whole response to be clean JSON. */
+function extractJsonArray(text) {
+  const s = String(text || "");
+  const start = s.indexOf("[");
+  const end = s.lastIndexOf("]");
+  if (start === -1 || end === -1 || end < start) throw new Error("No JSON array in the response.");
+  return s.slice(start, end + 1);
+}
 
 const CHIPS = [
   { label: "Summarise", run: (a, opts) => a.summarize(opts) },
@@ -53,6 +64,10 @@ const LEVELS = [
  * @param {(open:boolean)=>void} [opts.onToggle] told when the panel opens / collapses
  * @param {string} [opts.initialLevel] reading level to start on ("written" | "simple" | "simplest")
  * @param {(level:string)=>void} [opts.onLevelChange] told when the reader picks a different level, to persist it
+ * @param {(quote:string, note:string)=>({id:string}|null)} [opts.onAnnotateApply]
+ *   turns one Annotate-article candidate into a highlight+note — typically
+ *   shared/aids.js's addHighlightByText. Omit and the Annotate action simply
+ *   isn't offered (see chipRow()).
  */
 export function createAssistSidebar({
   assistant,
@@ -62,6 +77,7 @@ export function createAssistSidebar({
   onToggle = null,
   initialLevel = "written",
   onLevelChange = null,
+  onAnnotateApply = null,
 } = {}) {
   let panel = null;
   let bodyEl = null;
@@ -249,16 +265,84 @@ export function createAssistSidebar({
   }
 
   function chipRow() {
-    return el(
-      "div",
-      { class: "rt-assist-chips", role: "group", "aria-label": "Quick asks" },
-      CHIPS.map((c) => {
-        const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
-        b.addEventListener("click", () =>
-          runTask(c.label === "Summarise" ? "summary" : "ask", c.label, c.run));
-        return b;
-      }),
-    );
+    const chips = CHIPS.map((c) => {
+      const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
+      b.addEventListener("click", () =>
+        runTask(c.label === "Summarise" ? "summary" : "ask", c.label, c.run));
+      return b;
+    });
+    // Only offered when the caller wired somewhere to put the results —
+    // without onAnnotateApply there'd be nothing for "Apply" to do.
+    if (typeof onAnnotateApply === "function") {
+      const annotate = el("button", { type: "button", class: "rt-assist-chip" }, "Annotate this article");
+      annotate.addEventListener("click", () => runAnnotate());
+      chips.push(annotate);
+    }
+    return el("div", { class: "rt-assist-chips", role: "group", "aria-label": "Quick asks" }, chips);
+  }
+
+  /** Reads the whole article and turns the model's {quote, note} suggestions
+      into review cards the reader can Apply (or Apply all) / Skip — a bulk,
+      AI-assisted version of manually highlighting-with-a-note. Kept separate
+      from runTask() since its result isn't flat text: it needs JSON parsing
+      and a different renderer (annotationReview, not resultBlock). */
+  async function runAnnotate() {
+    stopSpeaking();
+    if (controller) { try { controller.abort(); } catch {} }
+    controller = new AbortController();
+    const mine = controller;
+    resetLog("annotate requested");
+    const pending = el("div", { class: "rt-chat-row rt-chat-row-ai rt-chat-pending" },
+      workingNodes("Reading the article for things worth annotating…", () => stop()));
+    bodyEl.append(pending);
+    bodyEl.setAttribute("aria-busy", "true");
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+    const t0 = Date.now();
+    try {
+      const { text } = await assistant.annotate({ signal: mine.signal, onLog: pushLog });
+      if (mine.signal.aborted) {
+        pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
+        return;
+      }
+      let items = null;
+      try {
+        const parsed = JSON.parse(extractJsonArray(text));
+        items = Array.isArray(parsed)
+          ? parsed.filter((it) => it && typeof it.quote === "string" && it.quote.trim())
+          : null;
+      } catch {
+        items = null;
+      }
+      if (!items || !items.length) {
+        pushLog(`FAILED: response wasn't a usable JSON array (${String(text).length} chars)`);
+        pending.className = "rt-chat-row rt-chat-row-ai rt-chat-error";
+        pending.replaceChildren(...failNodes("The AI's answer wasn't in the right shape. Try again?", () => runAnnotate()));
+        bodyEl.setAttribute("aria-busy", "false");
+        return;
+      }
+      pushLog(`done in ${Date.now() - t0}ms → ${items.length} candidate annotation(s)`);
+      pending.className = "rt-chat-row rt-chat-row-ai";
+      pending.replaceChildren(
+        annotationReview(items, (item) => onAnnotateApply(item.quote, item.note || "")),
+        disclaimer(),
+      );
+      bodyEl.setAttribute("aria-busy", "false");
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    } catch (err) {
+      if (mine.signal.aborted) {
+        pushLog(`cancelled after ${Date.now() - t0}ms`);
+        pending.remove();
+        if (bodyEl && !bodyEl.querySelector(".rt-chat-pending")) bodyEl.setAttribute("aria-busy", "false");
+        return;
+      }
+      pushLog(`FAILED after ${Date.now() - t0}ms: ${(err && err.message) || err}`);
+      pending.className = "rt-chat-row rt-chat-row-ai rt-chat-error";
+      pending.replaceChildren(...failNodes((err && err.message) || "That didn't work.", () => runAnnotate()));
+      bodyEl.setAttribute("aria-busy", "false");
+    } finally {
+      if (controller === mine) controller = null;
+    }
   }
 
   /** Run one task (a chip or a typed question) into the answer area. `question`
