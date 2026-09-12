@@ -23,6 +23,7 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+html { scroll-padding-top: 110px; }
 body { margin: 0; color: var(--ink); background: var(--paper); background-image: radial-gradient(circle at 12% 8%, rgba(169,208,186,.22), transparent 25rem), radial-gradient(circle at 88% 42%, rgba(230,170,96,.11), transparent 22rem); font-family: var(--body); font-size: 18px; line-height: 1.55; }
 a { color: inherit; }
 button { font: inherit; }
@@ -90,6 +91,7 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .specimen-controls { justify-content: flex-start; flex-wrap: wrap; gap: 7px; padding: 17px 0 12px; }
 .specimen-control { appearance: none; padding: 6px 9px; border: 1px solid rgba(245,240,229,.24); border-radius: 3px; background: transparent; color: rgba(245,240,229,.63); cursor: pointer; font-family: var(--mono); font-size: .6rem; letter-spacing: .02em; }
 .specimen-control:hover, .specimen-control.is-active { border-color: var(--mint); color: var(--mint); background: rgba(169,208,186,.11); }
+.specimen-control:focus-visible, .play-button:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 .control-divider { width: 1px; height: 20px; margin-inline: 5px; background: rgba(245,240,229,.2); }
 .specimen-note { margin: 0; color: rgba(245,240,229,.55); font-family: var(--mono); font-size: .61rem; letter-spacing: .02em; }
 .specimen-note span { margin-right: 6px; color: var(--amber); }
@@ -184,8 +186,8 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .footer-links { display: flex; justify-content: flex-end; gap: 17px; font-family: var(--mono); font-size: .61rem; text-transform: uppercase; letter-spacing: .06em; }
 
 /* Gentle scroll-in reveals keep the long page feeling navigable without hiding content. */
-[data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .6s var(--ease-out), transform .6s var(--ease-out); }
-[data-reveal].is-visible { opacity: 1; transform: none; }
+html.js-ready [data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .6s var(--ease-out), transform .6s var(--ease-out); }
+html.js-ready [data-reveal].is-visible { opacity: 1; transform: none; }
 
 /* ---- Dyslexia-friendly view ---------------------------------------------- */
 .a11y-toggle {

@@ -42,6 +42,7 @@ if (dysToggle) {
   });
 }
 
+document.documentElement.classList.add("js-ready");
 const specimen = document.querySelector("#specimen-reading");
 
 /* Reveal long-form sections as they enter the viewport. Content stays visible
