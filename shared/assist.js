@@ -219,7 +219,56 @@ const clip = (s, n) => {
   return { text: t.slice(0, n).replace(/\s+\S*$/, "") + " …", clipped: true };
 };
 
-export function createAssistant({ getArticleText = () => "", getArticleUrl = () => "" } = {}) {
+/* A question about a long article was silently failing whenever the answer
+   lived past MAX_ASK_CONTEXT: a flat "read the first N characters" clip has
+   no idea the reader asked about something near the bottom of the page (a
+   Wikipedia infobox table two screens down, say). This is a cheap keyword
+   match, not a search engine — no index, no embeddings, nothing to keep in
+   sync — but it means "what changed at the end?" actually reads the end. */
+const ASK_STOPWORDS = new Set([
+  "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "is",
+  "are", "was", "were", "be", "been", "being", "it", "its", "this", "that",
+  "these", "those", "with", "as", "by", "from", "what", "which", "who",
+  "whom", "how", "why", "when", "where", "do", "does", "did", "has", "have",
+  "had", "will", "would", "can", "could", "about", "into", "than", "so",
+  "not", "no", "you", "your", "i", "me", "my", "we", "our", "they", "them",
+]);
+const wordsOf = (s) => (String(s || "").toLowerCase().match(/[a-z0-9']+/g) || []);
+
+/** Pick the article blocks most likely to answer `question`, in their
+    original order, up to `maxChars`. Falls back to the article's start when
+    the question shares no real words with any block (a vague or off-topic
+    ask) or when there are no block boundaries to work with at all. */
+function selectAskContext(blocks, question, maxChars) {
+  if (!Array.isArray(blocks) || blocks.length <= 1) return null;
+  const qWords = new Set(wordsOf(question).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w)));
+  if (!qWords.size) return null;
+  const scored = blocks.map((text, i) => {
+    const seen = new Set(wordsOf(text));
+    let score = 0;
+    for (const w of seen) if (qWords.has(w)) score++;
+    return { text, i, score };
+  });
+  if (!scored.some((b) => b.score > 0)) return null;
+  // The opening block or two ground the model in what the article even is,
+  // even when they didn't individually score — a table titled "Employers"
+  // three screens down means nothing without knowing the article is about
+  // Calabasas. Everything else competes purely on relevance.
+  const chosen = new Set([0, 1].filter((i) => i < blocks.length));
+  for (const b of [...scored].sort((a, b) => b.score - a.score || a.i - b.i)) {
+    if (b.score <= 0) break;
+    chosen.add(b.i);
+  }
+  let out = "";
+  for (const i of [...chosen].sort((a, b) => a - b)) {
+    const next = (out ? out + "\n\n" : "") + blocks[i];
+    if (next.length > maxChars) { if (!out) out = blocks[i].slice(0, maxChars); break; }
+    out = next;
+  }
+  return out || null;
+}
+
+export function createAssistant({ getArticleText = () => "", getArticleBlocks = null, getArticleUrl = () => "" } = {}) {
   async function run({ kind, text, question = "", onProgress, onLog, signal }) {
     const log = typeof onLog === "function" ? (m) => onLog(m) : () => {};
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
@@ -378,7 +427,9 @@ export function createAssistant({ getArticleText = () => "", getArticleUrl = () 
     async ask(question, { onProgress, onLog, signal } = {}) {
       const q = String(question || "").replace(/\s+/g, " ").trim().slice(0, MAX_ASK_QUESTION);
       if (!q) throw new Error("Type a question first.");
-      const { text, clipped } = clip(getArticleText(), MAX_ASK_CONTEXT);
+      const blocks = typeof getArticleBlocks === "function" ? getArticleBlocks() : null;
+      const relevant = selectAskContext(blocks, q, MAX_ASK_CONTEXT);
+      const { text, clipped } = relevant != null ? clip(relevant, MAX_ASK_CONTEXT) : clip(getArticleText(), MAX_ASK_CONTEXT);
       if (!text) throw new Error("There's no article text to ask about.");
       return { text: await run({ kind: "ask", text, question: q, onProgress, onLog, signal }), clipped };
     },

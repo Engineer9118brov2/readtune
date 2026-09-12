@@ -227,11 +227,10 @@ export function buildControls(profile, onChange, opts = {}) {
   );
 
   /* ---- Quick modes ---- */
+  // Each button already carries its own label + one-line blurb (modeButtons()
+  // below) — a hint sentence above them was saying the same thing again.
   const secQuick = section(sectionTitle("Quick modes", "supported", "Task presets"), true);
-  secQuick.append(
-    hint("One click for the job you are doing right now. Your calibrated profile stays underneath.", "rt-panel-hint-tight"),
-    modeButtons()
-  );
+  secQuick.append(modeButtons());
 
   /* ---- Text ---- */
   const secText = section(sectionTitle("Text", "strong"), false);
@@ -454,10 +453,16 @@ export function buildControls(profile, onChange, opts = {}) {
     ttsState,
   });
 
-  body.append(
-    hint("Everything saves automatically and applies across ReadTune."),
-    el("div", { class: "rt-research-mini" }, RESEARCH_EXPERIMENTS.map(researchCard))
+  // The evidence-honesty disclosure for the optional/contested options (each
+  // section already carries its own one-line evidence chip) — worth having,
+  // worth reading once, folded the same way the research-starter card above
+  // is: not the wall of text every settings-open has to scroll past.
+  const experimentsDetails = el("details", { class: "rt-research-fold" });
+  experimentsDetails.append(
+    el("summary", {}, [evidenceChip("mixed", "Mixed evidence"), " Fonts, tints, bionic, and focus — what the research actually says"]),
+    el("div", { class: "rt-research-mini" }, RESEARCH_EXPERIMENTS.map(researchCard)),
   );
+  body.append(hint("Everything saves automatically and applies across ReadTune."), experimentsDetails);
   const resetBtn = el("button", { class: "rt-link rt-reset", type: "button" }, "Reset to defaults");
   resetBtn.addEventListener("click", () => onChange({ __reset: true }));
   body.append(resetBtn);

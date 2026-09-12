@@ -1162,6 +1162,26 @@ export function createReadingView(host) {
     getPlainText() {
       return pristine.textContent.replace(/\s+/g, " ").trim();
     },
+    /** Same text, but with paragraph/heading/list-item boundaries kept as
+        blank lines instead of collapsed away. Ask AI uses this to find the
+        passage that actually answers a question in a long article, rather
+        than reading only however far a flat character cap reaches. */
+    getBlocks() {
+      const blocks = Array.from(pristine.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, blockquote, dd, dt, figcaption, pre"));
+      const seen = new Set();
+      const out = [];
+      for (const el of blocks) {
+        // Skip a block whose text is already captured by an ancestor also in
+        // the list (e.g. a <p> inside a <blockquote>) — keeps each sentence
+        // out of the context exactly once.
+        if (blocks.some((other) => other !== el && other.contains(el))) continue;
+        const text = el.textContent.replace(/\s+/g, " ").trim();
+        if (!text || seen.has(text)) continue;
+        seen.add(text);
+        out.push(text);
+      }
+      return out.length ? out : this.getPlainText().split(/\n+/).filter(Boolean);
+    },
     getStats() {
       return computeStats(pristine.textContent);
     },
