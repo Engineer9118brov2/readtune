@@ -56,16 +56,27 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   function updateFocusParagraph() {
     const flow = getFlow();
     if (!flow) return;
-    const mid = window.innerHeight / 2;
+    const vh = window.innerHeight;
+    const mid = vh / 2;
     let best = null;
     let bestDist = Infinity;
     for (const el of flow.children) {
       const r = el.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > window.innerHeight) {
+      if (r.bottom <= 0 || r.top >= vh || (!r.width && !r.height)) {
         el.classList.remove("rt-focus-active");
         continue;
       }
-      const d = Math.abs(r.top + r.height / 2 - mid);
+      /* Score by the *visible* slice's centre, not the whole element's —
+         a block taller than the viewport (a long list, an infobox, a big
+         table) has its geometric centre far off-screen, so this used to
+         hand focus to whichever block's full-height centre happened to be
+         numerically nearest `mid`, not whichever block actually filled the
+         middle of the screen. That flickered between neighbours while
+         scrolling through a tall block, and could leave nothing clearly
+         "the" focused paragraph even though one plainly filled the view. */
+      const visTop = Math.max(0, r.top);
+      const visBottom = Math.min(vh, r.bottom);
+      const d = Math.abs((visTop + visBottom) / 2 - mid);
       if (d < bestDist) {
         bestDist = d;
         best = el;
