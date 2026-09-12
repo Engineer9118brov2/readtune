@@ -507,6 +507,24 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     aids.removeHighlight(created.id);
   }
 
+  /* ---- addHighlightByText: the entry point Annotate-the-article uses, given
+     only quoted text (no live Range) — finds the first verbatim match and
+     wraps it, or returns null when the quote isn't actually in the article
+     (a model paraphrasing despite being told not to). ---- */
+  {
+    const flow = view.getFlowEl();
+    const byText = aids.addHighlightByText("small sealed world", "AI: isolation theme.");
+    assert(byText && byText.text === "small sealed world" && byText.note === "AI: isolation theme.",
+      "addHighlightByText finds a verbatim quote and wraps it with the given note");
+    assert(document.querySelector(`mark.rt-hl[data-hl-id="${byText.id}"]`), "the quote is actually wrapped in the DOM");
+    aids.removeHighlight(byText.id);
+
+    assert(aids.addHighlightByText("a sentence that never appears in this article") === null,
+      "a quote that isn't in the article returns null rather than throwing");
+    assert(aids.addHighlightByText("") === null, "an empty quote is rejected");
+    assert(/small sealed world/.test(flow.textContent), "the article text is untouched after a failed lookup");
+  }
+
   aids.destroy();
 
   assert(typeof TTS.createTTS === "function", "tts exports createTTS");
@@ -2061,6 +2079,92 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         "the reading-level phrasing travels to the relay as its own field",
       );
       sidebar5.destroy();
+
+      // ---- Annotate this article: JSON-array parsing (robust to a stray
+      // code fence around it), review cards, Apply/Skip, and the malformed-
+      // response failure path. ----
+      {
+        const sidebarNoAnnotate = ASB.createAssistSidebar({
+          assistant: A.createAssistant({ getArticleText: () => "Text." }),
+          speak: async () => {},
+        });
+        await sidebarNoAnnotate.open();
+        await new Promise((r) => setTimeout(r, 0));
+        assert(
+          ![...document.querySelectorAll(".rt-assist-chip")].some((c) => c.textContent === "Annotate this article"),
+          "the Annotate chip is hidden entirely without onAnnotateApply wired",
+        );
+        sidebarNoAnnotate.destroy();
+
+        const goodJson = JSON.stringify([
+          { quote: "the sea climbs the rocks", note: "Sets up the daily cycle.", kind: "theme" },
+          { quote: "a passage the article never contains", note: "Won't be found.", kind: "define" },
+        ]);
+        const applyCalls = [];
+        const fakeAnnotateAssistant = {
+          summarize: async () => ({ text: "SUMMARY", clipped: false }),
+          annotate: async () => ({ text: `Sure, here you go:\n\`\`\`json\n${goodJson}\n\`\`\``, clipped: false }),
+        };
+        const sidebar6 = ASB.createAssistSidebar({
+          assistant: fakeAnnotateAssistant,
+          speak: async () => {},
+          onAnnotateApply: (quote, note) => {
+            applyCalls.push({ quote, note });
+            return quote === "the sea climbs the rocks" ? { id: "hl-1" } : null;
+          },
+        });
+        await sidebar6.open();
+        await new Promise((r) => setTimeout(r, 0));
+        const panel6 = document.querySelector(".rt-assist-sidebar");
+        const annotateChip = [...panel6.querySelectorAll(".rt-assist-chip")].find((c) => c.textContent === "Annotate this article");
+        assert(!!annotateChip, "the Annotate chip appears once onAnnotateApply is wired");
+        annotateChip.click();
+        await new Promise((r) => setTimeout(r, 10));
+        const cards = [...panel6.querySelectorAll(".rt-annotate-card")];
+        assert(cards.length === 2, "a prose-wrapped/code-fenced JSON array still parses into review cards");
+        assert(/2 suggested annotations/.test(panel6.querySelector(".rt-annotate-header").textContent), "the header counts the candidates");
+
+        const applyBtns = cards.map((c) => c.querySelector("button.rt-primary"));
+        applyBtns[0].click();
+        assert(
+          applyCalls[0].quote === "the sea climbs the rocks" && applyCalls[0].note === "Sets up the daily cycle.",
+          "Apply hands the exact quote and note back to onAnnotateApply",
+        );
+        assert(cards[0].querySelector(".rt-annotate-status").textContent === "Applied" && applyBtns[0].disabled,
+          "a successful apply shows Applied and locks the button");
+
+        applyBtns[1].click();
+        assert(
+          cards[1].querySelector(".rt-annotate-status").textContent === "Couldn't find that passage",
+          "a quote onAnnotateApply couldn't place shows a clear failure, not a silent no-op",
+        );
+
+        // Skip removes a card without ever calling onAnnotateApply for it —
+        // rebuild the flow with a fresh pair of candidates.
+        fakeAnnotateAssistant.annotate = async () => ({
+          text: JSON.stringify([{ quote: "one", note: "n" }, { quote: "two", note: "n" }]),
+          clipped: false,
+        });
+        annotateChip.click();
+        await new Promise((r) => setTimeout(r, 10));
+        // Each ask appends a new chat row (same as Ask AI's history) rather
+        // than replacing the last one, so scope to the row this click added.
+        const latestRow = [...panel6.querySelectorAll(".rt-chat-row-ai")].at(-1);
+        const cards2 = [...latestRow.querySelectorAll(".rt-annotate-card")];
+        assert(cards2.length === 2, "asking again renders a fresh set of candidate cards");
+        cards2[0].querySelector(".rt-link").click();
+        assert(!cards2[0].isConnected && cards2[1].isConnected, "Skip removes only its own card");
+
+        fakeAnnotateAssistant.annotate = async () => ({ text: "sorry, I can't help with that", clipped: false });
+        annotateChip.click();
+        await new Promise((r) => setTimeout(r, 10));
+        const latestError = [...panel6.querySelectorAll(".rt-assist-error")].at(-1);
+        assert(
+          latestError && /wasn't in the right shape/.test(latestError.textContent),
+          "a response with no JSON array in it fails clearly instead of crashing",
+        );
+        sidebar6.destroy();
+      }
 
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");

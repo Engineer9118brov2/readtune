@@ -65,3 +65,56 @@ export function failNodes(message, onRetry) {
   }
   return parts;
 }
+
+/** Renders "Annotate this article"'s candidates — [{quote, note, kind}] —
+    as review cards with Apply / Skip on each, plus an "Apply all" shortcut.
+    `onApply(item)` should return a truthy value (the created highlight) on
+    success; the card then shows "Applied" and locks. A falsy return (the
+    quote wasn't found verbatim in the article — a model can still paraphrase
+    despite being told not to) shows "Couldn't find that passage" instead,
+    and the card stays so the reader can see what didn't make it in.
+    `onSkip(item)` is optional; the card is removed either way. */
+export function annotationReview(items, onApply, onSkip) {
+  const list = el("div", { class: "rt-annotate-list" });
+
+  const cardFor = (item) => {
+    const applyBtn = el("button", { type: "button", class: "rt-btn rt-primary" }, "Apply");
+    const skipBtn = el("button", { type: "button", class: "rt-link" }, "Skip");
+    const status = el("span", { class: "rt-annotate-status" });
+    const card = el("div", { class: "rt-annotate-card" }, [
+      el("p", { class: "rt-annotate-quote" }, `"${item.quote}"`),
+      el("p", { class: "rt-annotate-note" }, item.note),
+      el("div", { class: "rt-annotate-actions" }, [applyBtn, skipBtn, status]),
+    ]);
+    applyBtn.addEventListener("click", () => {
+      const ok = onApply(item);
+      applyBtn.disabled = true;
+      skipBtn.hidden = true;
+      status.textContent = ok ? "Applied" : "Couldn't find that passage";
+      status.classList.toggle("rt-annotate-status-fail", !ok);
+    });
+    skipBtn.addEventListener("click", () => {
+      if (onSkip) onSkip(item);
+      card.remove();
+    });
+    return card;
+  };
+
+  for (const item of items) list.append(cardFor(item));
+
+  const applyAll = el("button", { type: "button", class: "rt-assist-btn" }, "Apply all");
+  applyAll.addEventListener("click", () => {
+    // A snapshot, not a live query — clicking each Apply button disables it,
+    // which would otherwise shrink the :not(:disabled) match set mid-loop.
+    for (const btn of [...list.querySelectorAll(".rt-annotate-card button.rt-primary:not(:disabled)")]) btn.click();
+    applyAll.disabled = true;
+  });
+
+  return el("div", { class: "rt-annotate-review" }, [
+    el("div", { class: "rt-annotate-header" }, [
+      el("span", {}, `${items.length} suggested annotation${items.length === 1 ? "" : "s"}`),
+      applyAll,
+    ]),
+    list,
+  ]);
+}

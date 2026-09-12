@@ -26,6 +26,7 @@ const MAX_LEVEL_HINT = 200; // a short phrasing instruction, not user content
 const ASK_MAX_TOKENS = 800; // a Q&A answer needs more room than a 3-5 line summary
 const DEFINE_MAX_TOKENS = 150; // one plain sentence
 const EXPLAIN_MAX_TOKENS = 300; // a few short sentences on figurative language / theme
+const ANNOTATE_MAX_TOKENS = 1200; // several structured {quote, note} entries — the biggest budget yet
 
 const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
@@ -49,6 +50,13 @@ const DEFINE_SYSTEM =
 const EXPLAIN_SYSTEM =
   "You explain what a passage means for a reader who finds reading difficult — any figurative language, tone, or theme. " +
   "If nothing figurative is present, explain the main idea instead. Two to four short sentences, plain words, no preamble.";
+
+const ANNOTATE_SYSTEM =
+  "Read the article and pick 5 to 10 short passages worth annotating for a reader who finds reading difficult: hard vocabulary, " +
+  "figurative language, and important themes. Reply with ONLY a JSON array, no prose, no code fences, no markdown — just the array: " +
+  '[{"quote": "...", "note": "...", "kind": "define"|"explain"|"theme"}]. ' +
+  "Each \"quote\" must be copied exactly, word-for-word, from the article — not paraphrased, not summarized. " +
+  'Each "note" is one short plain sentence explaining that passage.';
 
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -99,6 +107,13 @@ const KINDS = {
     maxTokens: EXPLAIN_MAX_TOKENS,
     buildUser: (text) => text,
     validate: (text) => (!text ? "No passage to work with." : null),
+  },
+  annotate: {
+    system: ANNOTATE_SYSTEM,
+    maxText: MAX_INPUT,
+    maxTokens: ANNOTATE_MAX_TOKENS,
+    buildUser: (text) => text,
+    validate: (text) => (!text ? "No article text to work with." : null),
   },
 };
 

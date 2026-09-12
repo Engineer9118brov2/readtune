@@ -1238,6 +1238,32 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   background: color-mix(in srgb, var(--rt-ui-accent, #1f7a5c) 14%, var(--rt-ui-bg, #fff));
   color: var(--rt-ui-accent, #1f7a5c);
 }
+.rt-annotate-review { display: flex; flex-direction: column; gap: 10px; }
+.rt-annotate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--rt-ui-ink-soft, #5b5d53);
+}
+.rt-annotate-list { display: flex; flex-direction: column; gap: 8px; }
+.rt-annotate-card {
+  border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .12));
+  border-radius: var(--rt-ui-radius-sm);
+  padding: 10px 12px;
+  background: var(--rt-ui-bg, #faf9f5);
+}
+.rt-annotate-quote {
+  margin: 0 0 4px;
+  font-size: .88rem;
+  font-style: italic;
+  color: var(--rt-ui-ink, #1f2430);
+}
+.rt-annotate-note { margin: 0; font-size: .86rem; color: var(--rt-ui-ink-soft, #5b5d53); }
+.rt-annotate-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.rt-annotate-status { font-size: .8rem; color: var(--rt-ui-accent, #1f7a5c); font-weight: 600; }
+.rt-annotate-status-fail { color: #b23b3b; }
 .rt-assist-composer {
   flex: none;
   display: flex;

@@ -212,6 +212,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       readerUi = { ...readerUi, askLevel };
       saveReaderUi({ askLevel });
     },
+    onAnnotateApply: (quote, note) => aids.addHighlightByText(quote, note),
   });
 
   const transport = createTransport({
