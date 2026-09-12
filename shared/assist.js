@@ -272,7 +272,11 @@ const wordsOf = (s) => (String(s || "").toLowerCase().match(/[a-z0-9']+/g) || []
    line up. Deliberately crude (no dictionary, no exceptions list) — it only
    has to unify obvious siblings, not lemmatize correctly in general. */
 function stem(w) {
-  for (const suf of ["ments", "ment", "ers", "er", "ies", "ing", "ed", "es", "s"]) {
+  // "-ies" drops the whole ending elsewhere ("stories" -> "stor"), but a
+  // policy/policies or story/stories pair should land on the same stem as
+  // the singular, not lose the "y" and miss it.
+  if (w.length >= 6 && w.endsWith("ies")) return w.slice(0, -3) + "y";
+  for (const suf of ["ments", "ment", "ers", "er", "ing", "ed", "es", "s"]) {
     if (w.length - suf.length >= 4 && w.endsWith(suf)) return w.slice(0, w.length - suf.length);
   }
   return w;

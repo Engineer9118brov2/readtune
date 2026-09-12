@@ -339,10 +339,14 @@ function foldLongList(list, wordsBefore) {
   const items = Array.from(list.children).filter((c) => c.tagName === "LI");
   if (items.length < LONG_LIST_THRESHOLD) return;
   /* A real listicle ("Top 100 ...") is the article, not a citation dump —
-     folding it away would hide the content the reader came for. Citation
-     lists sit after substantial prose; require that shape rather than
-     guessing from the list alone. */
+     folding it away would hide the content the reader came for. A long
+     intro alone doesn't rule that out (a listicle can easily open with
+     150+ words of framing), so also require the items themselves to read
+     like citations: short, one-line entries. A listicle's own items are
+     typically multi-sentence, well past this. */
   if (wordsBefore < 150) return;
+  const avgWords = items.reduce((sum, li) => sum + wordsIn(li.textContent).length, 0) / items.length;
+  if (avgWords > 40) return;
   const details = document.createElement("details");
   details.className = "rt-fold";
   const summary = document.createElement("summary");

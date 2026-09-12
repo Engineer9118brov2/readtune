@@ -335,11 +335,25 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
     highlights = (Array.isArray(list) ? list : []).map((h) => ({ note: "", ...h, id: h.id || newHighlightId() }));
     const flow = getFlow();
     if (!flow) return;
-    for (const h of highlights) {
+    /* A record saved before the overlap guard existed (or two records that
+       happen to cover the same text) would otherwise nest a second <mark>
+       on reload — restoreHighlights bypasses createHighlightFromRange and
+       calls wrapRange directly, so it needs the same guard. Drop the record
+       rather than silently nesting; persist so the stale duplicate doesn't
+       keep coming back on every future load. */
+    let dropped = false;
+    highlights = highlights.filter((h) => {
       const range = rangeFromText(flow, h.text, h.before);
-      if (range) wrapRange(range, "rt-hl").forEach((m) => wireHighlightMark(m, h.id));
-    }
-    onHighlightsChanged && onHighlightsChanged(highlights.slice());
+      if (!range) return true; // couldn't relocate it — leave restoreHighlights' own miss-handling alone
+      if ([...flow.querySelectorAll(".rt-hl")].some((mark) => range.intersectsNode(mark))) {
+        dropped = true;
+        return false;
+      }
+      wrapRange(range, "rt-hl").forEach((m) => wireHighlightMark(m, h.id));
+      return true;
+    });
+    if (dropped) persistHighlights();
+    else onHighlightsChanged && onHighlightsChanged(highlights.slice());
   }
 
   /** Scrolls a highlight into view and gives it a brief attention flash — used
