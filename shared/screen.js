@@ -110,9 +110,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       await savePageMemory(pageUrl, memory);
     },
     // `controls` (below) always exists by the time this actually fires —
-    // restoreHighlights() only runs later, once memory has loaded — but the
-    // guard costs nothing and keeps that ordering from being load-bearing.
-    onHighlightsChanged: (list) => controls && controls.setHighlights(list),
+    // restoreHighlights() only runs later, once memory has loaded.
+    onHighlightsChanged: (list) => controls.setHighlights(list),
   });
 
   const tts = createTTS({
