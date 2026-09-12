@@ -281,7 +281,14 @@ function stem(w) {
   }
   return w;
 }
-const stemsOf = (s) => wordsOf(s).map(stem);
+// Stopwords must be dropped BEFORE stemming, not after — stem("these") is
+// "thes", which ASK_STOPWORDS (spelled with the full word) no longer
+// recognises, so a post-stem filter would let stopword stems leak into the
+// match set and dilute the real keywords' signal.
+const contentStemsOf = (s) =>
+  wordsOf(s)
+    .filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w))
+    .map(stem);
 
 /** Pick the article blocks most likely to answer `question`, in their
     original order, up to `maxChars`. Falls back to the article's start when
@@ -289,10 +296,10 @@ const stemsOf = (s) => wordsOf(s).map(stem);
     ask) or when there are no block boundaries to work with at all. */
 function selectAskContext(blocks, question, maxChars) {
   if (!Array.isArray(blocks) || blocks.length <= 1) return null;
-  const qWords = new Set(stemsOf(question).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w)));
+  const qWords = new Set(contentStemsOf(question));
   if (!qWords.size) return null;
   const scored = blocks.map((text, i) => {
-    const seen = new Set(stemsOf(text));
+    const seen = new Set(contentStemsOf(text));
     let score = 0;
     for (const w of seen) if (qWords.has(w)) score++;
     return { text, i, score };
