@@ -412,6 +412,45 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   display: none;
 }
 
+/* the source page's own "Listen to this article" — only shown when one was
+   found at capture time. Sits just above the voice orb; same idea as
+   .rt-rail-open (a labelled pill), not the orb's icon-only circle, since
+   this one needs to say what it does (site audio vs. ReadTune's own voice). */
+.rt-page-audio {
+  position: fixed;
+  right: 18px;
+  top: calc(45vh - 46px);
+  z-index: 34;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--rt-ui-line);
+  background: var(--rt-ui-panel);
+  color: var(--rt-ui-ink);
+  font-family: var(--rt-ui-font);
+  font-size: 0.82rem;
+  font-weight: 550;
+  padding: 7px 12px;
+  border-radius: var(--rt-ui-radius-pill);
+  cursor: pointer;
+  box-shadow: var(--rt-ui-shadow);
+}
+.rt-page-audio:hover {
+  border-color: color-mix(in srgb, var(--rt-ui-accent) 35%, var(--rt-ui-line));
+}
+.rt-page-audio.on {
+  border-color: var(--rt-ui-accent);
+  color: var(--rt-ui-accent);
+}
+.rt-page-audio:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+body.rt-shell:has(#rail-right:not([hidden])) .rt-page-audio {
+  display: none;
+}
+
 @media (max-width: 900px) {
   body.rt-shell {
     display: block;

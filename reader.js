@@ -70,7 +70,13 @@ async function init() {
     parts,
   });
 
-  await createReadingScreen({ surface, view, pageUrl: article.url || "" });
+  await createReadingScreen({
+    surface,
+    view,
+    pageUrl: article.url || "",
+    sourceTabId: article.tabId || null,
+    narration: article.narration || null,
+  });
 }
 
 init().catch((err) => {
