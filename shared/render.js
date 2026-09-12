@@ -350,7 +350,11 @@ function foldLongList(list, wordsBefore) {
   const details = document.createElement("details");
   details.className = "rt-fold";
   const summary = document.createElement("summary");
-  summary.textContent = `${items.length} items — tap to expand`;
+  // Read as a heading chunk by the same walker that reads "Quick facts" for a
+  // folded infobox (splitIntoChunks treats every <summary> that way) — plain
+  // wording here, not "tap to expand", so read-aloud doesn't say something
+  // that only makes sense to a mouse/touch reader.
+  summary.textContent = `${items.length} items`;
   list.parentNode.insertBefore(details, list);
   details.appendChild(list);
 }

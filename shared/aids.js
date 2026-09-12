@@ -184,11 +184,28 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
        doesn't reject that, it just nests marks. A repeated "Save as highlight"
        click, or two auto-annotate quotes that land on the same sentence,
        produced a visibly doubled underline/dot decoration this way (the CSS
-       reads through both marks). Refuse instead of nesting: same passage,
-       same kind of note already there. */
+       reads through both marks).
+       Don't just refuse, though — Define/Explain's "Save as highlight" runs
+       on text the reader may well have already highlighted, and a flat
+       refusal there discards a note the reader can never get back (repeating
+       the same selection just fails again). Fold the new note into whichever
+       existing highlight(s) the range overlaps instead of nesting a mark. */
     if (flow) {
-      for (const mark of flow.querySelectorAll(".rt-hl")) {
-        if (range.intersectsNode(mark)) return null;
+      const overlapping = [...flow.querySelectorAll(".rt-hl")]
+        .filter((mark) => range.intersectsNode(mark))
+        .map((mark) => highlights.find((x) => x.id === mark.dataset.hlId))
+        .filter(Boolean);
+      if (overlapping.length) {
+        const target = overlapping[0];
+        const addition = String(note || "").trim();
+        if (addition && !target.note.includes(addition)) {
+          target.note = `${target.note ? target.note + "\n\n" : ""}${addition}`.trim().slice(0, 500);
+          for (const mark of flow.querySelectorAll(`.rt-hl[data-hl-id="${cssEscape(target.id)}"]`)) {
+            mark.classList.add("rt-hl-noted");
+          }
+          persistHighlights();
+        }
+        return target;
       }
     }
     const before = contextBefore(flow, range, 24);
@@ -362,6 +379,10 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   function scrollToHighlight(id) {
     const mark = document.querySelector(`mark.rt-hl[data-hl-id="${cssEscape(id)}"]`);
     if (!mark) return false;
+    // A highlight inside a folded infobox or a folded long list (render.js)
+    // sits in a closed <details> — open every ancestor or "jump to" lands on
+    // nothing visible. Mirrors tts.js's read-aloud handling of the same case.
+    for (let d = mark.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
     mark.scrollIntoView({ block: "center", behavior: "smooth" });
     mark.classList.add("rt-hl-flash");
     setTimeout(() => mark.classList.remove("rt-hl-flash"), 1200);
