@@ -37,8 +37,9 @@ import { createCloudEngine } from "./speak-cloud.js";
 import { buildControls } from "./controls.js";
 import { modePatch } from "./reading-modes.js";
 import { cycleRulerLines, normalizeRulerLines } from "./ruler.js";
+import { callPageAudioBridge } from "./page-audio-bridge.js";
 
-export async function createReadingScreen({ surface, view, pageUrl = "" }) {
+export async function createReadingScreen({ surface, view, pageUrl = "", sourceTabId = null, narration = null }) {
   let profile = await loadProfile();
   applyDyslexicUi(profile.dyslexicUiMode);
   let ttsConfig = await loadTTSConfig();
@@ -281,7 +282,53 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     }
   });
 
+  /* The source page's own narration — a "Listen to this article" player or
+     podcast embed, detected once when the article was captured (Reader View
+     itself has no live DOM connection back to that tab). Offer it instead of
+     defaulting straight to ReadTune's own voice: reading aloud a page that
+     already has free narration otherwise burns Piper/cloud for no reason. */
+  let pageAudioBtn = null;
+  if (narration && sourceTabId) {
+    pageAudioBtn = document.createElement("button");
+    pageAudioBtn.type = "button";
+    pageAudioBtn.className = "rt-page-audio";
+    const paint = (playing) => {
+      if (narration.kind === "audio") {
+        pageAudioBtn.textContent = playing ? "❙❙ Page audio" : "▶ Page audio";
+        pageAudioBtn.title = playing ? "Pause the page's own narration" : "Play the page's own narration";
+      } else if (narration.kind === "embed") {
+        pageAudioBtn.textContent = "♪ Podcast";
+        pageAudioBtn.title = "This page embeds a podcast — jump to it on the original tab";
+      } else {
+        pageAudioBtn.textContent = "▶ Page audio";
+        pageAudioBtn.title = "This page has its own “Listen” — start it on the original tab";
+      }
+      pageAudioBtn.classList.toggle("on", !!playing);
+      pageAudioBtn.setAttribute("aria-label", pageAudioBtn.title);
+    };
+    paint(false);
+    let busy = false;
+    pageAudioBtn.addEventListener("click", async () => {
+      if (busy) return;
+      busy = true;
+      pageAudioBtn.disabled = true;
+      const r = await callPageAudioBridge(sourceTabId, "toggle");
+      pageAudioBtn.disabled = false;
+      busy = false;
+      if (!r.ok) {
+        // The source tab navigated, reloaded, or closed — stop offering a
+        // control that can't reach it any more rather than fail silently
+        // forever on every click.
+        pageAudioBtn.remove();
+        pageAudioBtn = null;
+        return;
+      }
+      paint(narration.kind === "audio" ? r.playing : false);
+    });
+  }
+
   chrome_.append(askToggle, controls.toggle, orb);
+  if (pageAudioBtn) chrome_.appendChild(pageAudioBtn);
   document.body.prepend(chrome_);
 
   function syncVoiceOrb() {

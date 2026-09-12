@@ -19,6 +19,7 @@ import {
   extUrl,
 } from "./shared/settings.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
+import { pageAudioBridge } from "./shared/page-audio-bridge.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -189,6 +190,26 @@ async function openReader() {
       btn.disabled = false;
       return;
     }
+    // Reader View opens in its own isolated tab with no live DOM connection
+    // back to this page, so this is the only point where anything can ever
+    // see whether the page has its own "Listen to this article" player.
+    // Best-effort: a page that blocks scripting, or a bridge that throws,
+    // just means Reader View won't offer the page-audio control — never a
+    // reason to fail opening Reader View itself.
+    let narration = null;
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: pageAudioBridge,
+        args: ["detect"],
+      });
+      const r = results && results[0] && results[0].result;
+      if (r && r.ok) narration = { kind: r.kind };
+    } catch (err) {
+      console.warn("[ReadTune] page-audio detect failed:", err);
+    }
+    result.tabId = tab.id;
+    result.narration = narration;
     if (!(await stashArticle(result))) {
       setStatus("Couldn't hand the article to Reader View (storage blocked).");
       btn.disabled = false;
