@@ -266,16 +266,40 @@ const ASK_STOPWORDS = new Set([
 ]);
 const wordsOf = (s) => (String(s || "").toLowerCase().match(/[a-z0-9']+/g) || []);
 
+/* A bare word match misses "employer" in the question against "employers" or
+   "employment" in the article — same idea, different inflection, zero score.
+   Strip the common noun/verb suffixes down to a shared stem so those still
+   line up. Deliberately crude (no dictionary, no exceptions list) — it only
+   has to unify obvious siblings, not lemmatize correctly in general. */
+function stem(w) {
+  // "-ies" drops the whole ending elsewhere ("stories" -> "stor"), but a
+  // policy/policies or story/stories pair should land on the same stem as
+  // the singular, not lose the "y" and miss it.
+  if (w.length >= 6 && w.endsWith("ies")) return w.slice(0, -3) + "y";
+  for (const suf of ["ments", "ment", "ers", "er", "ing", "ed", "es", "s"]) {
+    if (w.length - suf.length >= 4 && w.endsWith(suf)) return w.slice(0, w.length - suf.length);
+  }
+  return w;
+}
+// Stopwords must be dropped BEFORE stemming, not after — stem("these") is
+// "thes", which ASK_STOPWORDS (spelled with the full word) no longer
+// recognises, so a post-stem filter would let stopword stems leak into the
+// match set and dilute the real keywords' signal.
+const contentStemsOf = (s) =>
+  wordsOf(s)
+    .filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w))
+    .map(stem);
+
 /** Pick the article blocks most likely to answer `question`, in their
     original order, up to `maxChars`. Falls back to the article's start when
     the question shares no real words with any block (a vague or off-topic
     ask) or when there are no block boundaries to work with at all. */
 function selectAskContext(blocks, question, maxChars) {
   if (!Array.isArray(blocks) || blocks.length <= 1) return null;
-  const qWords = new Set(wordsOf(question).filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w)));
+  const qWords = new Set(contentStemsOf(question));
   if (!qWords.size) return null;
   const scored = blocks.map((text, i) => {
-    const seen = new Set(wordsOf(text));
+    const seen = new Set(contentStemsOf(text));
     let score = 0;
     for (const w of seen) if (qWords.has(w)) score++;
     return { text, i, score };
