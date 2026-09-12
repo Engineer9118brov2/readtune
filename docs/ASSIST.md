@@ -41,6 +41,19 @@ the word-lookup popup: Escape / click-outside / Cancel, a copy button, and
 rail — Escape or its × collapse it, and it does **not** close when you click
 the article.
 
+- **Define / Explain (backend only, no UI yet)** — `kind: "define"` and
+  `kind: "explain"` exist in `api/assist.js` and `shared/assist.js`
+  (`assistant.define(word, context, opts)` / `assistant.explain(passage,
+  opts)`), routed the same way as Ask (on-device first when ready, this
+  relay otherwise). Define takes a short word/phrase plus its sentence for
+  context; Explain takes a selected passage and reads out any figurative
+  language, tone, or theme in it. Neither has a selection-trigger pill yet —
+  that UI (alongside Highlight and Simplify) and the accompanying
+  `PRIVACY.md`/`privacy.html` disclosure land together in the next PR, once
+  there's an actual path for a reader's selection to reach either kind. Until
+  then these code paths are unreachable from the shipped extension, so
+  nothing changes about what leaves the device today.
+
 ## How a request is routed (`shared/assist.js`)
 
 1. **On-device, but only if it's already ready.** Chrome's built-in

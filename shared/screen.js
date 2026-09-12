@@ -72,10 +72,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     if (side === "left") askToggle.setAttribute("aria-expanded", open ? "true" : "false");
     const key = side === "left" ? "railLeft" : "railRight";
     if (readerUi[key] !== !!open) {
-      // Keep the authoritative copy here and persist the whole object — two
-      // quick toggles must not race on a read-modify-write inside settings.js.
+      // Patch only this field — saveReaderUi merges against current storage,
+      // so a rail toggle here can't clobber a reading-level change (or the
+      // other rail's state) made from a different tab in the meantime.
       readerUi = { ...readerUi, [key]: !!open };
-      saveReaderUi(readerUi);
+      saveReaderUi({ [key]: !!open });
     }
   }
   let memory = { scroll: 0, highlights: [] };
@@ -205,6 +206,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onError: (m) => toast(m),
     mountEl: railLeftEl,
     onToggle: (open) => syncRail("left", open),
+    initialLevel: readerUi.askLevel,
+    onLevelChange: (askLevel) => {
+      readerUi = { ...readerUi, askLevel };
+      saveReaderUi({ askLevel });
+    },
   });
 
   const transport = createTransport({

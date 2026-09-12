@@ -30,6 +30,20 @@ const CHIPS = [
   },
 ];
 
+/* A typed question can ask for its answer at a plainer reading level — the
+   article text itself is unchanged, only how the answer is written. Applies
+   to the composer's freeform questions, not the CHIPS above (those already
+   word their own asks). Only the level id is passed to assistant.ask() —
+   the actual phrasing hint lives in shared/assist.js and travels to the
+   relay as its own field, never concatenated into the question itself (that
+   would risk truncation at the question length cap, and would leak style
+   words into the question's own relevance-scoring for context selection). */
+const LEVELS = [
+  { id: "written", label: "As written" },
+  { id: "simple", label: "Simpler" },
+  { id: "simplest", label: "Simplest" },
+];
+
 /**
  * @param {object} opts
  * @param {ReturnType<import("./assist.js").createAssistant>} opts.assistant
@@ -37,8 +51,18 @@ const CHIPS = [
  * @param {(m:string)=>void} [opts.onError]
  * @param {HTMLElement} [opts.mountEl] rail element to render into (falls back to <body>)
  * @param {(open:boolean)=>void} [opts.onToggle] told when the panel opens / collapses
+ * @param {string} [opts.initialLevel] reading level to start on ("written" | "simple" | "simplest")
+ * @param {(level:string)=>void} [opts.onLevelChange] told when the reader picks a different level, to persist it
  */
-export function createAssistSidebar({ assistant, speak, onError = () => {}, mountEl = null, onToggle = null } = {}) {
+export function createAssistSidebar({
+  assistant,
+  speak,
+  onError = () => {},
+  mountEl = null,
+  onToggle = null,
+  initialLevel = "written",
+  onLevelChange = null,
+} = {}) {
   let panel = null;
   let bodyEl = null;
   let diagPre = null;
@@ -47,6 +71,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
   let controller = null; // the active request (summary or a question)
   let speakController = null; // a separate, shorter-lived one for Play/Stop
   let lastFocus = null;
+  let level = LEVELS.some((l) => l.id === initialLevel) ? initialLevel : "written";
 
   function stopSpeaking() {
     if (speakController) {
@@ -115,7 +140,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       const q = input.value.trim();
       if (!q) return;
       input.value = "";
-      runTask("ask", q, (a, opts) => a.ask(q, opts));
+      runTask("ask", q, (a, opts) => a.ask(q, { ...opts, level }));
     };
     send.addEventListener("click", submit);
     input.addEventListener("keydown", (e) => {
@@ -158,6 +183,7 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
         chipRow(),
         bodyEl,
         diagWrap,
+        levelControl(),
         composer,
       ],
     );
@@ -194,6 +220,32 @@ export function createAssistSidebar({ assistant, speak, onError = () => {}, moun
       }
     });
     return btn;
+  }
+
+  /** A small segmented control for how plain a typed question's answer
+      should be. Purely a phrasing hint threaded into the question sent to
+      assistant.ask() — no relay/API change, the model just reads a slightly
+      different question. */
+  function levelControl() {
+    const buttons = LEVELS.map((l) => {
+      const b = el(
+        "button",
+        { type: "button", class: "rt-assist-level-btn", "aria-pressed": String(l.id === level) },
+        l.label,
+      );
+      b.addEventListener("click", () => {
+        if (level === l.id) return;
+        level = l.id;
+        buttons.forEach((btn, i) => btn.setAttribute("aria-pressed", String(LEVELS[i].id === level)));
+        if (onLevelChange) onLevelChange(level);
+      });
+      return b;
+    });
+    return el(
+      "div",
+      { class: "rt-assist-level", role: "group", "aria-label": "Reading level for answers" },
+      buttons,
+    );
   }
 
   function chipRow() {

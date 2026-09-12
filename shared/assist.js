@@ -65,9 +65,10 @@ const now = () =>
 
 /* Which kinds may use ReadTune's cloud relay — disclosed in privacy.html /
    PRIVACY.md. Summary and Ask send the article text (Ask also sends the
-   reader's typed question); Simplify stays on-device-only until its own cloud
-   path is built and disclosed — see docs/ASSIST.md. */
-const CLOUD_KINDS = new Set(["summary", "ask"]);
+   reader's typed question); Define sends the selected word plus its sentence;
+   Explain sends the selected passage. Simplify stays on-device-only until its
+   own cloud path is built and disclosed — see docs/ASSIST.md. */
+const CLOUD_KINDS = new Set(["summary", "ask", "define", "explain"]);
 
 /* Never forward a query string or fragment to the relay — a URL can carry a
    session token or other identifying junk. The relay re-normalizes on receipt
@@ -90,6 +91,20 @@ const MAX_SIMPLIFY_INPUT = 2400;
    Summary so a huge page plus the Q still fits the model's window. */
 const MAX_ASK_CONTEXT = 9000;
 const MAX_ASK_QUESTION = 500;
+const MAX_DEFINE_CONTEXT = 800; // a sentence or two, not a whole article
+const MAX_DEFINE_WORD = 80; // a word or short phrase
+const MAX_EXPLAIN_INPUT = 2400; // matches MAX_SIMPLIFY_INPUT — a selection, not an article
+
+/* A typed question can ask for its answer at a plainer reading level. Kept
+   entirely separate from the question string itself (never concatenated into
+   it) — see cloudGenerate's comment for why: truncation and context-selection
+   leakage both go away when the hint travels its own path all the way to the
+   relay. "written" carries no hint at all. */
+const LEVEL_HINTS = {
+  written: "",
+  simple: " Answer at a simple, plain-language reading level — short sentences, common words.",
+  simplest: " Answer at the simplest possible reading level — very short sentences, the most common everyday words.",
+};
 
 const SIMPLIFY_SYSTEM =
   "You rewrite a passage in plain language for a reader who finds dense text hard to follow. " +
@@ -105,6 +120,14 @@ const ASK_SYSTEM =
   "You answer a reader's question about an article they are reading. Use the article as your main source and stay close to what it says. " +
   "If the article does not address the question, say that plainly first, then answer briefly from general knowledge and mark that part as outside the article. " +
   "Short paragraphs, plain words, no preamble. Do not claim to have read anything the reader did not give you.";
+
+const DEFINE_SYSTEM =
+  "You define a word or short phrase exactly as it's used in the sentence given, for a reader who finds reading difficult. " +
+  "One plain sentence. Do not repeat the word itself unless it clarifies a homograph (a word with more than one meaning). No preamble.";
+
+const EXPLAIN_SYSTEM =
+  "You explain what a passage means for a reader who finds reading difficult — any figurative language, tone, or theme. " +
+  "If nothing figurative is present, explain the main idea instead. Two to four short sentences, plain words, no preamble.";
 
 /* ---------- on-device: Chrome built-in AI (opportunistic only) ---------- */
 
@@ -160,21 +183,29 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}) {
+async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}, levelHint = "") {
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   const timer = new AbortController();
   const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
   const onCallerAbort = () => timer.abort();
   if (signal) signal.addEventListener("abort", onCallerAbort, { once: true });
   const started = now();
-  log(`cloud → POST ${CLOUD_URL} (kind=${kind}${question ? ", +question" : ""}, ${text.length} chars)`);
+  log(`cloud → POST ${CLOUD_URL} (kind=${kind}${question ? ", +question" : ""}${levelHint ? ", +level" : ""}, ${text.length} chars)`);
   let res;
   try {
+    const body = { kind, text, url };
+    if (question) body.question = question;
+    // Kept separate from `question` end-to-end (never concatenated into it)
+    // so a reading-level phrasing hint can't (a) get silently truncated when
+    // the raw question is already near MAX_ASK_QUESTION, or (b) leak style
+    // words like "simple"/"sentences" into selectAskContext's relevance
+    // scoring, which would happen if it were part of the question string.
+    if (levelHint) body.levelHint = levelHint;
     res = await fetch(CLOUD_URL, {
       method: "POST",
       signal: timer.signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(question ? { kind, text, url, question } : { kind, text, url }),
+      body: JSON.stringify(body),
     });
   } catch (e) {
     clearTimeout(to);
@@ -269,7 +300,7 @@ function selectAskContext(blocks, question, maxChars) {
 }
 
 export function createAssistant({ getArticleText = () => "", getArticleBlocks = null, getArticleUrl = () => "" } = {}) {
-  async function run({ kind, text, question = "", onProgress, onLog, signal }) {
+  async function run({ kind, text, question = "", levelHint = "", onProgress, onLog, signal }) {
     const log = typeof onLog === "function" ? (m) => onLog(m) : () => {};
     if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
@@ -338,13 +369,18 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
         );
       }
       if (out == null && status.prompt === "available") {
-        const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
+        const system =
+          kind === "summary" ? SUMMARY_SYSTEM :
+          kind === "ask" ? ASK_SYSTEM :
+          kind === "define" ? DEFINE_SYSTEM :
+          kind === "explain" ? EXPLAIN_SYSTEM :
+          SIMPLIFY_SYSTEM;
         const ask =
-          kind === "summary"
-            ? `Main points of this article:\n\n${text}`
-            : kind === "ask"
-              ? `Article:\n\n${text}\n\nReader's question: ${question}`
-              : `Rewrite this passage in plain language:\n\n${text}`;
+          kind === "summary" ? `Main points of this article:\n\n${text}` :
+          kind === "ask" ? `Article:\n\n${text}\n\nReader's question: ${question}${levelHint}` :
+          kind === "define" ? (text ? `Sentence:\n${text}\n\nDefine as used here: "${question}"` : `Define: "${question}"`) :
+          kind === "explain" ? `Explain this passage:\n\n${text}` :
+          `Rewrite this passage in plain language:\n\n${text}`;
         out = await tryEngine(
           "LanguageModel",
           { initialPrompts: [{ role: "system", content: system }] },
@@ -380,7 +416,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       const cloudAfterHeadStart = new Promise((resolve, reject) => {
         hedgeTimer = setTimeout(() => {
           if (onProgress) onProgress({ phase: "cloud" });
-          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log).then(resolve, reject);
+          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log, levelHint).then(resolve, reject);
         }, CLOUD_HEDGE_MS);
         cloudController.signal.addEventListener("abort", () => {
           clearTimeout(hedgeTimer);
@@ -409,7 +445,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
     }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log);
+    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log, levelHint);
   }
 
   return {
@@ -424,14 +460,31 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       if (!text) throw new Error("Select a sentence or paragraph first.");
       return { text: await run({ kind: "simplify", text, onProgress, onLog, signal }), clipped };
     },
-    async ask(question, { onProgress, onLog, signal } = {}) {
+    async ask(question, { onProgress, onLog, signal, level = "written" } = {}) {
       const q = String(question || "").replace(/\s+/g, " ").trim().slice(0, MAX_ASK_QUESTION);
       if (!q) throw new Error("Type a question first.");
+      // selectAskContext scores blocks against the reader's actual words —
+      // it must see the raw question, not one carrying "simple"/"sentences"/
+      // "words" from a level hint, or those style terms would themselves
+      // count as relevance signal and could crowd out the block that
+      // actually answers the question.
       const blocks = typeof getArticleBlocks === "function" ? getArticleBlocks() : null;
       const relevant = selectAskContext(blocks, q, MAX_ASK_CONTEXT);
       const { text, clipped } = relevant != null ? clip(relevant, MAX_ASK_CONTEXT) : clip(getArticleText(), MAX_ASK_CONTEXT);
       if (!text) throw new Error("There's no article text to ask about.");
-      return { text: await run({ kind: "ask", text, question: q, onProgress, onLog, signal }), clipped };
+      const levelHint = LEVEL_HINTS[level] || "";
+      return { text: await run({ kind: "ask", text, question: q, levelHint, onProgress, onLog, signal }), clipped };
+    },
+    async define(word, context = "", { onProgress, onLog, signal } = {}) {
+      const w = String(word || "").replace(/\s+/g, " ").trim().slice(0, MAX_DEFINE_WORD);
+      if (!w) throw new Error("Select a word first.");
+      const { text, clipped } = clip(context, MAX_DEFINE_CONTEXT);
+      return { text: await run({ kind: "define", text, question: w, onProgress, onLog, signal }), clipped };
+    },
+    async explain(passage, { onProgress, onLog, signal } = {}) {
+      const { text, clipped } = clip(passage, MAX_EXPLAIN_INPUT);
+      if (!text) throw new Error("Select a sentence or paragraph first.");
+      return { text: await run({ kind: "explain", text, onProgress, onLog, signal }), clipped };
     },
   };
 }

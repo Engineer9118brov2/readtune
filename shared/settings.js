@@ -515,11 +515,13 @@ export async function markSetupStep(step) {
 
 /* ---- Reader View chrome: the two side rails (Ask AI, Settings) ---- */
 
-const DEFAULT_READER_UI = { railLeft: false, railRight: false };
+const DEFAULT_READER_UI = { railLeft: false, railRight: false, askLevel: "written" };
+const ASK_LEVELS = new Set(["written", "simple", "simplest"]);
 
-/** Which side rails were left expanded. Both start collapsed so a first-time
-    reader gets a clean page — the corner buttons and the voice orb are the
-    only chrome until they open something. */
+/** Which side rails were left expanded, and the reading level Ask AI answers
+    should aim for. Rails both start collapsed so a first-time reader gets a
+    clean page — the corner buttons and the voice orb are the only chrome
+    until they open something. */
 export async function loadReaderUi() {
   try {
     const got = await chrome.storage.local.get(READER_UI_KEY);
@@ -527,6 +529,7 @@ export async function loadReaderUi() {
     return {
       railLeft: !!(v && v.railLeft),
       railRight: !!(v && v.railRight),
+      askLevel: v && ASK_LEVELS.has(v.askLevel) ? v.askLevel : DEFAULT_READER_UI.askLevel,
     };
   } catch (err) {
     console.warn("[ReadTune] loadReaderUi failed:", err);
@@ -534,14 +537,26 @@ export async function loadReaderUi() {
   }
 }
 
-/** Persist the full rail state. The caller (screen.js) holds the authoritative
-    in-memory copy and passes the whole object, so there's no read-modify-write
-    here for two quick toggles to race on. */
-export async function saveReaderUi(state) {
+/** Merges `patch` into the currently stored reader-UI state and persists the
+    result — pass only the field(s) actually changing (e.g. `{ askLevel }` or
+    `{ railLeft: true }`), not a full snapshot. Reader View and PDF mode can
+    both be open in separate tabs, each holding its own in-memory copy; if a
+    caller always wrote its whole local snapshot, one tab's unrelated rail
+    toggle would silently overwrite the reading level another tab just set
+    (or vice versa). Reading current storage first and patching only the
+    given field(s) avoids that — at the (accepted) cost of a narrower race if
+    the *same* tab writes two different fields within the same tick, which
+    doesn't happen in practice here (each control fires its own change event,
+    handled one at a time). */
+export async function saveReaderUi(patch) {
   try {
+    const got = await chrome.storage.local.get(READER_UI_KEY);
+    const current = got && got[READER_UI_KEY];
+    const merged = { ...DEFAULT_READER_UI, ...(current || {}), ...(patch || {}) };
     const next = {
-      railLeft: !!(state && state.railLeft),
-      railRight: !!(state && state.railRight),
+      railLeft: !!merged.railLeft,
+      railRight: !!merged.railRight,
+      askLevel: ASK_LEVELS.has(merged.askLevel) ? merged.askLevel : DEFAULT_READER_UI.askLevel,
     };
     await chrome.storage.local.set({ [READER_UI_KEY]: next });
     return next;
