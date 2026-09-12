@@ -33,18 +33,16 @@ const CHIPS = [
 /* A typed question can ask for its answer at a plainer reading level — the
    article text itself is unchanged, only how the answer is written. Applies
    to the composer's freeform questions, not the CHIPS above (those already
-   word their own asks). "written" appends nothing: the model answers however
-   it naturally would. */
+   word their own asks). Only the level id is passed to assistant.ask() —
+   the actual phrasing hint lives in shared/assist.js and travels to the
+   relay as its own field, never concatenated into the question itself (that
+   would risk truncation at the question length cap, and would leak style
+   words into the question's own relevance-scoring for context selection). */
 const LEVELS = [
   { id: "written", label: "As written" },
   { id: "simple", label: "Simpler" },
   { id: "simplest", label: "Simplest" },
 ];
-const LEVEL_SUFFIX = {
-  written: "",
-  simple: " Answer at a simple, plain-language reading level — short sentences, common words.",
-  simplest: " Answer at the simplest possible reading level — very short sentences, the most common everyday words.",
-};
 
 /**
  * @param {object} opts
@@ -142,8 +140,7 @@ export function createAssistSidebar({
       const q = input.value.trim();
       if (!q) return;
       input.value = "";
-      const asked = q + (LEVEL_SUFFIX[level] || "");
-      runTask("ask", q, (a, opts) => a.ask(asked, opts));
+      runTask("ask", q, (a, opts) => a.ask(q, { ...opts, level }));
     };
     send.addEventListener("click", submit);
     input.addEventListener("keydown", (e) => {
@@ -246,7 +243,7 @@ export function createAssistSidebar({
     });
     return el(
       "div",
-      { class: "rt-assist-level", role: "radiogroup", "aria-label": "Reading level for answers" },
+      { class: "rt-assist-level", role: "group", "aria-label": "Reading level for answers" },
       buttons,
     );
   }

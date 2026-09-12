@@ -20,7 +20,12 @@ import { providersFromEnv, relayChat } from "./_relay.mjs";
 
 const MAX_INPUT = 12000; // matches shared/assist.js's MAX_SUMMARY_INPUT
 const MAX_ASK_QUESTION = 500; // matches shared/assist.js's MAX_ASK_QUESTION
+const MAX_DEFINE_CONTEXT = 800; // a sentence or two around the word, not a whole article
+const MAX_DEFINE_WORD = 80; // a word or short phrase — generous, still nowhere near article-sized
+const MAX_LEVEL_HINT = 200; // a short phrasing instruction, not user content
 const ASK_MAX_TOKENS = 800; // a Q&A answer needs more room than a 3-5 line summary
+const DEFINE_MAX_TOKENS = 150; // one plain sentence
+const EXPLAIN_MAX_TOKENS = 300; // a few short sentences on figurative language / theme
 
 const SUMMARY_SYSTEM =
   "You list the main points of an article for a reader deciding whether to read it. " +
@@ -37,7 +42,65 @@ const ASK_SYSTEM =
   "If the article does not address the question, say that plainly first, then answer briefly from general knowledge and mark that part as outside the article. " +
   "Short paragraphs, plain words, no preamble. Do not claim to have read anything the reader did not give you.";
 
+const DEFINE_SYSTEM =
+  "You define a word or short phrase exactly as it's used in the sentence given, for a reader who finds reading difficult. " +
+  "One plain sentence. Do not repeat the word itself unless it clarifies a homograph (a word with more than one meaning). No preamble.";
+
+const EXPLAIN_SYSTEM =
+  "You explain what a passage means for a reader who finds reading difficult — any figurative language, tone, or theme. " +
+  "If nothing figurative is present, explain the main idea instead. Two to four short sentences, plain words, no preamble.";
+
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
+
+// One entry per `kind`: how to validate its input, what system prompt and
+// token budget to use, and how to compose the single user message the relay
+// sees. Keeping this as a table (rather than a growing ternary chain) is what
+// makes adding another kind later a one-entry change, not a rewrite.
+const KINDS = {
+  summary: {
+    system: SUMMARY_SYSTEM,
+    maxText: MAX_INPUT,
+    buildUser: (text) => text,
+    validate: (text) => (!text ? "No article text to work with." : null),
+  },
+  simplify: {
+    system: SIMPLIFY_SYSTEM,
+    maxText: MAX_INPUT,
+    buildUser: (text) => text,
+    validate: (text) => (!text ? "No passage to work with." : null),
+  },
+  ask: {
+    system: ASK_SYSTEM,
+    maxText: MAX_INPUT,
+    maxTokens: ASK_MAX_TOKENS,
+    needsQuestion: true,
+    maxQuestion: MAX_ASK_QUESTION,
+    // levelHint travels as its own field, never appended to `question` —
+    // that would risk truncation at maxQuestion for an already-long question,
+    // and would put style words ("simple", "sentences") into the field the
+    // client also uses for context relevance-scoring.
+    buildUser: (text, question, levelHint = "") => `Article:\n\n${text}\n\nReader's question: ${question}${levelHint}`,
+    validate: (text, question) => (!text ? "No article text to work with." : !question ? "No question to answer." : null),
+  },
+  define: {
+    system: DEFINE_SYSTEM,
+    maxText: MAX_DEFINE_CONTEXT,
+    maxTokens: DEFINE_MAX_TOKENS,
+    needsQuestion: true,
+    maxQuestion: MAX_DEFINE_WORD,
+    // The context sentence is genuinely optional — a reader can select just
+    // the word with nothing useful around it (a caption, a list item).
+    buildUser: (text, question) => (text ? `Sentence:\n${text}\n\nDefine as used here: "${question}"` : `Define: "${question}"`),
+    validate: (text, question) => (!question ? "No word to define." : null),
+  },
+  explain: {
+    system: EXPLAIN_SYSTEM,
+    maxText: MAX_INPUT,
+    maxTokens: EXPLAIN_MAX_TOKENS,
+    buildUser: (text) => text,
+    validate: (text) => (!text ? "No passage to work with." : null),
+  },
+};
 
 function hash(s) {
   return createHash("sha256").update(s).digest("hex").slice(0, 32);
@@ -56,15 +119,19 @@ function normalizeUrl(url) {
   }
 }
 
-function cacheKeyFor(kind, url, text, question = "") {
+function cacheKeyFor(kind, url, text, question = "", levelHint = "") {
   const norm = url ? normalizeUrl(url) : "";
   // Bind the entry to the submitted text even when it's URL-keyed — otherwise
   // anyone can overwrite a real article's cached summary with arbitrary text
   // by POSTing that url with different text (no auth on this endpoint).
   // Identical text for the same URL still shares one entry, so the
-  // cross-reader cache saving is unaffected. Ask also folds in the question so
-  // two readers asking the same thing about the same article share an answer.
-  const body = question ? `${hash(text)}:${hash(question)}` : hash(text);
+  // cross-reader cache saving is unaffected. Ask also folds in the question
+  // (and, when present, the reading-level hint — a "Simpler" answer and the
+  // "As written" answer to the same question must not collide) so two
+  // readers asking the same thing about the same article share an answer.
+  let body = hash(text);
+  if (question) body += `:${hash(question)}`;
+  if (levelHint) body += `:${hash(levelHint)}`;
   const basis = norm ? `url:${norm}:${body}` : `text:${body}`;
   return `assist:${kind}:${basis}`;
 }
@@ -151,23 +218,24 @@ export default async function handler(req, res) {
   }
   body = body && typeof body === "object" ? body : {};
 
-  // "summary" and "ask" send the article; "simplify" sends a selection; an
-  // unknown kind collapses to "summary".
-  const kind = body.kind === "simplify" ? "simplify" : body.kind === "ask" ? "ask" : "summary";
-  const text = clip(body.text, MAX_INPUT);
+  // An unknown kind collapses to "summary" — same safety net as before,
+  // just explicit now that there are five kinds instead of three.
+  const kind = Object.prototype.hasOwnProperty.call(KINDS, body.kind) ? body.kind : "summary";
+  const cfg = KINDS[kind];
+  const text = clip(body.text, cfg.maxText);
   const url = typeof body.url === "string" ? body.url : "";
-  const question = kind === "ask" ? clip(body.question, MAX_ASK_QUESTION) : "";
+  const question = cfg.needsQuestion ? clip(body.question, cfg.maxQuestion) : "";
+  // Only "ask" reads this — a short phrasing hint, kept out of `question`
+  // end-to-end (see shared/assist.js's cloudGenerate comment for why).
+  const levelHint = kind === "ask" ? clip(body.levelHint, MAX_LEVEL_HINT) : "";
 
-  if (!text) {
-    res.status(400).json({ error: "No article text to work with." });
+  const validationError = cfg.validate(text, question);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
     return;
   }
-  if (kind === "ask" && !question) {
-    res.status(400).json({ error: "No question to answer." });
-    return;
-  }
 
-  const cacheKey = cacheKeyFor(kind, url, text, question);
+  const cacheKey = cacheKeyFor(kind, url, text, question, levelHint);
   const cached = await cacheGet(cacheKey);
   if (cached) {
     res.status(200).json({ text: cached, cached: true });
@@ -181,14 +249,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const system = kind === "summary" ? SUMMARY_SYSTEM : kind === "ask" ? ASK_SYSTEM : SIMPLIFY_SYSTEM;
-    const user = kind === "ask" ? `Article:\n\n${text}\n\nReader's question: ${question}` : text;
     const generated = await relayChat(
       providersFromEnv(process.env),
-      system,
-      user,
+      cfg.system,
+      cfg.buildUser(text, question, levelHint),
       undefined,
-      kind === "ask" ? ASK_MAX_TOKENS : undefined,
+      cfg.maxTokens,
     );
     await cacheSet(cacheKey, generated);
     res.status(200).json({ text: generated, cached: false });

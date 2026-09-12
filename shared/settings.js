@@ -537,15 +537,26 @@ export async function loadReaderUi() {
   }
 }
 
-/** Persist the full rail state. The caller (screen.js) holds the authoritative
-    in-memory copy and passes the whole object, so there's no read-modify-write
-    here for two quick toggles to race on. */
-export async function saveReaderUi(state) {
+/** Merges `patch` into the currently stored reader-UI state and persists the
+    result — pass only the field(s) actually changing (e.g. `{ askLevel }` or
+    `{ railLeft: true }`), not a full snapshot. Reader View and PDF mode can
+    both be open in separate tabs, each holding its own in-memory copy; if a
+    caller always wrote its whole local snapshot, one tab's unrelated rail
+    toggle would silently overwrite the reading level another tab just set
+    (or vice versa). Reading current storage first and patching only the
+    given field(s) avoids that — at the (accepted) cost of a narrower race if
+    the *same* tab writes two different fields within the same tick, which
+    doesn't happen in practice here (each control fires its own change event,
+    handled one at a time). */
+export async function saveReaderUi(patch) {
   try {
+    const got = await chrome.storage.local.get(READER_UI_KEY);
+    const current = got && got[READER_UI_KEY];
+    const merged = { ...DEFAULT_READER_UI, ...(current || {}), ...(patch || {}) };
     const next = {
-      railLeft: !!(state && state.railLeft),
-      railRight: !!(state && state.railRight),
-      askLevel: state && ASK_LEVELS.has(state.askLevel) ? state.askLevel : DEFAULT_READER_UI.askLevel,
+      railLeft: !!merged.railLeft,
+      railRight: !!merged.railRight,
+      askLevel: ASK_LEVELS.has(merged.askLevel) ? merged.askLevel : DEFAULT_READER_UI.askLevel,
     };
     await chrome.storage.local.set({ [READER_UI_KEY]: next });
     return next;

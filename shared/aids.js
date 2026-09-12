@@ -168,19 +168,36 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   document.addEventListener("keydown", onPopoverKeydown);
   document.addEventListener("mousedown", onPopoverOutsideClick, true);
 
+  /** Wraps a live Range as a highlight and registers it — the one real path
+      any highlight is created through, whether the reader drew the selection
+      themselves (the Highlight button below) or an AI tool (Define/Explain's
+      "Save as highlight") handed back a range it already had in hand.
+      Returns the new highlight record, or null if the range had nothing
+      wrappable (empty/collapsed selection). */
+  function createHighlightFromRange(range, note = "") {
+    if (!range) return null;
+    const text = range.toString().replace(/\s+/g, " ").trim();
+    if (!text) return null;
+    const flow = getFlow();
+    const before = contextBefore(flow, range, 24);
+    const id = newHighlightId();
+    const marks = wrapRange(range, "rt-hl");
+    if (!marks.length) return null;
+    // Push before wiring: wireHighlightMark looks the highlight up by id to
+    // decide whether to show the "noted" indicator, so the record must exist
+    // first — otherwise a highlight created with a note (the AI-tools path)
+    // renders without its indicator until the next re-render.
+    const h = { id, text, before, note: String(note || "").trim().slice(0, 500) };
+    highlights.push(h);
+    marks.forEach((m) => wireHighlightMark(m, id));
+    persistHighlights();
+    return h;
+  }
+
   hlButton.addEventListener("mousedown", (e) => e.preventDefault());
   hlButton.addEventListener("click", () => {
     if (!savedRange) return;
-    const text = savedRange.toString().replace(/\s+/g, " ").trim();
-    const flow = getFlow();
-    const before = contextBefore(flow, savedRange, 24);
-    const id = newHighlightId();
-    const marks = wrapRange(savedRange, "rt-hl");
-    marks.forEach((m) => wireHighlightMark(m, id));
-    if (marks.length) {
-      highlights.push({ id, text, before, note: "" });
-      persistHighlights();
-    }
+    createHighlightFromRange(savedRange);
     window.getSelection().removeAllRanges();
     hlButton.style.display = "none";
     savedRange = null;
@@ -377,6 +394,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
     listHighlights: () => highlights.slice(),
     scrollToHighlight,
     removeHighlight,
+    addHighlightFromRange: createHighlightFromRange,
   };
 }
 

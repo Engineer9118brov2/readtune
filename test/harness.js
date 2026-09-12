@@ -472,6 +472,41 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(/the sea climbs the rocks/.test(flow.textContent), "the underlying article text survives removing the highlight");
   }
 
+  /* ---- addHighlightFromRange: the entry point AI tools (Define/Explain's
+     "Save as highlight") use, given a live Range they already have in hand —
+     same underlying creation path as the manual Highlight button, just with
+     a note attached from the start. ---- */
+  {
+    const flow = view.getFlowEl();
+    const walker = document.createTreeWalker(flow, NodeFilter.SHOW_TEXT);
+    let target = null;
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n.nodeValue.includes("falls back")) { target = n; break; }
+    }
+    assert(target, "test setup: found a second text node for addHighlightFromRange");
+    const start = target.nodeValue.indexOf("falls back");
+    const range = document.createRange();
+    range.setStart(target, start);
+    range.setEnd(target, start + "falls back".length);
+
+    const before = changedHighlights ? changedHighlights.length : 0;
+    const created = aids.addHighlightFromRange(range, "Defined: rises steadily.");
+    assert(created && created.text === "falls back" && created.note === "Defined: rises steadily.",
+      "addHighlightFromRange wraps the given range and carries the note through");
+    const mark2 = document.querySelector(`mark.rt-hl[data-hl-id="${created.id}"]`);
+    assert(mark2 && mark2.classList.contains("rt-hl-noted"), "the AI-created highlight is wrapped in the DOM and shows as noted immediately");
+    assert(changedHighlights.length === before + 1, "onHighlightsChanged fires for a programmatically-created highlight too");
+
+    assert(aids.addHighlightFromRange(null) === null, "a null range is rejected rather than throwing");
+    const collapsed = document.createRange();
+    collapsed.setStart(target, 0);
+    collapsed.setEnd(target, 0);
+    assert(aids.addHighlightFromRange(collapsed) === null, "an empty/collapsed range produces no highlight");
+
+    aids.removeHighlight(created.id);
+  }
+
   aids.destroy();
 
   assert(typeof TTS.createTTS === "function", "tts exports createTTS");
@@ -1979,13 +2014,14 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         "the box clears after asking and the answer gets a Play button");
       sidebar4.destroy();
 
-      // Reading-level control: picking a plainer level threads a phrasing
-      // suffix into what the relay actually receives, without changing the
-      // question echoed back to the reader.
-      let lastAskedQuestion = "";
+      // Reading-level control: picking a plainer level sends a phrasing hint
+      // to the relay as its own field — never concatenated into the question
+      // itself, so a long question can't truncate it away, and it can't leak
+      // style words into the question's own context-relevance scoring.
+      let lastBody = null;
       self.fetch = async (url, opts) => {
         const b = JSON.parse(opts.body);
-        if (b.kind === "ask") lastAskedQuestion = b.question;
+        if (b.kind === "ask") lastBody = b;
         return { ok: true, json: async () => ({ text: `A: ${b.question}`, cached: false }) };
       };
       let savedLevel = null;
@@ -2013,12 +2049,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       panel5.querySelector(".rt-assist-send").click();
       await new Promise((r) => setTimeout(r, 10));
       assert(
-        /^What lives in a tide pool\?/.test(panel5.querySelector(".rt-assist-q").textContent),
-        "the echoed question stays exactly what the reader typed",
+        panel5.querySelector(".rt-assist-q").textContent === "What lives in a tide pool?",
+        "the echoed question is exactly what the reader typed",
       );
       assert(
-        lastAskedQuestion.startsWith("What lives in a tide pool?") && /simplest possible reading level/.test(lastAskedQuestion),
-        "the relay receives the reading-level phrasing appended to the question",
+        lastBody.question === "What lives in a tide pool?",
+        "the relay's question field carries no level phrasing — it stays exactly what the reader typed",
+      );
+      assert(
+        /simplest possible reading level/.test(lastBody.levelHint || ""),
+        "the reading-level phrasing travels to the relay as its own field",
       );
       sidebar5.destroy();
 
