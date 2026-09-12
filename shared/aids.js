@@ -8,7 +8,7 @@
 
 import { measuredLineHeight, adaptiveRulerHeight, normalizeRulerLines } from "./ruler.js";
 
-export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
+export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onHighlightsChanged }) {
   const progress = document.createElement("div");
   progress.className = "rt-progress";
   progress.hidden = true;
@@ -19,7 +19,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
 
   const hlButton = document.createElement("button");
   hlButton.type = "button";
-  hlButton.className = "rt-btn rt-primary";
+  hlButton.className = "rt-btn rt-primary rt-hl-trigger";
   hlButton.textContent = "Highlight";
   Object.assign(hlButton.style, {
     position: "fixed",
@@ -159,16 +159,26 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
   }
   document.addEventListener("selectionchange", onSelectionChange);
 
+  function onPopoverKeydown(e) {
+    if (e.key === "Escape" && popover && !popover.hidden) closePopover();
+  }
+  function onPopoverOutsideClick(e) {
+    if (popover && !popover.hidden && !popover.contains(e.target) && !e.target.closest(".rt-hl")) closePopover();
+  }
+  document.addEventListener("keydown", onPopoverKeydown);
+  document.addEventListener("mousedown", onPopoverOutsideClick, true);
+
   hlButton.addEventListener("mousedown", (e) => e.preventDefault());
   hlButton.addEventListener("click", () => {
     if (!savedRange) return;
     const text = savedRange.toString().replace(/\s+/g, " ").trim();
     const flow = getFlow();
     const before = contextBefore(flow, savedRange, 24);
+    const id = newHighlightId();
     const marks = wrapRange(savedRange, "rt-hl");
-    marks.forEach(wireHighlightRemoval);
+    marks.forEach((m) => wireHighlightMark(m, id));
     if (marks.length) {
-      highlights.push({ text, before });
+      highlights.push({ id, text, before, note: "" });
       persistHighlights();
     }
     window.getSelection().removeAllRanges();
@@ -176,33 +186,143 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     savedRange = null;
   });
 
-  function wireHighlightRemoval(mark) {
-    mark.style.cssText =
-      "background: color-mix(in srgb, #ffd23f 55%, transparent); border-radius: 3px; cursor: pointer;";
-    mark.title = "Click to remove highlight";
-    mark.addEventListener("click", () => {
-      const t = mark.textContent.replace(/\s+/g, " ").trim();
+  let idCounter = 0;
+  function newHighlightId() {
+    try {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    } catch {
+      /* fall through */
+    }
+    return `hl-${Date.now()}-${idCounter++}`;
+  }
+
+  /* ---- note popover: click any highlight to add a note or remove it ----
+     A highlight is annotation, not just marking — a reader studying from an
+     article needs to say *why* a passage mattered, not only that it did. */
+  let popover = null;
+  let popoverId = null;
+  function ensurePopover() {
+    if (popover) return popover;
+    popover = document.createElement("div");
+    popover.className = "rt-hl-note";
+    popover.hidden = true;
+    const textarea = document.createElement("textarea");
+    textarea.className = "rt-hl-note-input";
+    textarea.placeholder = "Add a note (optional)…";
+    textarea.rows = 3;
+    const row = document.createElement("div");
+    row.className = "rt-hl-note-actions";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "rt-btn rt-primary";
+    save.textContent = "Save";
+    save.addEventListener("click", () => {
+      const h = highlights.find((x) => x.id === popoverId);
+      if (h) {
+        h.note = textarea.value.trim().slice(0, 500);
+        persistHighlights();
+        syncNoteIndicators(popoverId, !!h.note);
+      }
+      closePopover();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "rt-btn rt-hl-note-remove";
+    remove.textContent = "Remove highlight";
+    remove.addEventListener("click", () => {
+      removeHighlight(popoverId);
+      closePopover();
+    });
+    row.append(save, remove);
+    popover.append(textarea, row);
+    popover._textarea = textarea;
+    document.body.append(popover);
+    return popover;
+  }
+
+  function closePopover() {
+    if (popover) popover.hidden = true;
+    popoverId = null;
+  }
+
+  function openPopoverFor(id, anchorRect) {
+    const p = ensurePopover();
+    const h = highlights.find((x) => x.id === id);
+    if (!h) return;
+    popoverId = id;
+    p._textarea.value = h.note || "";
+    p.hidden = false;
+    const top = Math.min(window.innerHeight - 160, Math.max(8, anchorRect.bottom + 6));
+    const left = Math.min(window.innerWidth - 280, Math.max(8, anchorRect.left));
+    p.style.top = `${top}px`;
+    p.style.left = `${left}px`;
+    p._textarea.focus({ preventScroll: true });
+  }
+
+  function syncNoteIndicators(id, hasNote) {
+    for (const mark of document.querySelectorAll(`mark.rt-hl[data-hl-id="${cssEscape(id)}"]`)) {
+      mark.classList.toggle("rt-hl-noted", hasNote);
+    }
+  }
+
+  function cssEscape(s) {
+    return typeof CSS !== "undefined" && CSS.escape ? CSS.escape(s) : String(s).replace(/["\\]/g, "\\$&");
+  }
+
+  function removeHighlight(id) {
+    for (const mark of document.querySelectorAll(`mark.rt-hl[data-hl-id="${cssEscape(id)}"]`)) {
       const parent = mark.parentNode;
+      if (!parent) continue;
       while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
       parent.removeChild(mark);
       parent.normalize();
-      highlights = highlights.filter((h) => h.text !== t);
-      persistHighlights();
+    }
+    highlights = highlights.filter((h) => h.id !== id);
+    persistHighlights();
+  }
+
+  function wireHighlightMark(mark, id) {
+    mark.dataset.hlId = id;
+    mark.classList.add("rt-hl");
+    const h = highlights.find((x) => x.id === id);
+    if (h && h.note) mark.classList.add("rt-hl-noted");
+    mark.title = "Click to add a note or remove this highlight";
+    mark.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (popoverId === id && popover && !popover.hidden) {
+        closePopover();
+        return;
+      }
+      openPopoverFor(id, mark.getBoundingClientRect());
     });
   }
 
   function persistHighlights() {
     onSaveHighlights && onSaveHighlights(highlights.slice(0, 200));
+    onHighlightsChanged && onHighlightsChanged(highlights.slice());
   }
 
   function restoreHighlights(list) {
-    highlights = Array.isArray(list) ? list.slice() : [];
+    highlights = (Array.isArray(list) ? list : []).map((h) => ({ note: "", ...h, id: h.id || newHighlightId() }));
     const flow = getFlow();
     if (!flow) return;
     for (const h of highlights) {
       const range = rangeFromText(flow, h.text, h.before);
-      if (range) wrapRange(range, "rt-hl").forEach(wireHighlightRemoval);
+      if (range) wrapRange(range, "rt-hl").forEach((m) => wireHighlightMark(m, h.id));
     }
+    onHighlightsChanged && onHighlightsChanged(highlights.slice());
+  }
+
+  /** Scrolls a highlight into view and gives it a brief attention flash — used
+      by the Highlights list in the settings rail so "jump to" actually orients
+      the reader, not just moves the scrollbar. */
+  function scrollToHighlight(id) {
+    const mark = document.querySelector(`mark.rt-hl[data-hl-id="${cssEscape(id)}"]`);
+    if (!mark) return false;
+    mark.scrollIntoView({ block: "center", behavior: "smooth" });
+    mark.classList.add("rt-hl-flash");
+    setTimeout(() => mark.classList.remove("rt-hl-flash"), 1200);
+    return true;
   }
 
   /* ---- public ---- */
@@ -239,12 +359,25 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights }) {
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("resize", onScroll);
     document.removeEventListener("selectionchange", onSelectionChange);
+    document.removeEventListener("keydown", onPopoverKeydown);
+    document.removeEventListener("mousedown", onPopoverOutsideClick, true);
     progress.remove();
     ruler.remove();
     hlButton.remove();
+    if (popover) popover.remove();
   }
 
-  return { apply, restoreScroll, restoreHighlights, trackRulerTo, clearRulerTracking, destroy };
+  return {
+    apply,
+    restoreScroll,
+    restoreHighlights,
+    trackRulerTo,
+    clearRulerTracking,
+    destroy,
+    listHighlights: () => highlights.slice(),
+    scrollToHighlight,
+    removeHighlight,
+  };
 }
 
 /* ---------- range helpers ---------- */

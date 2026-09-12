@@ -410,11 +410,68 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   } else log("pdfjsLib missing", false);
 
   /* aids */
-  const aids = createReadingAids({ getFlow: () => view.getFlowEl(), onSaveScroll: () => {}, onSaveHighlights: () => {} });
+  let changedHighlights = null;
+  const aids = createReadingAids({
+    getFlow: () => view.getFlowEl(),
+    onSaveScroll: () => {},
+    onSaveHighlights: () => {},
+    onHighlightsChanged: (list) => { changedHighlights = list; },
+  });
   aids.apply({ ...S.DEFAULT_PROFILE, focus: "ruler" });
   assert(!document.querySelector(".rt-ruler").hidden, "ruler shown for focus=ruler (flow)");
   aids.apply({ ...S.DEFAULT_PROFILE, focus: "ruler", pacing: "word" });
   assert(document.querySelector(".rt-ruler").hidden, "ruler hidden in word mode");
+
+  /* ---- highlights are annotation, not just marking: a note, a jump-to, a
+     clean remove ---- */
+  {
+    const flow = view.getFlowEl();
+    const walker = document.createTreeWalker(flow, NodeFilter.SHOW_TEXT);
+    let target = null;
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n.nodeValue.includes("the sea climbs the rocks")) { target = n; break; }
+    }
+    assert(target, "test setup: found the text node to highlight");
+    const start = target.nodeValue.indexOf("the sea climbs the rocks");
+    const range = document.createRange();
+    range.setStart(target, start);
+    range.setEnd(target, start + "the sea climbs the rocks".length);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    // selectionchange fires asynchronously — give it a tick before the
+    // trigger button is expected to have noticed the selection.
+    await new Promise((r) => setTimeout(r, 30));
+    const trigger = document.querySelector(".rt-hl-trigger");
+    assert(trigger && trigger.style.display !== "none", "the Highlight trigger appears once text is selected");
+    trigger.click();
+
+    const mark = document.querySelector("mark.rt-hl");
+    assert(mark && /the sea climbs the rocks/.test(mark.textContent), "selecting text and clicking Highlight wraps it in a mark");
+    const id = mark.dataset.hlId;
+    assert(!!id, "the highlight gets a stable id, not just matched by text");
+    assert(Array.isArray(changedHighlights) && changedHighlights.some((h) => h.id === id && h.note === ""), "onHighlightsChanged fires with the new highlight, note starts empty");
+
+    mark.click();
+    const popover = document.querySelector(".rt-hl-note");
+    assert(popover && !popover.hidden, "clicking a highlight opens the note popover instead of deleting it outright");
+    const textarea = popover.querySelector(".rt-hl-note-input");
+    textarea.value = "Why the tide resets — good for the intro.";
+    popover.querySelector(".rt-btn.rt-primary").click();
+    assert(popover.hidden, "Save closes the popover");
+    assert(document.querySelector(`mark.rt-hl[data-hl-id="${id}"]`).classList.contains("rt-hl-noted"), "a saved note marks the highlight as noted");
+    assert(aids.listHighlights().find((h) => h.id === id).note === "Why the tide resets — good for the intro.", "the note round-trips through listHighlights()");
+
+    const jumped = aids.scrollToHighlight(id);
+    assert(jumped === true, "scrollToHighlight finds the mark and reports success");
+
+    aids.removeHighlight(id);
+    assert(!document.querySelector(`mark.rt-hl[data-hl-id="${id}"]`), "removeHighlight un-wraps the mark from the DOM");
+    assert(!aids.listHighlights().some((h) => h.id === id), "removeHighlight drops it from listHighlights() too");
+    assert(/the sea climbs the rocks/.test(flow.textContent), "the underlying article text survives removing the highlight");
+  }
+
   aids.destroy();
 
   assert(typeof TTS.createTTS === "function", "tts exports createTTS");
@@ -939,6 +996,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(c.panel.querySelector(".rt-hex"), "a hex field covers anything the palette misses");
     const widths = [...c.panel.querySelectorAll(".rt-seg button")].map((b) => b.textContent);
     assert(widths.includes("Narrow") && widths.includes("Wide"), "line width has named stops, not only a character count");
+  }
+
+  /* ---- panel: the Highlights section only appears when the reader wires it,
+     lists notes, and its Jump to / Remove buttons call back correctly ---- */
+  {
+    const withoutHighlights = buildControls({ ...S.DEFAULT_PROFILE }, () => {});
+    assert(!/Highlights/.test(withoutHighlights.panel.textContent), "no Highlights section when the caller doesn't pass the callbacks (calibration/lab previews)");
+
+    let jumped = null;
+    let removed = null;
+    const withHighlights = buildControls({ ...S.DEFAULT_PROFILE }, () => {}, {
+      onHighlightJump: (id) => (jumped = id),
+      onHighlightRemove: (id) => (removed = id),
+    });
+    assert(/Highlights/.test(withHighlights.panel.textContent), "a Highlights section appears when the reader wires the callbacks");
+    assert(/Select text in the article/.test(withHighlights.panel.textContent), "an empty state explains how to make a highlight, rather than showing a blank section");
+    withHighlights.setHighlights([{ id: "h1", text: "the sea climbs the rocks and then falls back", before: "", note: "Good opening line" }]);
+    const hlSection = [...withHighlights.panel.querySelectorAll(".rt-sec")].find((d) => /^Highlights/.test(d.querySelector("summary").textContent));
+    assert(hlSection.querySelector(".rt-panel-hint").hidden, "the empty-state hint disappears once a highlight exists");
+    assert(/the sea climbs the rocks/.test(withHighlights.panel.textContent), "the highlighted text shows in the list");
+    assert(/Good opening line/.test(withHighlights.panel.textContent), "the note shows alongside its highlight");
+    assert(/Highlights \(1\)/.test(hlSection.querySelector("summary").textContent), "the section header counts how many highlights exist");
+    const item = withHighlights.panel.querySelector(".rt-hl-item");
+    item.querySelector(".rt-link:not(.rt-hl-item-remove)").click();
+    assert(jumped === "h1", "clicking Jump to calls back with the highlight's id");
+    item.querySelector(".rt-hl-item-remove").click();
+    assert(removed === "h1", "clicking Remove calls back with the highlight's id");
+    withHighlights.setHighlights([]);
+    assert(!hlSection.querySelector(".rt-panel-hint").hidden, "the list returns to its empty state once every highlight is gone");
   }
 
   /* ---- restyle over a site already in its own dark theme ---- */

@@ -232,6 +232,41 @@ export function buildControls(profile, onChange, opts = {}) {
   const secQuick = section(sectionTitle("Quick modes", "supported", "Task presets"), true);
   secQuick.append(modeButtons());
 
+  /* ---- Highlights: the marks a reader made in this article, each with an
+     optional note — the point isn't just to have marked a passage, but to
+     be able to come back and see why. Only rendered when the caller (reader
+     view) wires the two callbacks; the calibration/lab previews don't. ---- */
+  let highlightsList = null;
+  let highlightsEmpty = null;
+  let highlightsDetails = null;
+  function paintHighlights(list) {
+    if (!highlightsList) return;
+    const items = Array.isArray(list) ? list : [];
+    if (highlightsDetails) highlightsDetails.querySelector("summary").textContent = items.length ? `Highlights (${items.length})` : "Highlights";
+    highlightsEmpty.hidden = items.length > 0;
+    highlightsList.replaceChildren(
+      ...items.map((h) => {
+        const snippet = el("p", { class: "rt-hl-item-text" }, `"${h.text.length > 90 ? h.text.slice(0, 90) + "…" : h.text}"`);
+        const kids = [snippet];
+        if (h.note) kids.push(el("p", { class: "rt-hl-item-note" }, h.note));
+        const jump = el("button", { type: "button", class: "rt-link" }, "Jump to");
+        jump.addEventListener("click", () => opts.onHighlightJump && opts.onHighlightJump(h.id));
+        const remove = el("button", { type: "button", class: "rt-link rt-hl-item-remove" }, "Remove");
+        remove.addEventListener("click", () => opts.onHighlightRemove && opts.onHighlightRemove(h.id));
+        kids.push(el("div", { class: "rt-hl-item-actions" }, [jump, remove]));
+        return el("article", { class: "rt-hl-item" }, kids);
+      })
+    );
+  }
+  if (typeof opts.onHighlightJump === "function" || typeof opts.onHighlightRemove === "function") {
+    const inner = section("Highlights", false);
+    highlightsDetails = inner.closest(".rt-sec");
+    highlightsList = el("div", { class: "rt-hl-list" });
+    highlightsEmpty = el("p", { class: "rt-panel-hint rt-panel-hint-tight" }, "Select text in the article and choose Highlight to start one.");
+    inner.append(highlightsList, highlightsEmpty);
+    paintHighlights([]);
+  }
+
   /* ---- Text ---- */
   const secText = section(sectionTitle("Text", "strong"), false);
   secText.append(hint("Spacing and line width are some of the safest levers to reach for first."));
@@ -592,6 +627,11 @@ export function buildControls(profile, onChange, opts = {}) {
     sync(next) {
       Object.assign(state, next);
       paint();
+    },
+    /** screen.js calls this whenever the article's highlights change (add,
+        remove, note edited) so the panel's list stays live. */
+    setHighlights(list) {
+      paintHighlights(list);
     },
     /** screen.js pushes ElevenLabs state here: { provider, hasKey, voices, voiceId, status, error, note }. */
     setTTS(next) {
