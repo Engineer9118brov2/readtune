@@ -256,7 +256,6 @@ $("btn-restyle").addEventListener("click", restylePage);
 $("btn-dictate").addEventListener("click", startDictation);
 $("btn-pdf").addEventListener("click", () => openPage("pdf.html"));
 $("btn-calibrate").addEventListener("click", () => openPage("calibration.html"));
-$("btn-retake").addEventListener("click", () => openPage("calibration.html"));
 $("btn-lab").addEventListener("click", () => openPage("lab.html"));
 $("btn-setup-voice").addEventListener("click", () => openPage("lab.html?focus=voice&source=setup"));
 
