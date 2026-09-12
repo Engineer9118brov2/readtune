@@ -26,7 +26,7 @@
 
 .lab-hero-copy,
 .lab-panel {
-  border-radius: 24px;
+  border-radius: var(--rt-ui-radius-xl);
   border: 1px solid rgba(214, 206, 190, 0.9);
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 18px 52px rgba(21, 25, 18, 0.08);
@@ -106,7 +106,7 @@
   top: -11px;
   right: 18px;
   padding: 5px 9px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: rgba(15, 108, 92, 0.12);
   color: var(--rt-ui-accent-ink);
   font-size: 0.68rem;
@@ -133,7 +133,7 @@
   align-items: center;
   white-space: nowrap;
   padding: 7px 11px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: rgba(15, 108, 92, 0.11);
   color: var(--rt-ui-accent-ink);
   font-size: 0.74rem;
@@ -153,7 +153,7 @@
   display: inline-flex;
   align-items: center;
   padding: 7px 10px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   border: 1px solid rgba(201, 227, 216, 0.92);
   background: rgba(230, 241, 236, 0.86);
   color: var(--rt-ui-accent-ink);
@@ -163,7 +163,7 @@
 
 .lab-preview {
   border: 1px solid rgba(214, 206, 190, 0.9);
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   overflow: hidden;
 }
 
@@ -173,7 +173,7 @@
 
 .lab-next {
   margin-top: 18px;
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   border: 1px solid rgba(201, 227, 216, 0.92);
   background: linear-gradient(180deg, rgba(230, 241, 236, 0.92), rgba(255, 255, 255, 0.96));
 }
@@ -189,7 +189,7 @@
 }
 
 .lab-evidence-card {
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   border: 1px solid rgba(214, 206, 190, 0.88);
   background: rgba(248, 244, 235, 0.78);
   padding: 16px;
@@ -210,7 +210,7 @@
   display: inline-flex;
   align-items: center;
   padding: 5px 9px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -265,7 +265,7 @@
 
 .lab-voice-sample {
   border: 1px solid rgba(214, 206, 190, 0.9);
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   overflow: hidden;
 }
 
@@ -274,7 +274,7 @@
 }
 
 .lab-voice-card {
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   border: 1px solid rgba(214, 206, 190, 0.9);
   background: rgba(248, 244, 235, 0.82);
   padding: 16px;
@@ -324,7 +324,7 @@
   display: inline-flex;
   align-items: center;
   padding: 5px 9px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(214, 206, 190, 0.9);
   color: var(--rt-ui-ink-soft);
@@ -342,7 +342,7 @@
 }
 
 .lab-voice-empty {
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   border: 1px dashed rgba(201, 227, 216, 0.92);
   background: rgba(230, 241, 236, 0.42);
   padding: 18px;
@@ -355,7 +355,7 @@
 }
 
 .lab-voice-upgrade {
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   border: 1px solid rgba(201, 227, 216, 0.92);
   background: rgba(230, 241, 236, 0.5);
   padding: 16px 18px;
@@ -373,18 +373,22 @@
 }
 
 .lab-actions {
+  /* This used to be `position: sticky; bottom: 12px` — meant to keep it
+     reachable while scrolling a long page. In practice, with `.lab-wrap` as
+     a column flex container, it stuck to the viewport bottom from the very
+     top of the page instead of only near the end of the scroll, overlapping
+     whatever content happened to be there. These are page-closing actions
+     (retake / open a PDF / done), not moment-to-moment controls, so a plain
+     static bar at the end of the page is the correct fix, not a workaround. */
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  position: sticky;
-  bottom: 12px;
+  margin-top: 8px;
   padding: 12px;
   background: color-mix(in srgb, var(--rt-page-bg, #fbfaf7) 88%, transparent);
-  backdrop-filter: blur(8px);
   border: 1px solid var(--rt-ui-line);
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   box-shadow: var(--rt-ui-shadow);
-  z-index: 5;
 }
 
 .lab-actions .rt-btn {

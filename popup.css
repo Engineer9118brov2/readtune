@@ -56,7 +56,7 @@
 }
 .pop-signal span {
   width: 6px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: linear-gradient(180deg, rgba(239, 141, 100, 0.92), rgba(15, 108, 92, 0.86));
 }
 .pop-signal span:nth-child(1) { height: 13px; }
@@ -73,7 +73,7 @@
 .pop-site,
 .pop-auto {
   border: 1px solid rgba(211, 203, 187, 0.92);
-  border-radius: 18px;
+  border-radius: var(--rt-ui-radius-lg);
   background: rgba(255, 255, 255, 0.86);
   box-shadow: 0 8px 28px rgba(27, 32, 24, 0.06);
   backdrop-filter: blur(10px);
@@ -83,7 +83,7 @@
   font-size: 0.84rem;
   line-height: 1.4;
   padding: 9px 11px;
-  border-radius: 9px;
+  border-radius: var(--rt-ui-radius-sm);
   background: #fdf3e7;
   border: 1px solid #f0d8b8;
   color: #6b4413;
@@ -117,7 +117,7 @@
 .pop-step {
   min-height: 84px;
   padding: 10px 10px 12px;
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   background: linear-gradient(180deg, rgba(230, 241, 236, 0.8), rgba(255, 255, 255, 0.95));
   border: 1px solid rgba(201, 227, 216, 0.92);
   display: flex;
@@ -169,7 +169,7 @@
 .pop-pill {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   padding: 6px 10px;
   background: rgba(15, 108, 92, 0.11);
   color: var(--rt-ui-accent-ink);
@@ -191,7 +191,7 @@
   gap: 8px;
 }
 .pop-metric {
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   padding: 10px 10px 11px;
   background: rgba(244, 239, 228, 0.72);
   border: 1px solid rgba(222, 214, 198, 0.88);
@@ -212,7 +212,7 @@
 }
 .pop-insight {
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   padding: 11px 12px;
   background: linear-gradient(180deg, rgba(230, 241, 236, 0.92), rgba(248, 252, 250, 0.94));
   border: 1px solid rgba(201, 227, 216, 0.92);
@@ -276,7 +276,7 @@
   display: inline-flex;
   align-items: center;
   padding: 6px 9px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(201, 227, 216, 0.92);
   color: var(--rt-ui-accent-ink);
@@ -318,7 +318,7 @@
   gap: 10px;
   align-items: start;
   padding: 10px 11px;
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   border: 1px solid rgba(214, 206, 190, 0.9);
   background: rgba(248, 244, 235, 0.72);
 }
@@ -339,7 +339,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(214, 206, 190, 0.9);
   color: var(--rt-ui-accent-ink);
@@ -419,7 +419,7 @@
 .pop-auto .pop-radio {
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   border: 2px solid rgba(160, 168, 156, 0.9);
   background: rgba(255, 255, 255, 0.96);
   position: relative;
@@ -454,7 +454,7 @@
   width: 100%;
   padding: 10px 12px;
   border: 1px solid rgba(211, 203, 187, 0.92);
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   background: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   text-align: left;
@@ -476,7 +476,7 @@
   height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: var(--rt-ui-radius-sm);
   background: var(--rt-ui-accent-soft);
   color: var(--rt-ui-accent-ink);
   font-family: "OpenDyslexic", var(--rt-ui-font);
@@ -503,7 +503,7 @@
   flex: none;
   width: 40px;
   height: 23px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: var(--rt-ui-line);
   position: relative;
   transition: background 0.14s ease;

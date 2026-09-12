@@ -11,7 +11,7 @@
   text-align: center;
   background: var(--rt-ui-panel);
   border: 1px dashed var(--rt-ui-line);
-  border-radius: 16px;
+  border-radius: var(--rt-ui-radius-lg);
   padding: 36px 30px;
   box-shadow: var(--rt-ui-shadow);
   transition: border-color 0.12s ease, background 0.12s ease;

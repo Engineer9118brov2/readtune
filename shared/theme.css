@@ -53,7 +53,16 @@
   --rt-ui-accent-soft: #e4f1ed;
   --rt-ui-accent-warm: #ef8d64;
   --rt-ui-warn: #b25b1e;
+  /* Radius scale — three steps cover almost everything: small controls
+     (inputs, tags), the standard card/button/panel corner, and full pills.
+     A handful of deliberately asymmetric shapes (a chat bubble's tail, the
+     voice orb) stay hand-rolled; everything else should reach for one of
+     these three instead of picking its own number. */
+  --rt-ui-radius-sm: 8px;
   --rt-ui-radius: 14px;
+  --rt-ui-radius-lg: 18px;
+  --rt-ui-radius-xl: 24px;
+  --rt-ui-radius-pill: 999px;
   --rt-ui-shadow: 0 2px 3px rgba(20, 20, 15, 0.04), 0 18px 48px rgba(20, 20, 15, 0.08);
   --rt-ui-font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --rt-ui-display: "Lexend", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -124,7 +133,7 @@ body.rt-ui {
   font: inherit;
   font-weight: 550;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--rt-ui-radius);
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -185,7 +194,7 @@ body.rt-ui {
   color: var(--rt-ui-accent-ink);
   background: color-mix(in srgb, var(--rt-ui-accent-soft) 88%, white);
   padding: 4px 9px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
 }
 
 :focus-visible {
@@ -352,7 +361,7 @@ body.rt-shell > .rt-rail-right {
   font-size: 0.9rem;
   font-weight: 550;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   cursor: pointer;
   box-shadow: var(--rt-ui-shadow);
 }
@@ -381,7 +390,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-panel-toggle {
   z-index: 34;
   width: 54px;
   height: 54px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   border: 1px solid color-mix(in srgb, var(--rt-ui-accent) 60%, #000 4%);
   background: var(--rt-ui-accent);
   color: #fff;
@@ -462,7 +471,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   font-size: 0.82rem;
   font-weight: 650;
   padding: 8px 12px;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   cursor: pointer;
   text-decoration: none;
   transition: border-color 0.12s ease, background 0.12s ease, transform 0.08s ease;
@@ -541,7 +550,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
 .rt-article video {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--rt-ui-radius-sm);
   display: block;
 }
 .rt-surface[data-rt-hide-images="true"] .rt-article :is(img, figure, video, picture, svg) {
@@ -565,7 +574,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   overflow-x: auto;
   padding: 0.9em 1em;
   background: color-mix(in srgb, var(--rt-ink) 6%, transparent);
-  border-radius: 8px;
+  border-radius: var(--rt-ui-radius-sm);
   font-size: 0.85em;
 }
 .rt-article code {
@@ -603,7 +612,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   cursor: pointer;
   padding: 8px 12px;
   border: 1px solid var(--rt-faint);
-  border-radius: 10px;
+  border-radius: var(--rt-ui-radius-sm);
   font-size: 0.9em;
   font-weight: 600;
   color: color-mix(in srgb, var(--rt-ink) 76%, transparent);
@@ -757,7 +766,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   padding: 7px 10px;
   background: var(--rt-ui-panel);
   border: 1px solid var(--rt-ui-line);
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   box-shadow: var(--rt-ui-shadow);
   font-family: var(--rt-ui-font);
   max-width: calc(100vw - 32px);
@@ -767,7 +776,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   border: none;
   background: transparent;
   color: var(--rt-ui-ink);
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   width: 38px;
   height: 38px;
   font-size: 1rem;
@@ -792,7 +801,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
 .rt-transport .rt-transport-speed {
   font-size: 0.78rem;
   border: 1px solid var(--rt-ui-line);
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   padding: 4px 8px;
   background: transparent;
   color: var(--rt-ui-ink);
@@ -816,7 +825,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   text-align: center;
   background: var(--rt-ui-panel);
   border: 1px solid var(--rt-ui-line);
-  border-radius: 16px;
+  border-radius: var(--rt-ui-radius-lg);
   padding: 28px 26px;
   box-shadow: var(--rt-ui-shadow);
 }
@@ -838,7 +847,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   font-size: 0.86rem;
   line-height: 1.4;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: var(--rt-ui-radius-sm);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
@@ -887,7 +896,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   background: var(--rt-ui-panel, #fff);
   color: var(--rt-ui-ink, #1f2430);
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .14));
-  border-radius: 13px;
+  border-radius: var(--rt-ui-radius);
   box-shadow: 0 10px 34px -12px rgba(0, 0, 0, .4);
   font-family: var(--rt-ui-font, system-ui, sans-serif);
   animation: rt-wordlook-in .12s ease-out;
@@ -906,7 +915,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
 }
 .rt-wordlook-syllable {
   padding: 1px 6px;
-  border-radius: 6px;
+  border-radius: var(--rt-ui-radius-sm);
   background: var(--rt-ui-accent-soft, rgba(31, 122, 92, .12));
 }
 .rt-wordlook-dot { opacity: .5; }
@@ -914,7 +923,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   margin-left: auto;
   padding: 6px 13px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: var(--rt-ui-accent, #1f7a5c);
   color: #fff;
   font: inherit;
@@ -948,7 +957,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   background: var(--rt-ui-panel, #fff);
   color: var(--rt-ui-ink, #1f2430);
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .14));
-  border-radius: 15px;
+  border-radius: var(--rt-ui-radius);
   box-shadow: 0 22px 60px -18px rgba(0, 0, 0, .5);
   font-family: var(--rt-ui-font, system-ui, sans-serif);
   animation: rt-assist-in .14s ease-out;
@@ -993,7 +1002,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .16));
   background: var(--rt-ui-bg, #faf9f5);
   color: var(--rt-ui-ink, #1f2430);
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   padding: 6px 15px;
   font: inherit;
   font-size: .85rem;
@@ -1025,7 +1034,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   position: fixed;
   z-index: 2147483000;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   padding: 7px 15px;
   background: var(--rt-ui-accent, #1f7a5c);
   color: #fff;
@@ -1088,7 +1097,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .16));
   background: var(--rt-ui-bg, #faf9f5);
   color: var(--rt-ui-ink, #1f2430);
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   padding: 5px 11px;
   font: inherit;
   font-size: .8rem;
@@ -1163,7 +1172,7 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   width: 36px;
   height: 36px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--rt-ui-radius-pill);
   background: var(--rt-ui-accent, #1f7a5c);
   color: #fff;
   font-size: 1.1rem;
@@ -1195,6 +1204,6 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   line-height: 1.5;
   color: var(--rt-ui-ink, #1f2430);
   background: color-mix(in srgb, var(--rt-ui-ink, #000) 5%, transparent);
-  border-radius: 8px;
+  border-radius: var(--rt-ui-radius-sm);
   padding: 8px 10px;
 }
