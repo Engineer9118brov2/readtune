@@ -198,6 +198,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     },
     speak: speakDucked,
     onError: (m) => toast(m),
+    onSaveAsHighlight: (range, note) => aids.addHighlightFromRange(range, note),
   });
   const unmountAssistTrigger = assist.mountSelectionTrigger(() => view.getFlowEl());
   const assistSidebar = createAssistSidebar({

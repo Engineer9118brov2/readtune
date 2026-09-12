@@ -1,18 +1,52 @@
 /*
- * ReadTune — reading-assistant UI: Simplify
+ * ReadTune — reading-assistant UI: Simplify, Define, Explain
  *
  * A dismissible card for a plain-language rewrite of the passage you
- * selected, shown next to the original, never replacing it. (Summary lives
- * in its own docked sidebar now — see assist-sidebar.js — since it's the
- * headline AI feature and reads better as a persistent panel than a modal.)
+ * selected (Simplify), a one-sentence definition of a word you selected
+ * (Define), or a read on figurative language/theme in a passage (Explain).
+ * All three show their result beside the original where that makes sense,
+ * never in its place. (Summary lives in its own docked sidebar now — see
+ * assist-sidebar.js — since it's the headline AI feature and reads better as
+ * a persistent panel than a modal.)
  *
- * The card always carries an "AI — may not be exact" line. The rewrite is an
- * aid, not a substitute for the words on the page, and a reader who leans on it
- * cannot easily check it against the source — so the original stays visible and
- * the label stays honest.
+ * Which pill(s) show over a selection depends on its shape: a single short
+ * word or phrase gets Define; a longer passage gets Simplify and Explain
+ * together (a rewrite and an interpretation are genuinely different asks).
+ * The Highlight pill (shared/aids.js) is a separate concern — marking, not
+ * asking AI — and shows alongside these independently.
+ *
+ * Every result card carries an "AI — may not be exact" line, and — when the
+ * caller wires onSaveAsHighlight — a "Save as highlight" action that turns
+ * the AI's own answer into a note on a highlight over the exact text that
+ * was selected, without retyping anything.
  */
 
 import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-render.js";
+
+/** A short word or phrase — the shape Define wants — rather than a full
+    sentence or passage (Simplify/Explain's territory). */
+function isWordLike(text) {
+  const t = String(text || "").trim();
+  if (!t || t.length > 24 || /\n/.test(t)) return false;
+  return t.split(/\s+/).length <= 3;
+}
+
+/** The nearest block of text around a range, for Define's "as used in this
+    sentence" grounding — not sentence-boundary-precise, just enough context
+    for a model to pick the right sense of a word. */
+function contextForRange(range) {
+  try {
+    const node = range.commonAncestorContainer;
+    const el_ = node.nodeType === 1 ? node : node.parentElement;
+    if (!el_) return "";
+    const block = typeof el_.closest === "function"
+      ? el_.closest("p, li, td, th, blockquote, figcaption, h1, h2, h3, h4, h5, h6")
+      : null;
+    return (block || el_).textContent || "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * @param {object} opts
@@ -20,8 +54,18 @@ import { el, resultBlock, disclaimer, workingNodes, failNodes } from "./assist-r
  * @param {() => string}       opts.getSelectionText  the reader's current selection
  * @param {(t:string)=>Promise<any>} [opts.speak]     optional "hear it" for the result
  * @param {(m:string)=>void}   [opts.onError]
+ * @param {(range:Range, note:string)=>({id:string}|null)} [opts.onSaveAsHighlight]
+ *   turns the AI's result into a highlight+note over the range that produced
+ *   it — typically shared/aids.js's addHighlightFromRange. Omit to hide the
+ *   "Save as highlight" action entirely.
  */
-export function createAssistUi({ assistant, getSelectionText = () => "", speak, onError = () => {} } = {}) {
+export function createAssistUi({
+  assistant,
+  getSelectionText = () => "",
+  speak,
+  onError = () => {},
+  onSaveAsHighlight = null,
+} = {}) {
   let card = null;
   let controller = null;
   let lastFocus = null;
@@ -105,7 +149,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
     fill(body, ...failNodes(message, retry));
   }
 
-  function actions(getText, signal) {
+  function actions(getText, signal, range) {
     const row = el("div", { class: "rt-assist-actions" });
 
     const copy = el("button", { type: "button", class: "rt-assist-btn" }, "Copy");
@@ -139,10 +183,26 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       });
       row.append(hear);
     }
+
+    // Only offered when the caller wired it up AND we still hold the exact
+    // Range the reader selected — a Range is a live DOM reference, not a
+    // snapshot, so this keeps working even if the reader scrolled or kept
+    // reading while the request was in flight, as long as those nodes are
+    // still in the document.
+    if (typeof onSaveAsHighlight === "function" && range) {
+      const save = el("button", { type: "button", class: "rt-assist-btn" }, "Save as highlight");
+      save.addEventListener("click", () => {
+        const created = onSaveAsHighlight(range, getText());
+        save.disabled = true;
+        save.textContent = created ? "Saved" : "Couldn't save";
+        if (!created) onError("Couldn't turn that selection into a highlight — try selecting it again.");
+      });
+      row.append(save);
+    }
     return row;
   }
 
-  async function simplifySelection(passageArg) {
+  async function simplifySelection(passageArg, rangeArg) {
     const passage = String(passageArg || getSelectionText() || "").trim();
     if (!passage) {
       onError("Select a sentence or paragraph first, then choose Simplify.");
@@ -161,54 +221,128 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
           el("div", { class: "rt-assist-col" }, [el("h4", {}, "In plainer words"), resultBlock(text)]),
         ]),
         disclaimer(),
-        actions(() => text, signal),
+        actions(() => text, signal, rangeArg),
       );
     } catch (err) {
-      if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be rewritten.", () => simplifySelection(passage));
+      if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be rewritten.", () => simplifySelection(passage, rangeArg));
     }
   }
 
-  /* A "Simplify" pill that surfaces over a selection inside the reading flow —
-     the natural place to ask for a rewrite is right where you selected the
-     text. Returns a teardown. */
+  /** Define a selected word or short phrase as it's used in its sentence.
+      `contextArg` is whatever surrounding text mountSelectionTrigger could
+      find (see contextForRange) — optional, since a reader can select a word
+      with nothing useful around it (a caption, a bare list item). */
+  async function defineSelection(wordArg, contextArg, rangeArg) {
+    const word = String(wordArg || getSelectionText() || "").trim();
+    if (!word) {
+      onError("Select a word first, then choose Define.");
+      return;
+    }
+    const body = frame("Define");
+    const w = working(body, "Looking up the word…");
+    const signal = controller.signal;
+    try {
+      const { text } = await assistant.define(word, contextArg || "", { signal, onProgress: (p) => w.progress(p) });
+      if (signal.aborted) return;
+      fill(
+        body,
+        el("div", { class: "rt-assist-col" }, [el("h4", {}, word), resultBlock(text)]),
+        disclaimer(),
+        actions(() => text, signal, rangeArg),
+      );
+    } catch (err) {
+      if (!signal.aborted) await fail(body, (err && err.message) || "That word couldn't be defined.", () => defineSelection(word, contextArg, rangeArg));
+    }
+  }
+
+  /** Explain a selected passage — figurative language, tone, or theme, or
+      the main idea when nothing figurative is there. */
+  async function explainSelection(passageArg, rangeArg) {
+    const passage = String(passageArg || getSelectionText() || "").trim();
+    if (!passage) {
+      onError("Select a sentence or paragraph first, then choose Explain.");
+      return;
+    }
+    const body = frame("What this means");
+    const w = working(body, "Reading the passage…");
+    const signal = controller.signal;
+    try {
+      const { text } = await assistant.explain(passage, { signal, onProgress: (p) => w.progress(p) });
+      if (signal.aborted) return;
+      fill(
+        body,
+        el("div", { class: "rt-assist-pair" }, [
+          el("div", { class: "rt-assist-col" }, [el("h4", {}, "Passage"), el("p", { class: "rt-assist-orig" }, passage)]),
+          el("div", { class: "rt-assist-col" }, [el("h4", {}, "What it means"), resultBlock(text)]),
+        ]),
+        disclaimer(),
+        actions(() => text, signal, rangeArg),
+      );
+    } catch (err) {
+      if (!signal.aborted) await fail(body, (err && err.message) || "That passage couldn't be explained.", () => explainSelection(passage, rangeArg));
+    }
+  }
+
+  /* A small pill row that surfaces over a selection inside the reading flow —
+     the natural place to ask for AI help is right where you selected the
+     text. Which pills show depends on the selection's shape: a short word or
+     phrase gets Define; a longer passage gets Simplify and Explain together.
+     Returns a teardown. */
   function mountSelectionTrigger(getFlowEl) {
-    let pill = null;
+    let row = null;
     const hide = () => {
-      if (pill) pill.remove();
-      pill = null;
+      if (row) row.remove();
+      row = null;
     };
-    const show = (rect) => {
-      if (!pill) {
-        pill = el("button", { type: "button", class: "rt-assist-pill" }, "Simplify");
-        pill.addEventListener("mousedown", (e) => e.preventDefault()); // keep the selection
-        pill.addEventListener("click", () => {
-          hide();
-          simplifySelection();
-        });
-        document.body.appendChild(pill);
+    const pillsFor = (text, range, context) => {
+      const clicked = (fn, ...args) => () => {
+        hide();
+        fn(...args, range);
+      };
+      if (isWordLike(text)) {
+        const define = el("button", { type: "button", class: "rt-assist-pill" }, "Define");
+        define.addEventListener("click", clicked(defineSelection, text, context));
+        return [define];
       }
-      const box = pill.getBoundingClientRect();
+      const simplify = el("button", { type: "button", class: "rt-assist-pill" }, "Simplify");
+      simplify.addEventListener("click", clicked(simplifySelection, text));
+      const explain = el("button", { type: "button", class: "rt-assist-pill" }, "Explain");
+      explain.addEventListener("click", clicked(explainSelection, text));
+      return [simplify, explain];
+    };
+    const show = (rect, text, range) => {
+      hide();
+      row = el("div", { class: "rt-assist-pill-row" }, pillsFor(text, range, contextForRange(range)));
+      row.addEventListener("mousedown", (e) => e.preventDefault()); // keep the selection
+      document.body.appendChild(row);
+      const box = row.getBoundingClientRect();
       let left = rect.left + rect.width / 2 - box.width / 2;
       left = Math.max(8, Math.min(left, window.innerWidth - box.width - 8));
       let top = rect.top - box.height - 8;
       if (top < 8) top = rect.bottom + 8;
-      pill.style.left = `${Math.round(left)}px`;
-      pill.style.top = `${Math.round(top)}px`;
+      row.style.left = `${Math.round(left)}px`;
+      row.style.top = `${Math.round(top)}px`;
     };
     const sync = () => {
       const sel = window.getSelection();
       const flow = typeof getFlowEl === "function" ? getFlowEl() : null;
-      const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
-      const text = range ? String(range.toString() || "").trim() : "";
-      const inFlow = range && flow && flow.contains(range.commonAncestorContainer);
-      // card open, nothing selected, selection outside the flow, or too short
-      if (card || !sel || sel.isCollapsed || !inFlow || text.length < 12) {
+      const liveRange = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+      const text = liveRange ? String(liveRange.toString() || "").trim() : "";
+      const inFlow = liveRange && flow && flow.contains(liveRange.commonAncestorContainer);
+      const eligible = isWordLike(text) || text.length >= 12;
+      // card open, nothing selected, selection outside the flow, or neither
+      // shape a pill wants
+      if (card || !sel || sel.isCollapsed || !inFlow || !eligible) {
         hide();
         return;
       }
-      const rect = range.getBoundingClientRect();
-      if (!rect.width && !rect.height) hide();
-      else show(rect);
+      const rect = liveRange.getBoundingClientRect();
+      if (!rect.width && !rect.height) { hide(); return; }
+      // A Range is a live DOM reference, not a snapshot — cloneRange() so
+      // clicking a pill and later "Save as highlight" still target this
+      // exact selection even if the reader's live selection changes (or
+      // collapses) while the request is in flight.
+      show(rect, text, liveRange.cloneRange());
     };
     let debounce = 0;
     const onSelectionChange = () => {
@@ -216,7 +350,7 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
       debounce = setTimeout(sync, 180);
     };
     const onDown = (e) => {
-      if (pill && !pill.contains(e.target)) hide();
+      if (row && !row.contains(e.target)) hide();
     };
     document.addEventListener("selectionchange", onSelectionChange);
     document.addEventListener("mousedown", onDown, true);
@@ -234,6 +368,8 @@ export function createAssistUi({ assistant, getSelectionText = () => "", speak, 
 
   return {
     simplifySelection,
+    defineSelection,
+    explainSelection,
     mountSelectionTrigger,
     isOpen: () => !!card,
     destroy: close,

@@ -2065,6 +2065,73 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();
+
+      // ---- Define / Explain pills: which shows depends on selection shape,
+      // and "Save as highlight" turns the AI's own answer into a note. ----
+      {
+        const host = document.createElement("div");
+        host.innerHTML = "<p>The old lighthouse keeper finally let the tide win.</p>";
+        document.body.appendChild(host);
+        const textNode = host.querySelector("p").firstChild;
+
+        const selectRange = (str) => {
+          const start = textNode.nodeValue.indexOf(str);
+          const range = document.createRange();
+          range.setStart(textNode, start);
+          range.setEnd(textNode, start + str.length);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        };
+
+        let savedHighlight = null;
+        const fakeAssistant = {
+          define: async (word) => ({ text: `Definition of ${word}.`, clipped: false }),
+          explain: async () => ({ text: "The tide winning is a metaphor for accepting the inevitable.", clipped: false }),
+          simplify: async () => ({ text: "The old man let the sea win.", clipped: false }),
+        };
+        const ui2 = AUI.createAssistUi({
+          assistant: fakeAssistant,
+          getSelectionText: () => String(window.getSelection() || ""),
+          onSaveAsHighlight: (range, note) => {
+            savedHighlight = { text: range.toString(), note };
+            return { id: "fake-id" };
+          },
+        });
+        const teardown2 = ui2.mountSelectionTrigger(() => host);
+
+        selectRange("lighthouse");
+        await new Promise((r) => setTimeout(r, 200));
+        let pills = [...document.querySelectorAll(".rt-assist-pill")];
+        assert(pills.length === 1 && pills[0].textContent === "Define", "a short word-like selection shows only the Define pill");
+
+        selectRange("finally let the tide win");
+        await new Promise((r) => setTimeout(r, 200));
+        pills = [...document.querySelectorAll(".rt-assist-pill")];
+        assert(
+          pills.length === 2 && pills.map((p) => p.textContent).join(",") === "Simplify,Explain",
+          "a longer passage selection shows Simplify and Explain together",
+        );
+
+        const explainPill = pills.find((p) => p.textContent === "Explain");
+        explainPill.click();
+        await new Promise((r) => setTimeout(r, 10));
+        const card = document.querySelector(".rt-assist-card");
+        assert(card && /metaphor for accepting the inevitable/.test(card.textContent), "Explain shows the AI's read on the passage");
+
+        const saveBtn = [...card.querySelectorAll(".rt-assist-btn")].find((b) => b.textContent === "Save as highlight");
+        assert(!!saveBtn, "the result card offers Save as highlight when onSaveAsHighlight is wired");
+        saveBtn.click();
+        assert(
+          savedHighlight && savedHighlight.text === "finally let the tide win" && /metaphor/.test(savedHighlight.note),
+          "Save as highlight hands back the exact selected range and the AI's own answer as the note",
+        );
+        assert(saveBtn.textContent === "Saved" && saveBtn.disabled, "the button confirms the save and can't be clicked twice");
+
+        ui2.destroy();
+        teardown2();
+        host.remove();
+      }
     } finally {
       restoreAI();
       restoreFetch();

@@ -1097,9 +1097,14 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   font-size: .82rem;
 }
 .rt-assist-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
-.rt-assist-pill {
+.rt-assist-pill-row {
   position: fixed;
   z-index: 2147483000;
+  display: flex;
+  gap: 6px;
+  animation: rt-assist-fade .1s ease-out;
+}
+.rt-assist-pill {
   border: 0;
   border-radius: var(--rt-ui-radius-pill);
   padding: 7px 15px;
@@ -1110,10 +1115,10 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 8px 22px -8px rgba(0, 0, 0, .45);
-  animation: rt-assist-fade .1s ease-out;
+  white-space: nowrap;
 }
 @keyframes rt-assist-fade { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .rt-assist-pill { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .rt-assist-pill-row { animation: none; } }
 
 /* Summary's docked sidebar — a persistent left panel, not a modal. Reading
    keeps working underneath it; it's dismissed with ×, Escape, or a click
