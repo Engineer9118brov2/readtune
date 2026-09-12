@@ -109,6 +109,10 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
       memory.highlights = list;
       await savePageMemory(pageUrl, memory);
     },
+    // `controls` (below) always exists by the time this actually fires —
+    // restoreHighlights() only runs later, once memory has loaded — but the
+    // guard costs nothing and keeps that ordering from being load-bearing.
+    onHighlightsChanged: (list) => controls && controls.setHighlights(list),
   });
 
   const tts = createTTS({
@@ -235,7 +239,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
   const chrome_ = document.createElement("div");
   chrome_.className = "rt-reader-chrome";
 
-  const controls = buildControls(profile, change, { onToggle: (open) => syncRail("right", open) });
+  const controls = buildControls(profile, change, {
+    onToggle: (open) => syncRail("right", open),
+    onHighlightJump: (id) => aids.scrollToHighlight(id),
+    onHighlightRemove: (id) => aids.removeHighlight(id),
+  });
   controls.toggle.textContent = "";
   controls.toggle.append(railGlyph("settings"), document.createTextNode("Reading settings"));
   railRightEl.append(controls.panel);
