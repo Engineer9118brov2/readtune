@@ -44,6 +44,29 @@ if (dysToggle) {
 
 const specimen = document.querySelector("#specimen-reading");
 
+/* Reveal long-form sections as they enter the viewport. Content stays visible
+   when IntersectionObserver is unavailable or motion is reduced. */
+(function revealSections() {
+  const items = [...document.querySelectorAll("[data-reveal]")];
+  if (!items.length) return;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || !("IntersectionObserver" in window)) {
+    items.forEach((item) => item.classList.add("is-visible"));
+    return;
+  }
+  const observer = new IntersectionObserver((entries, current) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("is-visible");
+      current.unobserve(entry.target);
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -40px" });
+  items.forEach((item, index) => {
+    item.style.transitionDelay = `${Math.min(index * 45, 180)}ms`;
+    observer.observe(item);
+  });
+})();
+
 document.querySelectorAll("[data-demo-font]").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll("[data-demo-font]").forEach((item) => item.classList.toggle("is-active", item === button));
@@ -65,6 +88,14 @@ document.querySelector("[data-demo-focus]")?.addEventListener("click", (button) 
   active.textContent = isWide ? "5-line focus" : "3-line focus";
   rule.style.height = isWide ? "134px" : "86px";
   rule.style.top = isWide ? "83px" : "105px";
+});
+
+document.querySelectorAll(".specimen-control").forEach((control) => {
+  control.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    control.click();
+  });
 });
 
 document.querySelector(".play-button")?.addEventListener("click", (event) => {
