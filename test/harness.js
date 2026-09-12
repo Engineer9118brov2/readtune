@@ -1979,6 +1979,49 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         "the box clears after asking and the answer gets a Play button");
       sidebar4.destroy();
 
+      // Reading-level control: picking a plainer level threads a phrasing
+      // suffix into what the relay actually receives, without changing the
+      // question echoed back to the reader.
+      let lastAskedQuestion = "";
+      self.fetch = async (url, opts) => {
+        const b = JSON.parse(opts.body);
+        if (b.kind === "ask") lastAskedQuestion = b.question;
+        return { ok: true, json: async () => ({ text: `A: ${b.question}`, cached: false }) };
+      };
+      let savedLevel = null;
+      const sidebar5 = ASB.createAssistSidebar({
+        assistant: A.createAssistant({ getArticleText: () => "Article about tide pools and the animals in them." }),
+        speak: async () => {},
+        initialLevel: "written",
+        onLevelChange: (lvl) => { savedLevel = lvl; },
+      });
+      await sidebar5.open();
+      await new Promise((r) => setTimeout(r, 0));
+      const panel5 = document.querySelector(".rt-assist-sidebar");
+      const levelBtns = [...panel5.querySelectorAll(".rt-assist-level-btn")];
+      assert(
+        levelBtns.length === 3 && levelBtns[0].getAttribute("aria-pressed") === "true",
+        "the reading-level control renders three levels, defaulting to As written",
+      );
+      levelBtns[2].click(); // "Simplest"
+      assert(
+        savedLevel === "simplest" && levelBtns[2].getAttribute("aria-pressed") === "true" && levelBtns[0].getAttribute("aria-pressed") === "false",
+        "picking a level updates its pressed state and is reported for persistence",
+      );
+      const composer5 = panel5.querySelector(".rt-assist-input");
+      composer5.value = "What lives in a tide pool?";
+      panel5.querySelector(".rt-assist-send").click();
+      await new Promise((r) => setTimeout(r, 10));
+      assert(
+        /^What lives in a tide pool\?/.test(panel5.querySelector(".rt-assist-q").textContent),
+        "the echoed question stays exactly what the reader typed",
+      );
+      assert(
+        lastAskedQuestion.startsWith("What lives in a tide pool?") && /simplest possible reading level/.test(lastAskedQuestion),
+        "the relay receives the reading-level phrasing appended to the question",
+      );
+      sidebar5.destroy();
+
       const teardown = ui.mountSelectionTrigger(() => document.body);
       assert(typeof teardown === "function", "the selection trigger returns a teardown");
       teardown();

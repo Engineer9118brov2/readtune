@@ -515,11 +515,13 @@ export async function markSetupStep(step) {
 
 /* ---- Reader View chrome: the two side rails (Ask AI, Settings) ---- */
 
-const DEFAULT_READER_UI = { railLeft: false, railRight: false };
+const DEFAULT_READER_UI = { railLeft: false, railRight: false, askLevel: "written" };
+const ASK_LEVELS = new Set(["written", "simple", "simplest"]);
 
-/** Which side rails were left expanded. Both start collapsed so a first-time
-    reader gets a clean page — the corner buttons and the voice orb are the
-    only chrome until they open something. */
+/** Which side rails were left expanded, and the reading level Ask AI answers
+    should aim for. Rails both start collapsed so a first-time reader gets a
+    clean page — the corner buttons and the voice orb are the only chrome
+    until they open something. */
 export async function loadReaderUi() {
   try {
     const got = await chrome.storage.local.get(READER_UI_KEY);
@@ -527,6 +529,7 @@ export async function loadReaderUi() {
     return {
       railLeft: !!(v && v.railLeft),
       railRight: !!(v && v.railRight),
+      askLevel: v && ASK_LEVELS.has(v.askLevel) ? v.askLevel : DEFAULT_READER_UI.askLevel,
     };
   } catch (err) {
     console.warn("[ReadTune] loadReaderUi failed:", err);
@@ -542,6 +545,7 @@ export async function saveReaderUi(state) {
     const next = {
       railLeft: !!(state && state.railLeft),
       railRight: !!(state && state.railRight),
+      askLevel: state && ASK_LEVELS.has(state.askLevel) ? state.askLevel : DEFAULT_READER_UI.askLevel,
     };
     await chrome.storage.local.set({ [READER_UI_KEY]: next });
     return next;

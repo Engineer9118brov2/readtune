@@ -205,6 +205,11 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
     onError: (m) => toast(m),
     mountEl: railLeftEl,
     onToggle: (open) => syncRail("left", open),
+    initialLevel: readerUi.askLevel,
+    onLevelChange: (askLevel) => {
+      readerUi = { ...readerUi, askLevel };
+      saveReaderUi(readerUi);
+    },
   });
 
   const transport = createTransport({
