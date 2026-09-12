@@ -189,21 +189,31 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     "the voice orb switches to a pause control while it's reading",
   );
 
-  /* ---- Voice Fit Lab: only curated Piper choices may be shown ---- */
+  /* ---- Voice Fit Lab: curated Piper choices + the OpenRouter cloud voices ---- */
   const labFrame = document.getElementById("lab-frame");
   await new Promise((resolve) => {
     if (labFrame.contentDocument && labFrame.contentDocument.readyState === "complete") resolve();
     else labFrame.addEventListener("load", resolve, { once: true });
   });
   const labDoc = labFrame.contentDocument;
-  for (let attempt = 0; attempt < 40 && labDoc.querySelectorAll(".lab-voice-card").length !== 3; attempt++) {
+  for (let attempt = 0; attempt < 40 && labDoc.querySelectorAll(".lab-voice-card").length !== 6; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   const labVoiceText = labDoc.getElementById("lab-voice-panel").textContent;
-  assert(labDoc.querySelectorAll(".lab-voice-card").length === 3, "Voice Fit Lab renders exactly three curated Piper voices");
+  assert(labDoc.querySelectorAll(".lab-voice-card").length === 6, "Voice Fit Lab renders the three curated Piper voices plus the three cloud voices");
   assert(/Linden/.test(labVoiceText) && /Joe/.test(labVoiceText) && /Kristin/.test(labVoiceText), "Voice Fit Lab names the Piper choices");
   assert(/Built in/.test(labVoiceText), "Voice Fit Lab marks the bundled default voice as built in");
   assert(!/Browser default|Best free voices|Re-scan/i.test(labVoiceText), "Voice Fit Lab does not surface browser voice clutter");
+  assert(/Thalia/.test(labVoiceText) && /Andromeda/.test(labVoiceText) && /Orion/.test(labVoiceText), "Voice Fit Lab names the cloud voice choices too — not just links away to Reader View");
+  assert(/OpenRouter cloud/.test(labVoiceText), "the cloud voice cards are labelled as such");
+  {
+    const cloudCard = [...labDoc.querySelectorAll(".lab-voice-card")].find((c) => /Thalia/.test(c.textContent));
+    const useBtn = [...cloudCard.querySelectorAll("button")].find((b) => /Use/.test(b.textContent));
+    useBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const savedCard = [...labDoc.querySelectorAll(".lab-voice-card")].find((c) => /Thalia/.test(c.textContent));
+    assert(savedCard.dataset.active === "true" && /Using this voice/.test(savedCard.textContent), "picking a cloud voice's \"Use this voice\" marks that card active");
+  }
   assert(
     !!labDoc.getElementById("lab-assist-panel") && /Simplify|Summary/.test(labDoc.getElementById("lab-assist-panel").textContent),
     "the Reading Lab has an assistant panel describing Summary + Simplify",
@@ -310,6 +320,12 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(!/<script|javascript:|SALE/i.test(host.innerHTML), "sanitised (script / js: / ad gone)");
   assert(host.querySelectorAll(".rt-s").length >= 4, "sentences wrapped");
   assert(host.querySelectorAll("li").length === 2, "list kept");
+
+  const blocks = view.getBlocks();
+  assert(Array.isArray(blocks) && blocks.length >= 4, "getBlocks splits the article into paragraph/heading/list-item chunks");
+  assert(blocks.some((b) => /Why the timing shifts/.test(b)), "getBlocks keeps headings as their own block");
+  assert(blocks.some((b) => /Spring tides/.test(b)) && blocks.some((b) => /Neap tides/.test(b)), "getBlocks keeps each list item as its own block, not one blob");
+  assert(blocks.join(" ").length <= view.getPlainText().length + blocks.length * 2, "getBlocks doesn't duplicate text from nested elements");
 
   const shellView = R.createReadingView(document.createElement("div"));
   const shell = shellView.setArticleHtml(APP_SHELL, "https://grok.test");
@@ -1525,6 +1541,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const A = await import("../shared/assist.js");
     const AUI = await import("../shared/assist-ui.js");
     const ASB = await import("../shared/assist-sidebar.js");
+    const AR = await import("../shared/assist-render.js");
+
+    {
+      const box = AR.resultBlock("The capital is **Sacramento**, not *San Francisco* as often assumed.");
+      const strong = box.querySelector("strong");
+      const em = box.querySelector("em");
+      assert(strong && strong.textContent === "Sacramento", "resultBlock turns **bold** into a real <strong>, not literal asterisks");
+      assert(em && em.textContent === "San Francisco", "resultBlock turns *italic* into a real <em>");
+      assert(!box.textContent.includes("*"), "no stray asterisks remain once bold/italic are parsed out");
+    }
+    {
+      const box = AR.resultBlock("- first point\n- second point");
+      const ps = [...box.querySelectorAll("p")];
+      assert(ps.length === 2 && ps.every((p) => p.textContent.startsWith("• ")), "a markdown bullet list still renders as bullet lines");
+    }
 
     /* Control the built-in-AI globals so the tests don't depend on whether this
        Chrome ships them. Each entry is null (absent) or an availability string.
@@ -1635,6 +1666,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       let askEmpty = false;
       try { await A.createAssistant({ getArticleText: () => "x" }).ask("   "); } catch { askEmpty = true; }
       assert(askEmpty, "ask() with a blank question is rejected before any network call");
+
+      // A question about content well past a flat character clip: a naive
+      // "read the first N chars" would never see the employer table. Padding
+      // blocks make the article long enough that the old clip would miss it.
+      {
+        const filler = "This town has quiet streets and old oak trees lining the roads near the reservoir. ";
+        const blocks = [
+          "Calabasas is a city in Los Angeles County known for its hillside neighborhoods.",
+          "The city sits in the foothills northwest of downtown Los Angeles.",
+          ...Array.from({ length: 40 }, () => filler.repeat(3)),
+          "The top employers in Calabasas are the Unified School District, The Cheesecake Factory, and Harbor Freight Tools.",
+        ];
+        let sentText = null;
+        self.fetch = async (_url, opts) => {
+          sentText = JSON.parse(opts.body).text;
+          return { ok: true, json: async () => ({ text: "ANSWER", cached: false }) };
+        };
+        await A.createAssistant({
+          getArticleText: () => blocks.join(" "),
+          getArticleBlocks: () => blocks,
+        }).ask("What are the top employers?");
+        assert(/Cheesecake Factory/.test(sentText), "ask() finds a relevant block past where a flat clip would have stopped");
+        assert(/Calabasas is a city/.test(sentText), "ask() still keeps the opening block for grounding, even unscored");
+
+        let plainClipText = null;
+        self.fetch = async (_url, opts) => { plainClipText = JSON.parse(opts.body).text; return { ok: true, json: async () => ({ text: "ANSWER" }) }; };
+        await A.createAssistant({ getArticleText: () => blocks.join(" ") }).ask("What are the top employers?");
+        assert(!/Cheesecake Factory/.test(plainClipText), "sanity check: without getArticleBlocks, the old flat clip really does miss it");
+      }
 
       // a cancelled on-device request rejects AS an abort — never remapped to
       // a network error, so the UI's signal.aborted check keeps it quiet

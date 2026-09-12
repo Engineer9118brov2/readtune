@@ -16,10 +16,30 @@ export function el(tag, attrs, kids) {
   return n;
 }
 
+/* The model is asked for plain text, but it still reaches for markdown now
+   and then — most often `**bold**` in an answer that wants to emphasise one
+   term. Rather than fight that in the prompt forever, parse the handful of
+   marks worth honouring and turn them into real elements. Everything else
+   (raw text, unmatched `**`) passes through as a plain text node — this never
+   builds HTML from the string, so there's no injection risk. */
+function appendInline(p, line) {
+  const re = /\*\*([^*\n]+)\*\*|(?:^|(?<=\s))\*([^*\n]+)\*(?=\s|$)/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(line))) {
+    if (m.index > last) p.append(document.createTextNode(line.slice(last, m.index)));
+    p.append(el(m[1] != null ? "strong" : "em", {}, m[1] != null ? m[1] : m[2]));
+    last = re.lastIndex;
+  }
+  if (last < line.length) p.append(document.createTextNode(line.slice(last)));
+}
+
 export function resultBlock(text) {
   const box = el("div", { class: "rt-assist-result" });
   for (const line of String(text).split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
-    box.append(el("p", {}, line.replace(/^[-•*]\s*/, "• ")));
+    const p = el("p", {});
+    appendInline(p, line.replace(/^[-•*]\s*/, "• "));
+    box.append(p);
   }
   return box;
 }

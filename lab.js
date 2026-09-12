@@ -23,6 +23,7 @@ import {
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
 import { summarizeCalibrations, labelForDimension, buildProfileTitle } from "./shared/calibration-insights.js";
 import { PIPER_VOICES, createPiperEngine, piperVoiceById, piperVoiceNeedsDownload, requestPiperPermission } from "./shared/piper.js";
+import { CLOUD_VOICES, createCloudEngine, cloudVoiceById } from "./shared/speak-cloud.js";
 import { RESEARCH_FOUNDATIONS, RESEARCH_EXPERIMENTS, evidenceLevel, researchStarterPatch } from "./shared/research.js";
 import { describeAvailability } from "./shared/assist.js";
 
@@ -169,7 +170,19 @@ function currentVoiceBody(voice) {
 }
 
 function renderVoiceSummary() {
+  const kindLabel = $("lab-voice-kind");
+  if (ttsConfig && ttsConfig.provider === "cloud") {
+    const activeVoice = cloudVoiceById(ttsConfig.cloudVoice);
+    if (kindLabel) kindLabel.textContent = "Current voice";
+    $("lab-voice-badge").textContent = "Cloud active";
+    $("lab-voice-title").textContent = activeVoice.label;
+    $("lab-voice-copy").textContent =
+      voiceNotice ||
+      `${activeVoice.label} is a ${activeVoice.detail.toLowerCase()} cloud voice via OpenRouter — falls back to your local voice if the relay is busy.`;
+    return;
+  }
   const activeVoice = currentPiperVoice();
+  if (kindLabel) kindLabel.textContent = "Current local voice";
   $("lab-voice-badge").textContent = ttsConfig && ttsConfig.provider === "piper" ? "Piper active" : "Choose Piper";
   $("lab-voice-title").textContent = activeVoice.label;
   $("lab-voice-copy").textContent = voiceNotice || currentVoiceBody(activeVoice);
@@ -262,6 +275,115 @@ async function speakVoicePreview(voice) {
   }
 }
 
+async function saveCloudVoice(voice) {
+  stopVoicePreview();
+  ttsConfig = (await saveTTSConfig({ provider: "cloud", cloudVoice: voice.id })) || ttsConfig;
+  await markSetupStep("voiceFit");
+  voiceNotice = `${voice.label} is now your read-aloud voice. It runs through ReadTune's free relay and falls back to your local voice if that's ever busy.`;
+  if (launchFocus === "voice" && (launchSource === "calibration" || launchSource === "setup")) {
+    voiceNotice += " Setup complete. Next, try Listen on a real page or PDF.";
+  }
+  renderVoiceSummary();
+  renderVoiceCards();
+}
+
+async function speakCloudVoicePreview(voice) {
+  if (previewingVoice === voice.id) {
+    stopVoicePreview();
+    renderVoiceCards();
+    return;
+  }
+  stopVoicePreview();
+  previewRun += 1;
+  const run = previewRun;
+  previewingVoice = voice.id;
+  voiceNotice = `Fetching ${voice.label}…`;
+  renderVoiceCards();
+  try {
+    piperPreview = createCloudEngine({
+      voice: voice.id,
+      onStatus: (status) => {
+        if (run !== previewRun) return;
+        voiceNotice = status.message;
+        renderVoiceSummary();
+      },
+    });
+    const blob = await piperPreview.synthesize(VOICE_SAMPLE, { rate: clampRate(profile && profile.ttsRate) });
+    if (run !== previewRun) return;
+    piperPreviewUrl = URL.createObjectURL(blob);
+    piperPreviewAudio = new Audio(piperPreviewUrl);
+    piperPreviewAudio.onended = piperPreviewAudio.onerror = () => {
+      if (run !== previewRun) return;
+      stopVoicePreview();
+      renderVoiceCards();
+    };
+    await piperPreviewAudio.play();
+  } catch (error) {
+    if (run !== previewRun) return;
+    stopVoicePreview();
+    voiceNotice = error && error.message ? `Preview couldn't start: ${error.message}` : "Preview couldn't start. Try again in a bit.";
+    renderVoiceCards();
+  }
+}
+
+function cloudVoiceCard(voice) {
+  const article = document.createElement("article");
+  article.className = "lab-voice-card";
+  article.setAttribute("role", "group");
+  article.setAttribute("aria-label", `${voice.label} voice`);
+  article.dataset.active = ttsConfig && ttsConfig.provider === "cloud" && ttsConfig.cloudVoice === voice.id ? "true" : "false";
+  article.dataset.playing = previewingVoice === voice.id ? "true" : "false";
+
+  const head = document.createElement("div");
+  head.className = "lab-voice-card-head";
+  const copy = document.createElement("div");
+  const overline = document.createElement("span");
+  overline.className = "lab-overline";
+  overline.textContent = voice.detail;
+  const title = document.createElement("strong");
+  title.textContent = voice.label;
+  copy.append(overline, title);
+  head.append(copy);
+  if (article.dataset.active === "true") head.appendChild(makeVoiceChip("Saved"));
+
+  const meta = document.createElement("div");
+  meta.className = "lab-voice-meta";
+  meta.append(makeVoiceChip("OpenRouter cloud"), makeVoiceChip("No setup"));
+
+  const body = document.createElement("p");
+  body.textContent =
+    "Free, no account, no key. ReadTune sends the sentence being read (and the next one, prepared just ahead) through its relay to generate this voice, and falls back to your local voice if the relay is ever busy.";
+
+  const actions = document.createElement("div");
+  actions.className = "lab-voice-actions";
+
+  const preview = document.createElement("button");
+  preview.className = "rt-btn";
+  preview.type = "button";
+  preview.textContent = article.dataset.playing === "true" ? "Stop preview" : "Preview";
+  preview.setAttribute("aria-label", `${article.dataset.playing === "true" ? "Stop previewing" : "Preview"} the ${voice.label} voice`);
+  preview.addEventListener("click", () => speakCloudVoicePreview(voice));
+
+  const use = document.createElement("button");
+  use.className = `rt-btn${article.dataset.active === "true" ? "" : " rt-primary"}`;
+  use.type = "button";
+  use.textContent = article.dataset.active === "true" ? "Using this voice" : "Use this voice";
+  use.setAttribute("aria-label", article.dataset.active === "true" ? `Using the ${voice.label} voice` : `Use the ${voice.label} voice`);
+  use.disabled = article.dataset.active === "true";
+  use.addEventListener("click", () => saveCloudVoice(voice));
+
+  actions.append(preview, use);
+  article.append(head, meta, body, actions);
+  return article;
+}
+
+function voiceGroupLabel(text) {
+  const h = document.createElement("h3");
+  h.className = "lab-voice-group";
+  h.textContent = text;
+  return h;
+}
+
 function voiceCard(voice) {
   const article = document.createElement("article");
   article.className = "lab-voice-card";
@@ -322,7 +444,8 @@ function renderVoiceCards() {
   const host = $("lab-voice-list");
   host.replaceChildren();
 
-  host.append(...PIPER_VOICES.map(voiceCard));
+  host.append(voiceGroupLabel("On-device (Piper)"), ...PIPER_VOICES.map(voiceCard));
+  host.append(voiceGroupLabel("Cloud, via OpenRouter"), ...CLOUD_VOICES.map(cloudVoiceCard));
 
   renderVoiceSummary();
 }

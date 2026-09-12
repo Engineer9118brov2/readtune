@@ -183,6 +183,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "" }) {
      now, and why Simplify stays on-device-only. */
   const assistant = createAssistant({
     getArticleText: () => view.getPlainText(),
+    getArticleBlocks: () => view.getBlocks(),
     getArticleUrl: () => pageUrl,
   });
   const assist = createAssistUi({
