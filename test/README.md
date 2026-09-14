@@ -19,4 +19,9 @@ eyeball the typography.
 pre-loaded article — useful for poking at Reader View, the panel, read-aloud and
 the transport bar without reloading the unpacked extension each time.
 
+Run `npm run piper-smoke` from the repository root to start the real Piper worker
+in headless Chrome and prepare the bundled default model. It confirms local model
+preparation, not audible playback; check playback once in an installed extension
+profile before release.
+
 Not shipped — `npm run build` excludes this folder.

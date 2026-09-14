@@ -2,7 +2,11 @@
 
 _Last updated: September 2026_
 
-ReadTune is built so there is nothing to collect. There is no ReadTune account, and no ReadTune server keeps any record of you — the only exceptions are two small stateless relays: the one behind the optional "Ask AI" helper (which covers both the article summary and any question you type), and the one behind the optional "Premium voice" for read-aloud. Both briefly handle the text you asked about or are listening to (never anything tied to you) and keep no record. Both are described below.
+ReadTune has no account, analytics, or telemetry. Its optional Ask AI and
+Premium voice relays handle text only when you choose those features. Ask AI
+may cache a response by article URL and question so a repeated request does not
+need another generation; neither relay associates content with a ReadTune
+account. The full network boundaries are described below.
 
 ## What ReadTune stores
 
@@ -18,9 +22,9 @@ ReadTune is built so there is nothing to collect. There is no ReadTune account, 
 
 ## What ReadTune sends over the network
 
-- **Almost nothing, and never anything tied to you.** ReadTune has no accounts, no analytics, no telemetry, and no third-party SDKs, and it works fully offline for everything except the one exception below. The libraries it uses — Mozilla Readability, pdf.js, hyphenation patterns, fonts, and the entire Piper read-aloud runtime (onnxruntime-web plus a WebAssembly phonemizer) — are bundled inside the extension.
+- **Almost nothing, and never anything tied to an account.** ReadTune has no accounts, no analytics, no telemetry, and no third-party SDKs. Its core reading tools work fully offline; the optional network features are listed below. The libraries it uses — Mozilla Readability, pdf.js, hyphenation patterns, fonts, and the entire Piper read-aloud runtime (onnxruntime-web plus a WebAssembly phonemizer) — are bundled inside the extension.
 - **Read-aloud** uses Piper by default, a neural voice that runs entirely on your device. The default voice ships inside the extension. If you pick one of the other on-device voices in the Reading Lab, its model file is downloaded once from Hugging Face (`huggingface.co`) and cached on your device; the text you have read aloud is never uploaded.
-- **Premium voice (optional):** if you choose the "Premium voice" in the read-aloud settings, each sentence *as it is read to you* is sent to **ReadTune's own text-to-speech relay** (`readtune.tech/api/speak`), which forwards it to a free third-party voice provider and returns the audio. Only the sentence being spoken — and, prepared a moment ahead, the one after it — is sent; never the whole page, and nothing tied to you. Nothing is stored. If the relay is unavailable, read-aloud falls back to the on-device Piper voice automatically. This and "Ask AI" (below) are the only parts of ReadTune where text leaves your device, and only while you have chosen these options.
+- **Premium voice (optional):** if you choose the "Premium voice" in the read-aloud settings, each sentence *as it is read to you* is sent to **ReadTune's own text-to-speech relay** (`readtune.tech/api/speak`), which forwards it to a free third-party voice provider and returns the audio. Only the sentence being spoken — and, prepared a moment ahead, the one after it — is sent; never the whole page. Nothing is stored. If the relay is unavailable, read-aloud falls back to the on-device Piper voice automatically. Premium voice, ElevenLabs, and cloud-routed Ask AI are the only features that send reading text off the device, and only while you choose them.
 - **Talk to type (dictation):** if you use it, ReadTune turns on Chrome's built-in speech recognition. Chrome sends your microphone audio to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you're typing in. ReadTune does not record, store, or transmit the audio or the transcript.
 - **ElevenLabs voice (optional):** only if you enter your own API key — the passage being read aloud and your key are sent from your browser to `https://api.elevenlabs.io` to generate audio and word timings. Nothing else is sent, nowhere else. ElevenLabs' handling of that request is covered by ElevenLabs' own privacy policy. Remove the key any time with "Remove key" in the settings panel.
 - **AI reading help:** the "Ask AI" rail in Reader View. It summarises the article, and it answers freeform questions you type about it. Where your browser already has on-device AI ready (Chrome's built-in Summarizer / Rewriter / Prompt API), it runs there — nothing leaves your device. Otherwise, the article text — and, for a question, the question you typed — is sent to **ReadTune's own AI relay**, which forwards it to a third-party AI model and returns the result; this is the one part of ReadTune where article text (and anything you type into that box) leaves the device by default. A typed question can be more personal than article text, so only send what you're comfortable sharing. Where ReadTune has set up caching, the relay may cache a generated summary or answer by the article's URL (an answer also by the question) so a popular one is generated once, not per reader, and keeps no record of who asked. An AI response can be wrong and is labelled as approximate. **"Simplify"** (the passage-rewrite pill) is on-device only for now — it does not use this relay; if your browser doesn't already have a ready model, it says so instead of sending your selection anywhere.
@@ -40,9 +44,9 @@ ReadTune is built so there is nothing to collect. There is no ReadTune account, 
 
 The extension does not sell or share data, run analytics, create an account, send your browsing history to its creator, or use data for advertising, creditworthiness, or lending.
 
-## The readtune.app website
+## The readtune.tech website
 
-The marketing pages at `readtune.app` are hosted on Vercel and use [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy) and Speed Insights for page views and load timings. It is cookieless, does not track you across sites, and does not build a profile: it records the page URL, referrer, country and coarse device type, and Vercel discards the IP address after deriving those. **None of this ships in the extension** — every statement above about the extension still holds exactly as written.
+The marketing pages at `readtune.tech` are hosted on Vercel and use [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy) and Speed Insights for page views and load timings. It is cookieless, does not track you across sites, and does not build a profile: it records the page URL, referrer, country and coarse device type, and Vercel discards the IP address after deriving those. **None of this ships in the extension** — every statement above about the extension still holds exactly as written.
 
 ## Your control
 

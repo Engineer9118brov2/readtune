@@ -92,15 +92,14 @@ the article.
 3. **Never a ReadTune-hosted model.** The relay calls a third-party model;
    it doesn't run one itself. **Never for Simplify** — see above.
 
-This is the one place in ReadTune where article text — and anything the
-reader types into the Ask box — leaves the device by default. A typed
-question can be more personal than article text; the UI and privacy copy say
-so. Every other claim ReadTune makes elsewhere — "no ReadTune server",
-"nothing leaves your device", "no accounts, no analytics" — should be read
-with this one Ask AI exception; see `privacy.html` / `PRIVACY.md` for the
-plain disclosure with that exception spelled out. Every other feature
-(calibration, Reader View, Piper read-aloud, PDF mode, and Simplify as
-shipped today) still sends nothing anywhere. `describeAvailability()` reports
+This is the default route for Ask AI when the browser has no ready on-device
+model: article text — and anything the reader types into the Ask box — goes to
+the relay. A typed question can be more personal than article text; the UI and
+privacy copy say so. Premium voice and user-configured ElevenLabs are separate,
+optional routes that also send selected text as disclosed in `privacy.html` /
+`PRIVACY.md`. Core features (calibration, Reader View, Piper read-aloud, PDF
+mode, and Simplify as shipped today) still send no reading text anywhere.
+`describeAvailability()` reports
 two modes now:
 `"on-device"` (ready, on this browser) and `"cloud"` (routed through the
 relay) — both are always `ready: true`, since the assistant always has

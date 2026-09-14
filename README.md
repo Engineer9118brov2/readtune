@@ -2,15 +2,15 @@
 
 A free Chrome extension that runs a **short preference check** — times you, asks a comprehension question, asks how it felt — to suggest a reading setup worth trying, then applies that profile to any article or PDF and tracks whether the same result keeps coming up.
 
-No account, no paywall, no analytics; your reading and profile stay on your device. Built for **GatewayHacks 2026** — Accessibility & Health track.
+No account, no paywall, no analytics; your reading profile stays on your device. Optional, user-requested AI and cloud-voice features disclose when they send text. Built for **GatewayHacks 2026** — Accessibility & Health track.
 
 ---
 
 ## Why it's different
 
-Every other reading tool — Bionic Reading, BeeLine, Helperbird, Speechify, Immersive Reader — gives you manual toggles and leaves you to guess. The ones behind a paywall or a school login gate the useful parts. **None of them try the settings with you first.**
+Most reading tools — Bionic Reading, BeeLine, Helperbird, Speechify, and Immersive Reader — give you manual toggles and leave you to guess. The ones behind a paywall or a school login gate the useful parts. **ReadTune's distinguishing workflow is trying a few settings with you first.**
 
-ReadTune opens with a **~4-minute check**: one warm-up plus six short passages, each changing exactly one thing (font, spacing, bolding, or one-sentence-at-a-time). For each it records reading time, a one-question comprehension check, and a 1–5 ease rating, then compares each change against *your own* baseline — so a naturally slower reader isn't penalised — and suggests a starting profile. Reader View and PDF mode use that profile automatically, and the **Reading Lab** shows whether the same result keeps repeating or is still provisional. It's a preference check, not a diagnosis or an assessment, and the results screen says so.
+ReadTune opens with a **~4-minute check**: one warm-up plus six short passages. Two use the standard setup; the other four each change exactly one thing (two typefaces, spacing, or bolding), all in a shuffled order. For each it records reading time, a cloze comprehension check, and a 1–5 ease rating, then compares each change against the average of your own standard readings and suggests a starting profile. Reader View and PDF mode use that profile automatically, and the **Reading Lab** shows whether the same result keeps repeating or is still provisional. It's a preference check, not a diagnosis or an assessment, and the results screen says so.
 
 The product now also ships a **research-backed starter** before calibration finishes: calmer spacing, slightly softer contrast, shorter line width, and clear labels for which features are strongly supported versus mostly personal preference.
 
@@ -18,7 +18,7 @@ The product now also ships a **research-backed starter** before calibration fini
 
 | | |
 | --- | --- |
-| **Preference check** | 1 warm-up + 5 passages (or skip), timed + cloze-checked + rated, compared against a research-backed baseline to suggest a starting profile — passages don't repeat on a retake |
+| **Preference check** | 1 warm-up + 6 passages (or skip), timed + cloze-checked + rated, with standard text repeated on a second passage as a steadier baseline — passages don't repeat on a retake |
 | **Research-backed starter** | Opens with calmer spacing, softer contrast, shorter lines, and honest evidence labels before you fine-tune anything |
 | **Reading Lab** | Shows how repeatable the result has been, retake history, Voice Fit, and which changes keep coming up |
 | **Reader View** | Pulls the article out of any page (Mozilla Readability + a strict sanitizer) and re-renders it in your settings |
@@ -46,9 +46,14 @@ The product now also ships a **research-backed starter** before calibration fini
 - **Auto-scroll** — the page scrolls itself at your reading pace
 - **Read aloud** — the current sentence and word are highlighted as it speaks:
   - **Piper natural voice** (default) — a neural voice that runs entirely on your device. The default voice (**Linden**, public domain) ships inside the extension, so it works offline with nothing to download and no permission prompt. The text being read is never uploaded
+  - **Premium voice** (optional) — sends only the sentence being read, plus the next sentence prepared ahead, to ReadTune's relay for higher-quality synthesis; it falls back to Piper if unavailable
   - **ElevenLabs** (optional) — paste your own API key in the panel for a different voice with tight word timing. The key is stored only in `chrome.storage.local`; text is sent only to `api.elevenlabs.io`, only while reading. Free tier ≈ 10k characters/month; ElevenLabs accounts are 18+ (13+ with a parent)
   - There is no browser-speech fallback — if Piper can't start, read-aloud says so rather than dropping to a robotic system voice
 - **Voice Fit** — the Reading Lab lets you preview the other on-device voices (**Joe**, CC0; **Kristin**, public domain) and keep the clearest. Extra voices download a one-time model (~60 MB) from Hugging Face and are cached locally
+
+### Optional AI help
+
+- **Ask AI** summarizes an article or answers a typed question in Reader View. It uses Chrome's ready on-device AI where available; otherwise it sends the requested article text and question to ReadTune's relay. The selected-text Simplify action is on-device only.
 
 ### Memory
 
@@ -112,17 +117,21 @@ test/                   Browser test harness (not shipped)
 - [`docs/PIPER.md`](docs/PIPER.md) — plan for on-device neural read-aloud (spike passed)
 - [`docs/SCHOOL-DISTRICTS.md`](docs/SCHOOL-DISTRICTS.md) — getting unblocked in a managed school environment
 - [`store/listing.md`](store/listing.md) — Chrome Web Store submission pack (checklist, long description, permission justifications)
+- [`docs/USER-RESEARCH.md`](docs/USER-RESEARCH.md) and [`docs/FEEDBACK.md`](docs/FEEDBACK.md) — consented-feedback protocol and empty evidence log
 
 ## Tests
 
 ```
 npm run check     # syntax, manifest, asset references
-npm run harness   # ~110 behavioural assertions in headless Chrome
+npm run harness   # behavioural assertions in headless Chrome
+npm run piper-smoke # prepares the bundled default Piper model in real Chrome
 npm test          # both
 npm run build     # clean Web Store zip
 ```
 
-CI runs all of the above on every push (`.github/workflows/ci.yml`).
+`piper-smoke` verifies local model preparation only; verify audible playback in
+an installed extension profile before a release. CI runs these checks on every
+push (`.github/workflows/ci.yml`).
 
 ## Bundled libraries
 
@@ -133,7 +142,7 @@ Manifest V3 blocks remote scripts, so these are committed into `lib/`:
 - **[Hypher](https://github.com/bramstein/hypher)** + en-US TeX patterns (hyphenation) — BSD
 - **OpenDyslexic**, **Atkinson Hyperlegible**, **Lexend** fonts — SIL Open Font License 1.1
 - **[onnxruntime-web](https://github.com/microsoft/onnxruntime)** 1.18 + **[@mintplex-labs/piper-tts-web](https://github.com/Mintplex-Labs/piper-tts-web)** glue (Piper runtime) — MIT
-- **[espeak-ng](https://github.com/espeak-ng/espeak-ng)** as a WebAssembly phonemizer (`piper_phonemize`) — **GPL-3.0-or-later**; license text and a written source offer are in [`lib/piper/espeak-ng.LICENSE.txt`](lib/piper/espeak-ng.LICENSE.txt). It runs as an isolated wasm module (text in, phonemes out); ReadTune as a whole stays MIT. See [`docs/PIPER.md`](docs/PIPER.md).
+- **[espeak-ng](https://github.com/espeak-ng/espeak-ng)** as a WebAssembly phonemizer (`piper_phonemize`) — **GPL-3.0-or-later**; its license text and source-offer notice are in [`lib/piper/espeak-ng.LICENSE.txt`](lib/piper/espeak-ng.LICENSE.txt). See [`docs/PIPER.md`](docs/PIPER.md) for the distribution notes and planned replacement.
 - Bundled **Piper voices** — Linden / Joe / Kristin, all public domain or CC0
 
 License texts are in `lib/`.

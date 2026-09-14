@@ -209,7 +209,7 @@ export function summarizeCalibrations(history = [], fallbackProfile = null) {
       signalTitle = `${labelForDimension(top.key)} keeps showing up`;
       signalBody = `${labelForDimension(top.key)} led ${topRepeatCount} of your last ${runs.length} calibration${runs.length === 1 ? "" : "s"}.`;
     } else if (top && kept.length) {
-      signalTitle = `${labelForDimension(top.key)} helped most today`;
+      signalTitle = `${labelForDimension(top.key)} was the clearest signal today`;
       signalBody = "That does not make it permanent yet, but it is the clearest place to start.";
     } else {
       signalTitle = "Standard settings are holding up";

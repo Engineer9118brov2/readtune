@@ -1,4 +1,4 @@
-/* Vercel Web Analytics — the readtune.app marketing site only.
+/* Vercel Web Analytics — the readtune.tech marketing site only.
    site.js is loaded by index/privacy/school.html and by nothing inside the
    extension, so no page the extension renders ever reaches this code.
    The script path is served by Vercel at runtime; off Vercel it 404s and the
@@ -11,7 +11,7 @@
   document.head.appendChild(s);
 })();
 
-/* Vercel Speed Insights — the readtune.app marketing site only, same scope
+/* Vercel Speed Insights — the readtune.tech marketing site only, same scope
    and same reasoning as the Web Analytics loader above. */
 (function () {
   window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
@@ -90,58 +90,3 @@ document.querySelector("[data-demo-focus]")?.addEventListener("click", (button) 
   rule.style.height = isWide ? "134px" : "86px";
   rule.style.top = isWide ? "83px" : "105px";
 });
-
-document.querySelector(".play-button")?.addEventListener("click", (event) => {
-  const button = event.currentTarget;
-  const playing = button.classList.toggle("is-playing");
-  button.setAttribute("aria-label", playing ? "Pause preview" : "Play preview");
-  button.innerHTML = playing ? "<span class=\"pause-icon\"></span>" : "<span></span>";
-});
-
-/* ---- Hear the pitch --------------------------------------------------
-   Marketing-site only. Plays one pre-recorded ElevenLabs narration of the
-   short pitch (docs/PITCH-SCRIPT.md) — not a live read of the whole page,
-   and not the extension's own on-device Piper engine. Two triggers, one
-   <audio> element: the nav "Listen" button and the O of "Stop" in the
-   hero headline. If the recording isn't there yet, the triggers quietly
-   remove themselves rather than offer a button that does nothing. */
-(function hearThePitch() {
-  const triggers = Array.from(document.querySelectorAll("[data-say]"));
-  if (!triggers.length) return;
-  const heroO = document.querySelector(".say-o");
-
-  const audio = new Audio("audio/pitch.mp3");
-  audio.preload = "none";
-
-  const removeTriggers = () => {
-    if (heroO) heroO.replaceWith(document.createTextNode("o")); // keep the word "Stop" whole
-    triggers.forEach((t) => t !== heroO && t.remove());
-  };
-  // No recording yet (404, or the browser can't decode it) — pull the
-  // buttons rather than ship a "Listen" that silently does nothing.
-  audio.addEventListener("error", removeTriggers, { once: true });
-
-  const bar = document.body.appendChild(Object.assign(document.createElement("div"), { className: "say-progress" }));
-
-  const paint = () => {
-    const playing = !audio.paused && !audio.ended;
-    bar.classList.toggle("is-on", playing);
-    bar.style.transform = `scaleX(${audio.duration ? audio.currentTime / audio.duration : 0})`;
-    triggers.forEach((t) => {
-      t.classList.toggle("is-playing", playing);
-      t.setAttribute("aria-label", playing ? "Stop the pitch" : "Hear the pitch");
-    });
-  };
-
-  const stop = () => {
-    audio.pause();
-    audio.currentTime = 0;
-    paint();
-  };
-
-  audio.addEventListener("timeupdate", paint);
-  audio.addEventListener("ended", stop);
-  triggers.forEach((t) => t.addEventListener("click", () => (audio.paused ? audio.play().catch(removeTriggers) : stop())));
-  document.addEventListener("keydown", (e) => e.key === "Escape" && !audio.paused && stop());
-  window.addEventListener("pagehide", stop);
-})();

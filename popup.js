@@ -98,7 +98,7 @@ function configureSetupBox(show) {
     {
       state: "done",
       title: "Reading profile ready",
-      body: "The calibration found the settings ReadTune should carry into articles and PDFs.",
+      body: "The calibration suggested a starting setup to carry into articles and PDFs.",
     },
     {
       state: "active",
@@ -123,7 +123,7 @@ function configureFirstRun() {
   $("btn-calibrate").classList.add("rt-primary");
   $("btn-reader").classList.remove("rt-primary");
   $("calibrate-title").textContent = "Run the reading calibration";
-  $("calibrate-sub").textContent = "5 short passages · about 3 minutes";
+  $("calibrate-sub").textContent = "6 short passages · about 4 minutes";
   $("btn-reader").querySelector(".rt-btn-title").textContent = "Open Reader View";
   $("btn-reader").querySelector(".rt-btn-sub").textContent = "Pull the current article into a calmer page · Alt+R";
   setActionOrder(["calibrate", "reader", "pdf", "restyle", "dictate"]);
@@ -210,12 +210,13 @@ async function openReader() {
     }
     result.tabId = tab.id;
     result.narration = narration;
-    if (!(await stashArticle(result))) {
+    const handoffId = await stashArticle(result);
+    if (!handoffId) {
       setStatus("Couldn't hand the article to Reader View (storage blocked).");
       btn.disabled = false;
       return;
     }
-    openPage("reader.html");
+    openPage(`reader.html?article=${encodeURIComponent(handoffId)}`);
   } catch (err) {
     console.warn("[ReadTune] openReader error:", err);
     setStatus("Something went wrong opening Reader View.");

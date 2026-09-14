@@ -8,7 +8,8 @@ on their own. This file is the ready-to-use kit.
 The goal is not to turn the calibration into a clinical result. It is to show
 that ReadTune is useful, respectful, and usable in a real reading routine —
 and to make at least two product changes that trace directly to what people
-said (logged in [`FEEDBACK.md`](FEEDBACK.md)).
+said (logged in [`FEEDBACK.md`](FEEDBACK.md)). The log starts empty by design;
+do not backfill or invent participant evidence.
 
 ---
 

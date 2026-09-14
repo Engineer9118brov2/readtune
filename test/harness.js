@@ -121,6 +121,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const pageAudioBtn = inpageBar.shadowRoot.querySelector('[data-a="pageaudio"]');
   assert(pageAudioBtn && !pageAudioBtn.hidden, "in-page restyle surfaces the page's own 'Listen to this article' audio");
   assert(pageAudioBtn && /page audio/i.test(pageAudioBtn.textContent), "the page-audio button is labelled for the page's own narration");
+  const backgroundSource = await fetch("../background.js").then((response) => response.text());
+  assert(
+    /pageAudioBridge/.test(backgroundSource) && /args:\s*\["detect"\]/.test(backgroundSource),
+    "keyboard and automatic Reader View detect a page's own narration too",
+  );
   const pageAudioEl = inpageDoc.querySelector("figure.article-audio audio");
   let paused = true;
   pageAudioEl.play = () => { paused = false; pageAudioEl.dispatchEvent(new Event("play")); return Promise.resolve(); };
@@ -252,9 +257,13 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       "the ease buttons carry aria-labels, and the ends spell out 'hardest' / 'easiest' rather than relying on the tiny caption text",
     );
     assert(calDoc.getElementById("quiz-options").getAttribute("role") === "group", "the cloze options are a labelled group");
+    assert(
+      calDoc.getElementById("p-total").textContent.trim() === "6" && !!calDoc.getElementById("use-starter"),
+      "the calibration exposes six scored passages and an explicit standard-starter escape hatch",
+    );
     // claim discipline: the popup must not promise a calibration the code doesn't run
     const popHtml = await fetch("../popup.html").then((r) => r.text());
-    assert(!/six short passages|6 passages|about 4 minutes/i.test(popHtml), "the popup's calibration copy matches v2 (five passages, ~3 min), not the old six/four");
+    assert(/six short passages|6 passages|about 4 minutes/i.test(popHtml), "the popup's calibration copy matches the repeated-baseline flow (six passages, ~4 min)");
   }
 
   /* settings */
@@ -296,6 +305,17 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(JSON.stringify(await S.loadSeenPassages()) === JSON.stringify(["a", "b", "c"]), "seen-passages round-trips, dropping non-strings");
   await S.saveSeenPassages(Array.from({ length: 60 }, (_, i) => "p" + i));
   assert((await S.loadSeenPassages()).length === 40, "seen-passages is capped so it can't grow without bound");
+  const firstHandoff = await S.stashArticle({ ok: true, html: "<article>first</article>", capturedAt: Date.now() });
+  const secondHandoff = await S.stashArticle({ ok: true, html: "<article>second</article>", capturedAt: Date.now() });
+  const secondArticle = await S.takeArticle(secondHandoff);
+  const firstArticle = await S.takeArticle(firstHandoff);
+  assert(
+    firstHandoff !== secondHandoff && secondArticle.html.includes("second") && firstArticle.html.includes("first"),
+    "Reader hand-offs are tokenized so two tabs cannot overwrite each other",
+  );
+  mem.session.readtune_article = { ok: true, html: "<article>legacy</article>" };
+  const legacyArticle = await S.takeArticle();
+  assert(legacyArticle.html.includes("legacy") && !mem.session.readtune_article, "legacy Reader hand-off still opens once");
   await S.writeProfile({ ...S.DEFAULT_PROFILE, pacing: "sentence", font: "lexend" });
   const lp2 = await S.loadProfile();
   assert(lp2.font === "lexend" && lp2.pacing === "flow", "pacing is session-only");
@@ -320,6 +340,33 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(!/<script|javascript:|SALE/i.test(host.innerHTML), "sanitised (script / js: / ad gone)");
   assert(host.querySelectorAll(".rt-s").length >= 4, "sentences wrapped");
   assert(host.querySelectorAll("li").length === 2, "list kept");
+
+  /* Reader View receives third-party markup, so exercise the sanitizer with
+     protocol tricks and attributes that must never cross into extension DOM. */
+  const hostile = R.buildArticleFragment(`<!doctype html><article>
+    <h1>Safe reading test</h1>
+    <p>This deliberately ordinary paragraph gives the extractor enough continuous prose to keep the article. It describes a careful reading tool that removes dangerous markup before presenting a page inside an extension window.</p>
+    <p>A second paragraph makes the sample read like an article rather than a widget. An <a href=" JAVASCRIPT:alert(1)" onclick="alert(2)">unsafe link</a> must lose its executable destination, while a <a href="/safe-path" style="color:red" onmouseover="alert(3)">safe link</a> can still point to a normal web page. Neither link inherits event handlers, styles, scripts, or executable protocols from the source page.</p>
+    <img src="data:text/html,evil" onerror="alert(4)" alt="unsafe image">
+    <img src="data:image/png;base64,iVBORw0KGgo=" onload="alert(5)" alt="safe image">
+    <iframe src="https://evil.test/"></iframe><script>window.__xss = true</script>
+  </article>`, "https://reader.test/source");
+  const hostileHost = document.createElement("div");
+  hostileHost.append(hostile.fragment);
+  const hostileHtml = hostileHost.innerHTML;
+  assert(
+    !/javascript:|on(?:click|mouseover|error|load)=|<iframe|<script|data:text\/html/i.test(hostileHtml),
+    "sanitizer drops executable URLs, inline handlers, and executable subtrees",
+  );
+  const safeLink = hostileHost.querySelector('a[href="https://reader.test/safe-path"]');
+  assert(
+    safeLink && safeLink.target === "_blank" && /noopener/.test(safeLink.rel) && !safeLink.hasAttribute("style"),
+    "sanitizer rebuilds safe links with isolated navigation only",
+  );
+  assert(
+    hostileHost.querySelector('img[src^="data:image/"]')?.getAttribute("referrerpolicy") === "no-referrer",
+    "sanitizer permits only image data URLs and removes their handlers",
+  );
 
   const blocks = view.getBlocks();
   assert(Array.isArray(blocks) && blocks.length >= 4, "getBlocks splits the article into paragraph/heading/list-item chunks");
@@ -543,9 +590,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const piperProgress = PI.describePiperProgress({ loaded: 30 * 1024 * 1024, total: 60 * 1024 * 1024, phase: "voice.onnx" });
   assert(piperProgress.percent === 50 && /50%/.test(piperProgress.message), "Piper progress gives a clear percent");
   assert(/Preparing your local voice/.test(PI.describePiperProgress({}).message), "Piper progress explains preparation before byte totals arrive");
+  const piperGlue = await fetch("../shared/piper/piper-tts-web.js").then((r) => r.text());
+  const piperWorker = await fetch("../shared/piper/worker.js").then((r) => r.text());
+  assert(
+    !/cdnjs|jsdelivr/.test(piperGlue) && /bundledVoiceIds\.has\(voiceId\)/.test(piperGlue) && /voiceIds: \[\.\.\.BUNDLED_VOICES\]/.test(piperWorker) && /SYNTHESIS_TIMEOUT_MS = 60000/.test(piperWorker),
+    "Piper has no CDN runtime fallback, refuses a remote bundled-voice fallback, and bounds stalled synthesis",
+  );
 
   /* ---- calibration scoring (single-change design + practice de-trend) ---- */
   assert(CS.linfit([0, 1, 2], [10, 20, 30]) === 10, "linfit slope");
+  const scheduled = CS.randomizeConditions(
+    [{ key: "baseline" }, { key: "font" }, { key: "spacing" }, { key: "bionic" }],
+    () => 0,
+  );
+  assert(
+    scheduled.map((item) => item.key).sort().join(",") === "baseline,bionic,font,spacing" && scheduled[0].key !== "baseline",
+    "scored conditions shuffle the baseline too",
+  );
+  const repeatedBaseline = CS.analyse(
+    [
+      { key: "baseline", isBaseline: true, label: "Standard", apply: {}, position: 0, wpm: 100, correct: true, ease: 2 },
+      { key: "baseline-repeat", isBaseline: true, label: "Standard repeat", apply: {}, position: 0, wpm: 140, correct: false, ease: 4 },
+      { key: "spacing", label: "Spacing", apply: {}, position: 0, wpm: 120, correct: true, ease: 3 },
+    ],
+    "baseline",
+  );
+  assert(
+    repeatedBaseline.base.adjWpm === 120 && repeatedBaseline.base.ease === 3 && repeatedBaseline.base.correctRate === 0.5 && repeatedBaseline.dims.length === 1 && repeatedBaseline.dims[0].compDelta === 0.5,
+    "two standard passages are averaged into one baseline before variants are scored",
+  );
 
   // pure practice ramp, no real setting effects: de-trend should wipe out every dimension
   const ramp = [200, 220, 240, 260, 280, 300].map((wpm, p) => ({
@@ -665,23 +738,23 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     let seen = [];
     const runIds = [];
     for (let run = 0; run < 2; run++) {
-      const { passages, seenIds, cycled } = CP.pickPassages(5, seen);
-      assert(passages.length === 5, "pickPassages returns the requested count");
+      const { passages, seenIds, cycled } = CP.pickPassages(6, seen);
+      assert(passages.length === 6, "pickPassages returns the requested count");
       runIds.push(...passages.map((p) => p.id));
       seen = seenIds;
       if (run === 0) assert(!cycled, "first run doesn't cycle");
     }
-    assert(new Set(runIds).size === 10, "two back-to-back runs of 5 share no passage");
+    assert(new Set(runIds).size === 12, "two back-to-back runs of 6 share no passage");
     const remaining = pool.filter((p) => !new Set(seen).has(p.id)).map((p) => p.id);
-    const third = CP.pickPassages(5, seen);
-    assert(third.cycled && third.passages.length === 5, "the third run cycles the pool rather than running short");
+    const third = CP.pickPassages(6, seen);
+    assert(third.cycled && third.passages.length === 6, "the third run cycles the pool rather than running short");
     assert(remaining.every((id) => third.passages.some((p) => p.id === id)), "a cycle still hands over every not-yet-seen passage before repeating any");
     assert(!third.passages.some((p) => p.id === seen[seen.length - 1]), "a cycle still avoids an immediate repeat of the very last passage");
-    assert(third.seenIds.length === 5 && third.seenIds.every((id, i, a) => a.indexOf(id) === i), "a cycle resets the seen-set to just this run's passages");
+    assert(third.seenIds.length === 6 && third.seenIds.every((id, i, a) => a.indexOf(id) === i), "a cycle resets the seen-set to just this run's passages");
 
     // the calibration draws count + 2 spares for cloze re-runs
-    const withSpares = CP.pickPassages(7, []);
-    assert(withSpares.passages.length === 7 && new Set(withSpares.passages.map((p) => p.id)).size === 7, "a 7-passage draw (5 + 2 spares) returns 7 distinct passages");
+    const withSpares = CP.pickPassages(8, []);
+    assert(withSpares.passages.length === 8 && new Set(withSpares.passages.map((p) => p.id)).size === 8, "an 8-passage draw (6 + 2 spares) returns 8 distinct passages");
   }
 
   /* ---- ElevenLabs read-aloud ---- */

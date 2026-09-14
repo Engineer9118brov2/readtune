@@ -11,8 +11,6 @@ var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 var _createPiperPhonemize, _modelConfig, _ort, _ortSession, _progressCallback, _wasmPaths, _logger, _TtsSession_instances, predictChunk_fn;
 const HF_BASE = "https://huggingface.co/diffusionstudio/piper-voices/resolve/main";
-const ONNX_BASE = "https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.18.0/";
-const WASM_BASE = "https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize";
 const PATH_MAP = {
   "ar_JO-kareem-low": "ar/ar_JO/kareem/low/ar_JO-kareem-low.onnx",
   "ar_JO-kareem-medium": "ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx",
@@ -249,11 +247,10 @@ function pcm2wav(buffer, numChannels, sampleRate) {
   }
   return view.buffer;
 }
-const DEFAULT_WASM_PATHS = {
-  onnxWasm: ONNX_BASE,
-  piperData: `${WASM_BASE}.data`,
-  piperWasm: `${WASM_BASE}.wasm`
-};
+// ReadTune always supplies extension-local runtime assets. Do not keep the
+// upstream CDN defaults here: a missing asset should be a visible local error,
+// never a silent network fallback.
+const DEFAULT_WASM_PATHS = null;
 const _TtsSession = class _TtsSession {
   constructor({
     voiceId,
@@ -280,12 +277,14 @@ const _TtsSession = class _TtsSession {
       __privateSet(_TtsSession._instance, _progressCallback, progress ?? __privateGet(_TtsSession._instance, _progressCallback));
       return _TtsSession._instance;
     }
+    const localWasmPaths = wasmPaths && wasmPaths.onnxWasm && wasmPaths.piperData && wasmPaths.piperWasm ? wasmPaths : null;
+    if (!localWasmPaths) throw new Error("ReadTune's local Piper runtime assets are unavailable.");
     logger == null ? void 0 : logger("New session");
     __privateSet(this, _logger, logger);
     this.voiceId = voiceId;
     __privateSet(this, _progressCallback, progress);
+    __privateSet(this, _wasmPaths, localWasmPaths);
     this.waitReady = this.init();
-    __privateSet(this, _wasmPaths, wasmPaths ?? DEFAULT_WASM_PATHS);
     (_a = __privateGet(this, _logger)) == null ? void 0 : _a.call(this, `Loaded WASMPaths at: ${JSON.stringify(__privateGet(this, _wasmPaths))}`);
     _TtsSession._instance = this;
     return this;
@@ -475,15 +474,18 @@ function splitIntoChunks(text, maxLength = MAX_CHUNK_LENGTH) {
 async function predict(config, callback) {
   const session = new TtsSession({
     voiceId: config.voiceId,
-    progress: callback
+    progress: callback,
+    wasmPaths: config.wasmPaths,
   });
   return session.predict(config.text);
 }
 /* ReadTune patch: let the host resolve a model file from a bundled extension
    asset before any network fetch, so the default voice works fully offline. */
 let bundledResolver = null;
-function setBundledResolver(fn) {
+let bundledVoiceIds = new Set();
+function setBundledResolver(fn, { voiceIds = [] } = {}) {
   bundledResolver = typeof fn === "function" ? fn : null;
+  bundledVoiceIds = new Set(Array.isArray(voiceIds) ? voiceIds : []);
 }
 async function getBlob(url, callback) {
   let blob = await readBlob(url);
@@ -493,6 +495,11 @@ async function getBlob(url, callback) {
     } catch {
       blob = null;
     }
+  }
+  const file = String(url).split("/").at(-1) || "";
+  const voiceId = file.replace(/\.onnx(\.json)?$/, "");
+  if (!blob && bundledVoiceIds.has(voiceId)) {
+    throw new Error("The bundled Piper voice asset is unavailable.");
   }
   if (!blob) {
     blob = await fetchBlob(url, callback);
@@ -549,10 +556,8 @@ async function voices() {
 export {
   HF_BASE,
   INFERENCE_PROGRESS_URL,
-  ONNX_BASE,
   PATH_MAP,
   TtsSession,
-  WASM_BASE,
   download,
   flush,
   predict,

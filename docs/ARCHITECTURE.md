@@ -51,9 +51,13 @@ soon only, extension format) adds two constraints that shape the code:
    bloat and endanger the payload), and hands back the HTML string. It is *not*
    a persistent content script — it runs, returns, and is gone.
 2. **Hand-off.** The popup writes the captured page to `chrome.storage.session`
-   (in-memory, cleared on browser restart, generous quota) and opens
-   `reader.html` in a new tab. `takeArticle()` reads it back and immediately
-   deletes it, so a refresh doesn't re-render a stale page.
+   (in-memory, cleared on browser restart, generous quota) under a short-lived,
+   per-tab token and opens `reader.html?article=<token>`. `takeArticle()` reads
+   that exact hand-off and immediately deletes it, so concurrent Reader tabs
+   cannot overwrite each other and a refresh does not re-render stale content.
+   The popup, keyboard shortcut, and automatic Reader mode all also make a
+   best-effort check for the source page's own article narration; a blocked or
+   absent player never prevents Reader View from opening.
 3. **Extract** (`shared/render.js` → `buildArticleFragment`). Mozilla
    Readability finds the article body. A `<base href>` is injected first so
    Readability resolves relative links correctly.
@@ -114,23 +118,25 @@ Design choices, each with its reason:
 | --- | --- |
 | Each passage changes **exactly one** thing vs a plain baseline | If a passage changed font *and* spacing *and* size and it won, you'd have no idea which change helped. One variable per passage means a win is attributable. |
 | A **warm-up passage** that isn't scored | The biggest reading speed-up is from passage 1 → 2, regardless of settings. The warm-up absorbs it. |
+| The baseline is **repeated** and every condition is randomized together | The two standard readings provide a steadier anchor than one passage, and neither baseline is always first, so residual settling-in or fatigue does not systematically favour one of the variants. |
 | Reading speed is **de-trended for practice** | You keep speeding up as you go. `shared/calibration-score.js` fits a line of words-per-minute against passage position and subtracts it before comparing anything. Test: *"de-trend removes the practice ramp — no false speed effect"*. |
 | Passages are matched (~55–60 words, similar syntax, Grade ~6–7) | So the comparison is about the formatting, not the text. |
 | Font size is held **constant** across all passages | Bigger text helps almost everyone a little — testing it would just add noise. It's the one knob everyone adjusts by hand anyway. |
 | Score = comprehension + de-trended speed + 1–5 ease, combined | One signal is too noisy. If speed carries no signal (you read them all at the same pace), it drops out and the decision leans on ease + comprehension. |
 | A change is only **kept** if it clears a margin (`HELP_THRESHOLD`) | Small differences are noise. Nothing clears the bar → the result says "standard settings worked as well as anything for you," which is a real finding, not a failure. |
-| The result screen says **"a rough estimate from six short readings, not a formal assessment"** and offers *retake* | Because that's true. Judges reward saying so; they punish overclaiming. |
+| The results include **Keep the standard starter** | A reader can explicitly reject the recommendation and return to the research-backed default without navigating a settings panel. |
+| The result screen says **"a rough estimate from a few short readings, not a formal assessment"** and offers *retake* | Because that's true. Judges reward saying so; they punish overclaiming. |
 
 The scoring is pure functions in `shared/calibration-score.js` with unit tests,
 and `shared/calibration-insights.js` turns the raw history into the Reading Lab
 view: confidence, stability, repeated wins, and "worth retaking?" signals.
 
-**What it does that no competitor does:** it tells you *which dimension* mattered
-for you — "Roomier spacing helped you most, +22%. OpenDyslexic didn't help you."
-That's a piece of self-knowledge, not just a settings blob.
+**What distinguishes the workflow:** it identifies the clearest signal from the
+settings tried — for example, "Roomier spacing was the clearest signal today."
+That is a starting point to revisit, not a diagnosis or a proof of causality.
 
-**Honest limitations** (say these before a judge does): six ~20-second readings
-is a small sample; one comprehension question per passage is a noisy measure;
+**Honest limitations** (say these before a judge does): six scored
+~20-second readings is still a small sample; one comprehension question per passage is a noisy measure;
 the passages, while matched, aren't perfectly equal in difficulty; it measures a
 first impression, not adaptation over weeks. It's a *starting point that beats a
 wall of toggles*, and that's the claim.
@@ -193,7 +199,7 @@ shared/
   screen.js            Wires a reading view to panel / transport / tts / aids / per-page memory
   pdftext.js           PDF text layer → paragraphs (gap-based paragraph detection) — unit-tested
 lib/                   Vendored, no remote code (Readability, pdf.js, Hypher, fonts, onnxruntime-web, piper_phonemize)
-test/harness.html      Open in a browser (or `npm run harness`) — ~110 assertions, stubs chrome.*
+test/harness.html      Open in a browser (or `npm run harness`) — hundreds of behavioural assertions, stubs chrome.*
 scripts/check.mjs      Syntax + manifest + asset-reference check (npm run check)
 scripts/build.mjs      Clean Web Store zip (npm run build)
 ```

@@ -8,17 +8,16 @@ here. The extension ID (draft) is `elcekcoadkgmdjboaflcbcbebghpgpn`.
 1. The **Privacy** tab is empty — fill every field in the "Privacy tab" section
    below and the Submit button unlocks.
 2. The **Store listing** Description still holds an older draft — replace it with
-   the Description block below (it matches 0.9.0: Piper on-device read-aloud, the
+   the Description block below (it matches 0.9.5: Piper on-device read-aloud, the
    word-lookup and line-tint additions, and the optional on-device AI helpers).
-3. The **screenshots** in `store/assets/` predate most of the current UI —
-   re-shoot (suggested set is under "Graphic assets").
-4. Upload `readtune-0.9.4.zip` (`npm run build`).
+3. Upload `readtune-0.9.5.zip` (`npm run build`). The four current
+   `store/assets/0*-*.png` screenshots are ready to upload as-is.
 
 ---
 
 # Build tab → Package
 
-- Upload `readtune-0.9.4.zip` (run `npm run build`). ~60 MB — the bundled
+- Upload `readtune-0.9.5.zip` (run `npm run build`). ~60 MB — the bundled
   public-domain Piper voice is most of it; this is expected and allowed.
 - "Verified CRX uploads": optional. Fine to skip for now.
 
@@ -55,7 +54,7 @@ Tools that help do exist: roomier spacing, calmer colour, a cleaner layout, text
 
 WHAT READTUNE DOES DIFFERENTLY
 
-It opens with a short check — a warm-up plus five short passages, about three minutes, or skip it and start reading on a research-backed default. Each passage changes exactly one thing versus that default: the font, the spacing, or leading-letter bolding. For each one it notes your reading time, a fill-in-the-blank check that a skim can't pass, and a 1–5 "how did that feel" rating. Passages don't repeat if you retake it.
+It opens with a short check — a warm-up plus six short passages, about four minutes, or skip it and start reading on a research-backed default. Standard text appears twice on different passages; the other four passages each change exactly one thing versus that default: the font, the spacing, or leading-letter bolding. The order is shuffled. For each one it notes your reading time, a fill-in-the-blank check that a skim can't pass, and a 1–5 "how did that feel" rating. Passages don't repeat if you retake it.
 
 Then it compares every change against your own baseline — so a naturally slower reader isn't penalised — allows for the practice speed-up, and keeps only the changes that clear a real margin. If nothing clears the bar, it tells you that instead of inventing a winner.
 
@@ -115,7 +114,7 @@ Memory
 
 WHAT WE'RE HONEST ABOUT
 
-Read-aloud with follow-along, roomier spacing, and softer contrast have the strongest research support. Dyslexia-specific fonts, coloured overlays and bionic bolding have mixed or weak evidence — some people clearly prefer them, but that's comfort, not a cure. ReadTune labels each feature by how well it's supported and treats the weaker ones as experiments you opt into. The check is a quick estimate from six short readings, not a clinical assessment, and it says so on the results screen.
+Read-aloud with follow-along, roomier spacing, and softer contrast have the strongest research support. Dyslexia-specific fonts, coloured overlays and bionic bolding have mixed or weak evidence — some people clearly prefer them, but that's comfort, not a cure. ReadTune labels each feature by how well it's supported and treats the weaker ones as experiments you opt into. The check is a quick estimate from six scored short readings plus a warm-up, not a clinical assessment, and it says so on the results screen.
 
 ————————————————————
 
@@ -125,7 +124,7 @@ No account. No analytics or telemetry. Nothing is sold or shared. Your reading p
 
 Read-aloud runs on your device: the default voice ships inside the extension, so it needs no network. If you pick one of the other voices, its model is downloaded once from Hugging Face and cached locally — the text you read is never sent anywhere.
 
-Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The "Premium voice" for read-aloud sends each sentence as it is spoken to ReadTune's own text-to-speech relay, which forwards it to a free third-party voice provider — the built-in on-device voice is the default and needs none of this. "Ask AI" (the article summary, and any question you type about the article) runs on your device where Chrome's built-in AI is ready; otherwise the article text and your typed question are sent to ReadTune's own AI helper, which forwards them to a third-party AI model to generate the response. Those are the only parts where text leaves your device, and only when you choose them. Nothing else, nowhere else.
+Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The "Premium voice" for read-aloud sends each sentence as it is spoken to ReadTune's own text-to-speech relay, which forwards it to a third-party voice provider — the built-in on-device voice is the default and needs none of this. "Ask AI" (the article summary, and any question you type about the article) runs on your device where Chrome's built-in AI is ready; otherwise the article text and your typed question are sent to ReadTune's own AI helper, which forwards them to a third-party AI model to generate the response. These optional features are the only network paths for reading text or microphone audio, and each is disclosed before use.
 
 Free and open source. The full code is at github.com/Engineer9118brov2/readtune
 ```
@@ -163,8 +162,8 @@ English (United States)
 
 | Field | Value |
 | --- | --- |
-| Official URL | `https://readtune.vercel.app/` (only if Search Console verification is done; otherwise leave **None**) |
-| Homepage URL | `https://readtune.vercel.app/` |
+| Official URL | `https://readtune.tech/` (only if Search Console verification is done; otherwise leave **None**) |
+| Homepage URL | `https://readtune.tech/` |
 | Support URL | `https://github.com/Engineer9118brov2/readtune/issues` |
 | Mature content | No |
 
@@ -275,14 +274,14 @@ ReadTune processes the text of the page or file the user chooses to read, on the
 
 ## Privacy policy URL
 ```
-https://readtune.vercel.app/privacy.html
+https://readtune.tech/privacy.html
 ```
 
 ---
 
 # Notes for later (do not block submission)
 
-- **espeak-ng (GPLv3)** is bundled inside the phonemizer wasm. `lib/piper/espeak-ng.LICENSE.txt` (shipped in the zip) carries the full licence text and a written offer of source. ReadTune's position — it runs as an isolated wasm module, so ReadTune stays MIT — is written up in `docs/PIPER.md`. Not a store-policy issue; noted for completeness.
+- **espeak-ng (GPLv3)** is bundled inside the phonemizer wasm. `lib/piper/espeak-ng.LICENSE.txt` (shipped in the zip) carries the full license text and a source-offer notice. Its treatment for a commercial distribution should receive legal review; `docs/PIPER.md` records the technical integration and replacement plan.
 - The **screenshots** in `store/assets/` predate the Reading Lab, Piper Voice Fit, the dyslexia-friendly-menus switch, and dictation. Re-shoot before submitting (see the suggested set above).
 - **Timing:** first review for a new developer is usually 1–3 business days, occasionally up to a few weeks. For an Oct 2 deadline, submit by ~Sept 20. You do not need the store to demo — Load Unpacked works.
 - If rejected, the email names the exact policy. Fix and resubmit; each resubmit is a fresh (usually faster) review.

@@ -17,5 +17,7 @@ jobs:
         run: npm run check
       - name: Behavioural harness (headless Chrome)
         run: npm run harness
+      - name: Bundled Piper model smoke test (headless Chrome)
+        run: npm run piper-smoke
       - name: Build the Web Store zip
         run: npm run build

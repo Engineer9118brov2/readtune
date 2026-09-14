@@ -8,6 +8,7 @@
  */
 
 import { stashArticle, loadSites, extUrl } from "./shared/settings.js";
+import { pageAudioBridge } from "./shared/page-audio-bridge.js";
 
 async function capturePage(tabId) {
   try {
@@ -31,8 +32,23 @@ async function openReaderFor(tab, { sameTab = false } = {}) {
   if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
   const res = await capturePage(tab.id);
   if (!res || !res.ok || !res.html) return;
-  await stashArticle(res);
-  const url = extUrl("reader.html");
+  res.tabId = tab.id;
+  // Keep shortcut and automatic Reader View on par with the popup: a page's
+  // own article narration is optional and never blocks opening the article.
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: pageAudioBridge,
+      args: ["detect"],
+    });
+    const narration = results && results[0] && results[0].result;
+    if (narration && narration.ok) res.narration = { kind: narration.kind };
+  } catch (err) {
+    console.warn("[ReadTune] page-audio detect failed:", err);
+  }
+  const handoffId = await stashArticle(res);
+  if (!handoffId) return;
+  const url = `${extUrl("reader.html")}?article=${encodeURIComponent(handoffId)}`;
   if (sameTab) await chrome.tabs.update(tab.id, { url });
   else await chrome.tabs.create({ url });
 }

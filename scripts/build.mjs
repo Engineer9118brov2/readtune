@@ -3,7 +3,7 @@
  * no dev harness, no docs, no build tooling.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, cpSync, rmSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, cpSync, rmSync, readFileSync, mkdirSync, existsSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,8 +35,36 @@ for (const d of SHIP_DIRS) {
 
 const outName = `readtune-${version}.zip`;
 const outPath = join(ROOT, outName);
+const stagedArchive = join(staging, outName);
+execFileSync("zip", ["-r", "-q", stagedArchive, "readtune"], { cwd: staging });
+
+// Keep the store artifact honest: development material must never slip into the
+// upload, and the default offline voice must always be present.
+execFileSync("unzip", ["-tqq", stagedArchive]);
+const archivePaths = execFileSync("unzip", ["-Z1", stagedArchive], { encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean);
+const requiredArchivePaths = [
+  "readtune/manifest.json",
+  "readtune/shared/piper/worker.js",
+  "readtune/lib/ort/ort.wasm.min.js",
+  "readtune/lib/piper/piper_phonemize.wasm",
+  "readtune/lib/piper/voices/en_US-ljspeech-medium.onnx",
+];
+for (const required of requiredArchivePaths) {
+  if (!archivePaths.includes(required)) {
+    throw new Error(`Build archive is missing required runtime asset: ${required}`);
+  }
+}
+const forbiddenArchiveParts = ["/test/", "/docs/", "/scripts/", "/node_modules/", "/.env"];
+for (const path of archivePaths) {
+  if (forbiddenArchiveParts.some((part) => path.includes(part))) {
+    throw new Error(`Build archive contains development-only path: ${path}`);
+  }
+}
+
 rmSync(outPath, { force: true });
-execFileSync("zip", ["-r", "-q", outPath, "readtune"], { cwd: staging });
+copyFileSync(stagedArchive, outPath);
 rmSync(staging, { recursive: true, force: true });
 
 const sizeMB = (readFileSync(outPath).length / 1024 / 1024).toFixed(2);

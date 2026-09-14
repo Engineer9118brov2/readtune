@@ -152,13 +152,31 @@ function cacheKeyFor(kind, url, text, question = "", levelHint = "") {
 }
 
 /* ---------- cache + rate limit: Upstash Redis via its REST API, when set up.
-   Both are no-ops until the env vars exist, so the endpoint works (just
-   without cost savings or an abuse guard) before that's configured. Vercel's
+   Cache is a no-op until the env vars exist. The rate limit falls back to a
+   bounded per-instance counter so an unconfigured deployment still resists a
+   runaway browser loop. Vercel's
    Upstash-for-Redis marketplace integration sets UPSTASH_REDIS_REST_URL /
    UPSTASH_REDIS_REST_TOKEN; the legacy Vercel KV names are also accepted. */
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
+
+// Serverless instances do not share memory, so this is intentionally not
+// treated as a quota. It does cover the common failure mode: one client or
+// retry loop exhausting a provider while Redis is not configured yet.
+const MEM_LIMIT_PER_MINUTE = 40;
+let memBucketKey = 0;
+let memBucketCount = 0;
+
+function memRateOk() {
+  const now = Math.floor(Date.now() / 60000);
+  if (now !== memBucketKey) {
+    memBucketKey = now;
+    memBucketCount = 0;
+  }
+  memBucketCount += 1;
+  return memBucketCount <= MEM_LIMIT_PER_MINUTE;
+}
 
 async function redisCall(path) {
   const res = await fetch(`${REDIS_URL}${path}`, { headers: { authorization: `Bearer ${REDIS_TOKEN}` } });
@@ -193,14 +211,14 @@ async function cacheSet(key, value) {
 const RATE_LIMIT_PER_MINUTE = 60;
 
 async function rateLimitOk() {
-  if (!hasRedis) return true;
+  if (!hasRedis) return memRateOk();
   try {
     const bucket = `assist:rl:${Math.floor(Date.now() / 60000)}`;
     const r = await redisCall(`/incr/${encodeURIComponent(bucket)}`);
     if (r && r.result === 1) await redisCall(`/expire/${encodeURIComponent(bucket)}/70`);
     return !r || (typeof r.result === "number" && r.result <= RATE_LIMIT_PER_MINUTE);
   } catch {
-    return true; // fail open — a Redis hiccup shouldn't block real requests
+    return memRateOk(); // Redis hiccup — degrade rather than failing open
   }
 }
 
@@ -210,6 +228,9 @@ function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "content-type");
+  // Generated summaries and answers can reflect sensitive reading material.
+  // The explicit Redis cache below is deliberate; HTTP intermediaries are not.
+  res.setHeader("cache-control", "no-store");
 }
 
 export default async function handler(req, res) {

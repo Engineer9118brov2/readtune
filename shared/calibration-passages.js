@@ -107,6 +107,34 @@ export const CALIBRATION_PASSAGES = Object.freeze([
     answer: ["axe", "ice"],
     distractors: [["rope", "current"], ["pole", "snow"], ["lamp", "water"]],
   },
+  {
+    id: "canyon-cable",
+    text:
+      "High above a desert canyon, engineers strung a cable across a narrow gorge to carry water to a hill town. Every spring, crews walk the line at dawn, listening for a faint {{hum}} that tells them the {{pumps}} are working before the day's heat arrives.",
+    answer: ["hum", "pumps"],
+    distractors: [["click", "wheels"], ["whistle", "gates"], ["ring", "lights"]],
+  },
+  {
+    id: "seed-library",
+    text:
+      "A small library keeps drawers of seeds beside its books, so gardeners can borrow beans, herbs, and flowers in spring. In autumn they return a spoonful of {{seeds}} from the strongest {{plants}}, and the drawers slowly fill with varieties that suit the local soil.",
+    answer: ["seeds", "plants"],
+    distractors: [["tools", "fences"], ["labels", "shelves"], ["stones", "paths"]],
+  },
+  {
+    id: "forest-bridge",
+    text:
+      "A footbridge in a wet forest is built from wood that grows more slippery every winter. Volunteers spread rough {{sand}} across the boards before the first {{frost}}, then replace the faded trail signs so hikers can still find the bridge in low cloud.",
+    answer: ["sand", "frost"],
+    distractors: [["salt", "rain"], ["paint", "wind"], ["leaves", "snow"]],
+  },
+  {
+    id: "harbor-lanterns",
+    text:
+      "Before electric lights, a harbor used a row of lanterns to guide fishing boats through a gap in the rocks. The keeper trimmed each {{wick}} at sunset and checked the {{glass}} before midnight, because one dim lantern could make the safe channel look like open water.",
+    answer: ["wick", "glass"],
+    distractors: [["rope", "bell"], ["flag", "anchor"], ["oar", "sail"]],
+  },
 ]);
 
 /** Fisher–Yates, on a copy. */

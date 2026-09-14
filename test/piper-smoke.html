@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReadTune Piper smoke test</title>
+  </head>
+  <body>
+    <p id="status">Starting Piper smoke test...</p>
+    <script type="module">
+      const status = document.getElementById("status");
+      const worker = new Worker("../shared/piper/worker.js", { type: "module" });
+      let nextId = 0;
+      const pending = new Map();
+      const events = [];
+      window.__PIPER_PROGRESS = events;
+
+      function call(type, payload = {}) {
+        const id = ++nextId;
+        worker.postMessage({ id, type, ...payload });
+        return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+      }
+
+      worker.onmessage = ({ data }) => {
+        events.push(data.type === "status" ? data.message : data.type);
+        if (data.type === "status") {
+          status.textContent = data.message || "Preparing Piper...";
+          return;
+        }
+        const request = pending.get(data.id);
+        if (!request) return;
+        pending.delete(data.id);
+        if (data.error) request.reject(new Error(data.error));
+        else request.resolve(data);
+      };
+
+      worker.onerror = (event) => {
+        events.push(event.message || "Piper worker failed.");
+        for (const request of pending.values()) request.reject(new Error(event.message || "Piper worker failed."));
+        pending.clear();
+      };
+
+      worker.onmessageerror = () => {
+        events.push("Piper worker message could not be read.");
+      };
+
+      try {
+        await call("prepare", { voiceId: "en_US-ljspeech-medium" });
+        window.__PIPER_SMOKE = { ok: true };
+        status.textContent = "Piper prepared its bundled model locally.";
+      } catch (error) {
+        window.__PIPER_SMOKE = { ok: false, error: error && error.message ? error.message : String(error) };
+        status.textContent = window.__PIPER_SMOKE.error;
+      } finally {
+        worker.terminate();
+      }
+    </script>
+  </body>
+</html>

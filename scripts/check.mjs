@@ -56,6 +56,25 @@ try {
   fail("manifest.json invalid JSON: " + e.message);
 }
 
+// The package manager metadata and submission instructions must describe the
+// same uploadable extension version as manifest.json.
+try {
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+  if (manifest && pkg.version !== manifest.version) {
+    fail(`package.json version ${pkg.version} does not match manifest version ${manifest.version}`);
+  }
+  const listing = readFileSync(join(ROOT, "store", "listing.md"), "utf8");
+  if (manifest && !listing.includes(`readtune-${manifest.version}.zip`)) {
+    fail(`store/listing.md does not name the current upload artifact readtune-${manifest.version}.zip`);
+  }
+  const piperDoc = readFileSync(join(ROOT, "docs", "PIPER.md"), "utf8");
+  if (manifest && !piperDoc.includes(`## As shipped (v${manifest.version})`)) {
+    fail(`docs/PIPER.md does not name the current shipped version v${manifest.version}`);
+  }
+} catch (e) {
+  fail("release metadata check failed: " + e.message);
+}
+
 // 3. HTML asset references
 for (const f of files.filter((f) => extname(f) === ".html")) {
   const html = readFileSync(f, "utf8");
@@ -106,6 +125,59 @@ for (const need of [
   "lib/piper/voices/en_US-ljspeech-medium.onnx.json",
 ]) {
   if (!existsSync(join(ROOT, need))) fail(`missing ${need}`);
+}
+
+// 5. Public copy must keep the calibrated-flow and optional-network boundaries
+// in sync. These are release promises, not marketing flourishes.
+const publicCopy = {
+  "index.html": [
+    "four-minute preference check",
+    "Six short passages",
+    "Premium voice and ElevenLabs are separate optional voice paths",
+  ],
+  "privacy.html": [
+    "Premium voice, ElevenLabs, and cloud-routed Ask AI",
+    "There is no ReadTune account.",
+  ],
+  "school.html": [
+    "Ask AI, Premium voice, and reader-configured ElevenLabs",
+    "The default Piper voice remains local",
+  ],
+  "docs/DEVPOST.md": [
+    "six short readings plus a\nwarm-up",
+    "Local by default\" has clearly labelled opt-in exceptions",
+  ],
+};
+for (const [rel, snippets] of Object.entries(publicCopy)) {
+  const contents = readFileSync(join(ROOT, rel), "utf8");
+  for (const snippet of snippets) {
+    if (!contents.includes(snippet)) fail(`${rel} is missing the release-copy invariant: ${snippet}`);
+  }
+}
+for (const [rel, stale] of Object.entries({
+  "index.html": "A three-minute experiment",
+  "docs/DEVPOST.md": "exactly one exception",
+  "school.html": "The one exception",
+})) {
+  if (readFileSync(join(ROOT, rel), "utf8").includes(stale)) {
+    fail(`${rel} contains stale release copy: ${stale}`);
+  }
+}
+if (readFileSync(join(ROOT, "index.html"), "utf8").includes("the one opt-in exception")) {
+  fail("index.html contains stale release copy: the one opt-in exception");
+}
+for (const rel of ["docs/LAUNCH.md", "docs/SCHOOL-DISTRICTS.md", "store/listing.md"]) {
+  if (readFileSync(join(ROOT, rel), "utf8").includes("readtune.vercel.app")) {
+    fail(`${rel} contains the retired readtune.vercel.app hostname`);
+  }
+}
+for (const rel of ["PRIVACY.md", "privacy.html", "site.js"]) {
+  if (readFileSync(join(ROOT, rel), "utf8").includes("readtune.app")) {
+    fail(`${rel} contains the retired readtune.app hostname`);
+  }
+}
+if (readFileSync(join(ROOT, "docs/SCHOOL-DISTRICTS.md"), "utf8").includes("the one opt-in\nexception")) {
+  fail("docs/SCHOOL-DISTRICTS.md contains stale single-exception copy");
 }
 
 if (failures) {

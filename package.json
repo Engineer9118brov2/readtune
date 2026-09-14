@@ -1,6 +1,6 @@
 {
   "name": "readtune",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "private": true,
   "description": "A Chrome extension that suggests reading settings worth trying, then applies them everywhere — articles, PDFs, and web pages.",
   "type": "module",
@@ -8,6 +8,7 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
     "harness": "node scripts/harness.mjs",
+    "piper-smoke": "node scripts/piper-smoke.mjs",
     "test": "npm run check && npm run harness"
   },
   "license": "MIT"

@@ -2,8 +2,8 @@
 
 ReadTune's design stance: **individual variation dominates.** What helps one
 dyslexic or ADHD reader often does nothing for the next, and some popular aids
-don't hold up well in controlled tests. That's the reason ReadTune *measures*
-with the calibration test instead of prescribing a fixed "dyslexia mode."
+don't hold up well in controlled tests. That's the reason ReadTune tries a
+small preference check instead of prescribing a fixed "dyslexia mode."
 
 This page is an honest summary of the evidence behind each option, including
 where it's weak. If you're presenting ReadTune, **read the primary sources

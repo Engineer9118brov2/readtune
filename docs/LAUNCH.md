@@ -1,15 +1,15 @@
 # Launch & growth plan
 
-Goal: real, reachable users who actually have dyslexia or ADHD (or teach/parent
+Goal: real, reachable users who experience reading friction (or teach/parent
 someone who does) — not extension-directory drive-by installs. The wedge is the
-same everywhere: **free, private, no account, works offline, and it tests what
-helps you instead of guessing.**
+same everywhere: **free, local-first, no account, and a quick preference check
+that suggests settings to try.**
 
 ## Sequence
 
 ### Before the Web Store listing is live
 - Ship the demo video (see `docs/VIDEO.md`). Nothing below works without it.
-- Make sure `readtune.vercel.app`, `/privacy.html`, and `/school.html` are live
+- Make sure `readtune.tech`, `/privacy.html`, and `/school.html` are live
   and the fonts load (check the dyslexia toggle actually renders OpenDyslexic).
 - Have "load unpacked" instructions ready for people who want it before it's
   approved.
@@ -36,10 +36,11 @@ like promotion, so lead with the story, not the link.
   most US states have a chapter group), **"Homeschooling with Dyslexia"**,
   **"Dyslexia — the Gift"**, **"ADHD Parents Support Group"**,
   **"Assistive Technology for Education"**.
-- Post as what it is: "I built a free reading extension because the good ones are
-  all paywalled — it runs a short test to find which settings help you, then
-  applies them. No account, nothing leaves your computer. Would love feedback
-  from people who actually need this." Link the site, not the Web Store, so the
+- Post as what it is: "I built a free reading extension that offers a small
+  preference check and applies its suggested starting setup to articles and
+  PDFs. No account is required; optional online features say when they send
+  text. Would love feedback from people who experience reading friction." Link
+  the site, not the Web Store, so the
   first thing they see is the explanation.
 - Parents in these groups share tools aggressively when they're free and private.
 
@@ -77,26 +78,25 @@ like promotion, so lead with the story, not the link.
 ## Post templates
 
 **Facebook / parent groups:**
-> My [kid / student / I] read slower than [they/I] should, not because of
-> ability but because dense text on a bright screen is exhausting. The tools
-> that help most — Speechify and the rest — are subscriptions or need a school
-> login. So I made a free one. It runs a 4-minute test (times your reading,
-> checks you understood it, asks how it felt) and figures out which settings
-> actually help *you* — spacing, font, a reading ruler, text-to-speech — then
-> uses them on any article or PDF. No account, no subscription, and nothing
-> ever leaves your computer. It's at readtune.vercel.app. I'd really value
+> I find dense screen text tiring, and I built a free Chrome extension to make
+> articles and selectable PDFs easier to shape around a reader's preferences.
+> It offers a four-minute preference check with reading time, comprehension
+> questions, and an ease rating, then suggests a starting setup from the font,
+> spacing, and emphasis settings it tried. You can skip it or change everything
+> yourself. No account or subscription is required; optional online features
+> clearly say when they send text. It's at readtune.tech. I'd really value
 > feedback from people who deal with this.
 
 **Show HN:**
-> Show HN: ReadTune – a reading extension that A/B-tests reading settings on you
+> Show HN: ReadTune – a reading extension that tries reading settings with you
 >
-> Most reading-accessibility tools give you 20 toggles and let you guess.
-> ReadTune runs a short calibration — one variable per passage, comprehension-
-> checked, reading speed de-trended for practice effect — and keeps only the
-> changes that clear a margin. If nothing does, it says so. Manifest V3, no
-> build step, no remote code, no server; read-aloud is the Web Speech API with
-> an optional bring-your-own ElevenLabs key. Free, open source. Method write-up
-> and honest evidence table in the repo.
+> Many reading-accessibility tools begin with a wall of toggles. ReadTune runs
+> a short preference check: one setting changes per passage, standard text is
+> repeated, and the reader completes a two-word cloze check and rates ease. It
+> offers a starting setup, not a clinical result, and the reader can reject it.
+> Manifest V3, no build step, no remotely loaded executable code; read-aloud
+> defaults to an on-device Piper voice, with clearly optional cloud-voice paths.
+> Free and open source. Method write-up and limits are in the repo.
 
 **LinkedIn (to AT specialists):**
 > I built a free reading-support extension aimed at students who can't get the

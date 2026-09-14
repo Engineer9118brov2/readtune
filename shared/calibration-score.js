@@ -17,6 +17,21 @@
 
 export const HELP_THRESHOLD = 0.1;
 
+/**
+ * Randomize every scored condition, including the baseline. The warm-up already
+ * absorbs the biggest first-passage effect; varying the baseline's position
+ * keeps a remaining position or fatigue effect from always favouring a variant.
+ * `rand` makes the scheduling rule deterministic in the browser harness.
+ */
+export function randomizeConditions(conditions, rand = Math.random) {
+  const ordered = Array.isArray(conditions) ? conditions.slice() : [];
+  for (let i = ordered.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+  }
+  return ordered;
+}
+
 /** least-squares slope of ys against xs */
 export function linfit(xs, ys) {
   const n = xs.length;
@@ -35,8 +50,8 @@ export function linfit(xs, ys) {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /**
- * @param results  [{ key, label, apply, position, wpm, correct, ease }] — one per scored passage,
- *                 including exactly one with key === baselineKey
+ * @param results  [{ key, label, apply, position, wpm, correct, ease, isBaseline }] — one per scored passage,
+ *                 including one or more baseline readings
  * @returns { base, dims (sorted best-first), speedInformative, practiceSlope }
  */
 export function analyse(results, baselineKey = "baseline") {
@@ -50,13 +65,25 @@ export function analyse(results, baselineKey = "baseline") {
   const spread = Math.max(...adjVals) - Math.min(...adjVals);
   const speedInformative = meanW > 0 && spread / meanW > 0.1;
 
-  const base = adj.find((r) => r.key === baselineKey);
+  const baselineRows = adj.filter((r) => r.key === baselineKey || r.isBaseline);
+  // The calibration repeats the standard setting on a different passage. Its
+  // average is a less fragile anchor than a single passage's speed, ease, or
+  // cloze result; variants still appear only once, so this remains a preference
+  // check rather than a clinical measurement.
+  const base = baselineRows.length
+    ? {
+        ...baselineRows[0],
+        adjWpm: baselineRows.reduce((sum, r) => sum + r.adjWpm, 0) / baselineRows.length,
+        ease: baselineRows.reduce((sum, r) => sum + r.ease, 0) / baselineRows.length,
+        correctRate: baselineRows.reduce((sum, r) => sum + (r.correct ? 1 : 0), 0) / baselineRows.length,
+      }
+    : null;
   const dims = adj
-    .filter((r) => r.key !== baselineKey)
+    .filter((r) => r.key !== baselineKey && !r.isBaseline)
     .map((v) => {
       const speedDelta = base && base.adjWpm ? (v.adjWpm - base.adjWpm) / base.adjWpm : 0;
       const easeDelta = (v.ease - (base ? base.ease : 3)) / 4;
-      const compDelta = (v.correct ? 1 : 0) - (base && base.correct ? 1 : 0);
+      const compDelta = (v.correct ? 1 : 0) - (base ? base.correctRate : 1);
       const speedTerm = speedInformative ? clamp(speedDelta / 0.4, -1, 1) : 0;
       const wS = speedInformative ? 0.45 : 0;
       const wE = speedInformative ? 0.4 : 0.8;

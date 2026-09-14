@@ -8,7 +8,9 @@ body:
       value: |
         Thanks for taking the time. You don't need to be technical — just say what
         happened in your own words. ReadTune collects nothing on its own, so this
-        form is the only way we hear from you.
+        form is the only way we hear from you. GitHub issues are public: please do
+        not include private article text, contact details, school information, or
+        anything else you would not want published.
   - type: textarea
     id: what
     attributes:
@@ -38,6 +40,13 @@ body:
     attributes:
       label: Browser and device (optional)
       placeholder: e.g. Chrome on a Windows laptop, or Chromebook
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: ReadTune version and install source (optional)
+      placeholder: e.g. 0.9.5 from the Chrome Web Store, or current GitHub checkout
     validations:
       required: false
   - type: textarea

@@ -21,10 +21,6 @@
         <span>ReadTune</span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
-        <button class="say-btn" id="say-nav" type="button" data-say aria-label="Hear the pitch">
-          <span class="say-btn-glyph" aria-hidden="true"></span>
-          <span class="say-btn-text">Listen</span>
-        </button>
         <button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false" aria-label="Use a dyslexia-friendly view of this site">
           <span class="a11y-toggle-mark" aria-hidden="true">Aa</span>
           <span class="a11y-toggle-text">Dyslexia-friendly</span>
@@ -41,10 +37,10 @@
       <section class="hero shell" data-reveal>
         <div class="hero-copy">
           <p class="eyebrow"><span class="eyebrow-dot"></span> A free reading companion for the web</p>
-          <h1>St<button type="button" class="say-o" id="say-hero" data-say aria-label="Hear the pitch"><span aria-hidden="true">o</span></button>p guessing.<br /><em>Read what fits.</em></h1>
+          <h1>Stop guessing.<br /><em>Read what fits.</em></h1>
           <p class="hero-lede">ReadTune runs a quick check to suggest a reading setup worth trying, then carries your profile into articles, PDFs, web pages, and read-aloud.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Get ReadTune <span aria-hidden="true">↗</span></a>
+            <a class="button button-primary" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Install from GitHub <span aria-hidden="true">↗</span></a>
             <a class="text-link" href="#how-it-works">See the method <span aria-hidden="true">↓</span></a>
           </div>
           <div class="hero-proof" aria-label="Product qualities">
@@ -64,7 +60,7 @@
               <p class="mono-label">YOUR CURRENT PROFILE</p>
               <h2>Calm focus</h2>
             </div>
-            <span class="profile-score">94<span>%</span></span>
+            <span class="profile-state">Provisional<span> profile</span></span>
           </div>
           <div class="specimen-reading" id="specimen-reading">
             <div class="reading-rule" aria-hidden="true"></div>
@@ -97,8 +93,8 @@
           <div class="card-number">01</div>
           <div>
             <p class="card-label">CALIBRATE</p>
-            <h3>A three-minute experiment built around your reading.</h3>
-            <p>Five short passages, or skip and start reading. One focused change at a time. Reading time, a guess-proof cloze check, and your own ease rating work together.</p>
+            <h3>A four-minute preference check built around your reading.</h3>
+            <p>Six short passages, or skip and start reading. One focused change at a time, with standard text repeated on a different passage. Reading time, a guess-proof cloze check, and your own ease rating work together.</p>
           </div>
           <div class="calibration-lines" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
         </div>
@@ -135,7 +131,7 @@
             <div class="audio-card-top"><span class="mono-label">NOW READING · ON DEVICE</span><span class="audio-time">00:18 / 01:04</span></div>
             <p class="audio-text">The useful answer is the one that helps <mark>you stay with the sentence.</mark></p>
             <div class="audio-progress"><span></span></div>
-            <div class="audio-controls"><button type="button" class="play-button" aria-label="Play preview"><span></span></button><span class="audio-voice">Linden <small>· on-device voice</small></span><span class="audio-speed">1.0×</span></div>
+            <div class="audio-controls"><span class="audio-play-indicator" aria-hidden="true"><span></span></span><span class="audio-voice">Linden <small>· on-device voice</small></span><span class="audio-speed">1.0×</span></div>
           </div>
         </div>
       </section>
@@ -153,7 +149,7 @@
             <p class="eyebrow eyebrow-light"><span class="eyebrow-dot"></span> On by request, not by default</p>
             <h2>Ask the article<br /><em>a real question.</em></h2>
             <p>A docked rail sits beside whatever you're reading — summarize it, ask it a question, or get key terms explained. It answers from the article first, and says plainly when the article doesn't cover something.</p>
-            <p>This is the one part of ReadTune that leaves your device: the article text and your typed question go to ReadTune's relay only when you ask, never automatically. Everything else — fonts, spacing, focus, calibration, on-device read-aloud — stays local. <a class="text-link" href="/privacy.html">Read exactly what's sent →</a></p>
+            <p>Ask AI can send the article text and your typed question to ReadTune's relay only when you ask, never automatically. Premium voice and ElevenLabs are separate optional voice paths. Fonts, spacing, focus, calibration, and on-device read-aloud stay local. <a class="text-link" href="/privacy.html">Read exactly what's sent →</a></p>
           </div>
         </div>
       </section>
@@ -164,7 +160,7 @@
           <article><span class="feature-icon">Aa</span><h3>Typography with intent</h3><p>Atkinson Hyperlegible, OpenDyslexic, Lexend, spacing, line width, and calm contrast.</p></article>
           <article><span class="feature-icon">⌁</span><h3>Focus that follows you</h3><p>Paragraph focus, sentence steps, and an adaptive 1 / 3 / 5-line reading guide.</p></article>
           <article><span class="feature-icon">↗</span><h3>Works where text lives</h3><p>Reader View for articles, selectable PDFs, and a live restyle mode for the page already open.</p></article>
-          <article><span class="feature-icon">◌</span><h3>No account, ever</h3><p>Your reading, profile, and highlights stay in browser storage. Ask AI is the one opt-in exception, disclosed in full.</p></article>
+          <article><span class="feature-icon">◌</span><h3>No account, ever</h3><p>Your reading, profile, and highlights stay in browser storage. Optional AI and cloud voices disclose when they send text.</p></article>
         </div>
       </section>
 

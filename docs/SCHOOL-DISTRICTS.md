@@ -12,20 +12,21 @@ An IT admin evaluating an extension checks, roughly in order:
 1. **Does it collect student data / PII?** ReadTune has no accounts, no
    analytics, no telemetry. The reading profile, calibration history, and
    highlights are stored in `chrome.storage.local` on the device and never
-   leave it. The one exception is Ask AI (below) — opt-in, and disclosed the
-   same way to the admin as to the student.
+   leave it. Optional Ask AI and cloud-voice routes can send selected text,
+   and are disclosed the same way to the admin as to the student.
 2. **What can it touch?** It installs with `activeTab`, `scripting`, `storage`
    only. It cannot read a page until the student clicks the button or presses
    the shortcut. Broader access is an *optional* per-site permission the student
    turns on themselves.
 3. **Does it phone home?** Not by default. Read-aloud uses a neural voice that
-   runs on the device, and the default voice ships inside the extension. Three
+   runs on the device, and the default voice ships inside the extension. Four
    opt-in features send data: **Ask AI** sends the article text (and, for a
    typed question, the question) to ReadTune's own relay to generate a summary
    or answer — only when a student opens the panel and asks, never
-   automatically; dictation uses Chrome's own speech recognition (audio goes
-   to Google, as it does for any site that uses that browser API); and
-   ElevenLabs read-aloud needs a personal API key students won't have.
+   automatically; Premium voice sends the spoken sentence to ReadTune's relay;
+   dictation uses Chrome's own speech recognition (audio goes to Google, as it
+   does for any site that uses that browser API); and ElevenLabs read-aloud
+   needs a personal API key students may choose to provide.
    Selecting an extra read-aloud voice downloads a one-time model file from
    Hugging Face.
 4. **What does it cost?** Nothing. No per-seat licence, no quote, no renewal.
@@ -38,11 +39,11 @@ integration and a data-processing agreement.
 
 ## The three assets
 
-### 1. A public "For school IT" page — `readtune.vercel.app/school.html`
+### 1. A public "For school IT" page — `readtune.tech/school.html`
 
 One URL an admin can open and forward. It states, in plain language: no data
-collected, the exact permissions and why, the network behaviour, the one opt-in
-exception, the Web Store ID to allow-list, and a contact. This is `school.html`
+collected, the exact permissions and why, the network behaviour, the three
+optional network routes, the Web Store ID to allow-list, and a contact. This is `school.html`
 in the repo (host it alongside the marketing site). **Do not** make it a PDF —
 a URL is easier to forward and can't be "an old version."
 
@@ -78,7 +79,7 @@ requests for the same tool for coursework is a priority.
 > and text-to-speech) to get through reading assignments, and ReadTune is a
 > free tool that does this without an account.
 >
-> A summary for IT is here: `https://readtune.vercel.app/school.html`
+> A summary for IT is here: `https://readtune.tech/school.html`
 > Web Store page: `https://chromewebstore.google.com/detail/<WEB STORE ID>`
 >
 > From what I can tell it collects no personal data, stores everything on the
@@ -99,7 +100,7 @@ requests for the same tool for coursework is a priority.
 > aloud. **ReadTune** is a free Chrome extension that provides these. Unlike the
 > paid options, it needs no account and no subscription.
 >
-> For your review: `https://readtune.vercel.app/school.html`. In short: it
+> For your review: `https://readtune.tech/school.html`. In short: it
 > collects no student information, transmits nothing to a server, stores
 > settings locally on the device, and requests only the permissions it needs
 > to reformat a page when the student asks it to.
@@ -122,7 +123,7 @@ requests for the same tool for coursework is a priority.
 >
 > It's a good fit for a managed environment: no student accounts, no data
 > collection, local storage only, `activeTab`/`scripting`/`storage` permissions.
-> IT summary: `https://readtune.vercel.app/school.html`.
+> IT summary: `https://readtune.tech/school.html`.
 >
 > Can we get it on the allow-list for [OU / grade / building]? I can pilot with
 > a small group first if that helps the review.
@@ -158,12 +159,14 @@ page, here's a teacher in [district] already using it.* Attach nothing; link
 ## What NOT to claim
 
 - Don't say "COPPA/FERPA certified" or "compliant" as a badge. Say what's true:
-  **ReadTune collects, stores, and transmits no student personal information, so
-  those regulations have nothing to attach to.** If an admin wants that in
-  writing, say so plainly in an email — that's a stronger position than a logo.
+  the core reading tools have no account or ReadTune telemetry, while optional
+  cloud voice and Ask AI features can transmit selected reading text to their
+  disclosed providers. District administrators must decide whether those
+  optional services are permitted for their students.
 - Don't claim "nothing ever leaves the device, period." The honest line is
-  "nothing leaves the device unless a student opts into the ElevenLabs voice
-  with their own API key — which won't happen on a school account."
+  "core reading features stay local; optional Premium voice, ElevenLabs, and
+  Ask AI disclose before they send text." Disable or avoid those options where
+  a district requires local-only use.
 - Don't promise a data-processing agreement or a signed contract you can't
   support. If a large district requires one, that's a real conversation to have
   then, not a claim to make now.

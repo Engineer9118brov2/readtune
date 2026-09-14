@@ -57,7 +57,7 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .hero-actions { display: flex; align-items: center; gap: 26px; }
 .button { display: inline-flex; align-items: center; gap: 20px; padding: 14px 17px 14px 20px; border: 1px solid transparent; text-decoration: none; font-family: var(--display); font-size: 0.91rem; font-weight: 700; letter-spacing: -0.04em; transition: transform .2s ease, background .2s ease, color .2s ease; }
 .button:hover { transform: translateY(-2px); }
-.button:active, .specimen-control:active, .play-button:active, .a11y-toggle:active, .say-btn:active { transform: scale(.97); }
+.button:active, .specimen-control:active, .a11y-toggle:active { transform: scale(.97); }
 .button-primary { background: var(--ink); color: var(--paper); }
 .button-primary:hover { background: var(--mint-deep); color: var(--ink); }
 .button-light { background: var(--paper); color: var(--ink); }
@@ -78,8 +78,8 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .specimen-meta { padding: 26px 0 19px; }
 .specimen-meta .mono-label { margin-bottom: 6px; color: rgba(245,240,229,.55); }
 .specimen-meta h2 { margin-bottom: 0; color: var(--paper); font-size: 1.7rem; letter-spacing: -.07em; }
-.profile-score { color: var(--amber); font-family: var(--display); font-size: 2.2rem; font-weight: 700; letter-spacing: -.1em; }
-.profile-score span { font-size: .9rem; }
+.profile-state { color: var(--amber); font-family: var(--display); font-size: 1.15rem; font-weight: 700; }
+.profile-state span { color: var(--paper); font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; }
 .specimen-reading { position: relative; min-height: 300px; padding: 35px 32px 30px; overflow: hidden; color: var(--ink); background: var(--paper); font-family: "Atkinson Hyperlegible", sans-serif; font-size: 1.1rem; line-height: 1.7; transition: font-family .2s ease; }
 .specimen-reading::before { position: absolute; content: "READTUNE / PROFILED TEXT"; top: 11px; left: 32px; color: rgba(16,32,31,.42); font-family: var(--mono); font-size: .54rem; letter-spacing: .12em; }
 .reading-rule { position: absolute; left: 0; right: 0; top: 105px; height: 86px; pointer-events: none; background: rgba(169,208,186,.28); border-top: 1px solid rgba(110,162,141,.75); border-bottom: 1px solid rgba(110,162,141,.75); transition: top .25s ease, height .25s ease; }
@@ -91,7 +91,7 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .specimen-controls { justify-content: flex-start; flex-wrap: wrap; gap: 7px; padding: 17px 0 12px; }
 .specimen-control { appearance: none; padding: 6px 9px; border: 1px solid rgba(245,240,229,.24); border-radius: 3px; background: transparent; color: rgba(245,240,229,.63); cursor: pointer; font-family: var(--mono); font-size: .6rem; letter-spacing: .02em; }
 .specimen-control:hover, .specimen-control.is-active { border-color: var(--mint); color: var(--mint); background: rgba(169,208,186,.11); }
-.specimen-control:focus-visible, .play-button:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+.specimen-control:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
 .control-divider { width: 1px; height: 20px; margin-inline: 5px; background: rgba(245,240,229,.2); }
 .specimen-note { margin: 0; color: rgba(245,240,229,.55); font-family: var(--mono); font-size: .61rem; letter-spacing: .02em; }
 .specimen-note span { margin-right: 6px; color: var(--amber); }
@@ -146,9 +146,8 @@ h1 em, h2 em { color: var(--mint-deep); font-style: normal; }
 .audio-progress { height: 3px; margin-bottom: 19px; background: var(--paper-deep); }
 .audio-progress span { display: block; width: 31%; height: 100%; background: var(--coral); }
 .audio-controls { justify-content: flex-start; gap: 12px; }
-.play-button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--ink); cursor: pointer; transition: transform .18s var(--ease-out), background .18s ease; }
-.play-button:hover { background: var(--mint-deep); transform: scale(1.08); }
-.play-button span { display: block; margin-left: 2px; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid var(--paper); }
+.audio-play-indicator { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); }
+.audio-play-indicator span { display: block; margin-left: 2px; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid var(--paper); }
 .audio-voice { font-family: var(--display); font-size: .83rem; font-weight: 700; letter-spacing: -.04em; }
 .audio-voice small { font-family: var(--mono); font-size: .58rem; font-weight: 400; letter-spacing: 0; }
 .audio-speed { margin-left: auto; padding: 5px 8px; border: 1px solid var(--line); }
@@ -203,78 +202,6 @@ html.js-ready [data-reveal].is-visible { opacity: 1; transform: none; }
 .a11y-toggle[aria-pressed="true"] { background: var(--mint-deep); border-color: var(--mint-deep); color: var(--ink); }
 .a11y-toggle-mark { font-family: "OpenDyslexic", var(--body); font-size: 0.85rem; letter-spacing: 0; }
 
-/* ---- Read this page aloud (browser voice) ------------------------------- */
-/* The nav "Listen" button and the play-button hiding in the O of "Stop".
-   Both drive window.speechSynthesis — a system voice, not the extension's
-   Piper. site.js removes them where speechSynthesis is missing. */
-.say-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 13px 8px 12px; border: 1px solid var(--mint-deep); border-radius: 99px;
-  background: transparent; color: var(--ink); cursor: pointer;
-  font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.09em;
-  transition: background .2s ease, color .2s ease, border-color .2s ease;
-}
-.say-btn:hover { background: var(--mint-deep); color: var(--ink); }
-.say-btn:focus-visible { outline: 3px solid var(--mint-deep); outline-offset: 2px; }
-.say-btn.is-playing { background: var(--mint-deep); border-color: var(--mint-deep); }
-.say-btn-glyph {
-  display: block; width: 0; height: 0;
-  border-left: 8px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
-}
-.say-btn.is-playing .say-btn-glyph {
-  width: 3px; height: 11px; border: 0; background: currentColor;
-  box-shadow: 6px 0 0 currentColor; margin-right: 6px;
-}
-.say-btn.is-loading .say-btn-glyph { animation: say-blink 1s steps(2) infinite; }
-
-/* The O of "Stop" — a real play control sitting exactly where the letter is.
-   The letter stays in normal flow; the ring and glyph overlay it. */
-.say-o {
-  position: relative; display: inline-block; padding: 0; margin: 0;
-  border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
-}
-.say-o > span { display: inline-block; transition: opacity .18s ease; }
-.say-o::after { /* ring: reads as the letter at rest, as a target on hover */
-  content: ""; position: absolute; left: 50%; top: 47%;
-  width: 0.82em; height: 0.82em; transform: translate(-50%, -50%) scale(0.72);
-  border-radius: 50%; border: 0.07em solid currentColor;
-  opacity: 0; transition: opacity .18s ease, transform .18s ease, border-color .18s ease;
-}
-.say-o::before { /* play triangle */
-  content: ""; position: absolute; left: 50%; top: 47%; opacity: 0;
-  width: 0; height: 0; transform: translate(-38%, -50%);
-  border-left: 0.28em solid currentColor;
-  border-top: 0.17em solid transparent; border-bottom: 0.17em solid transparent;
-  transition: opacity .18s ease;
-}
-.say-o:hover > span, .say-o:focus-visible > span { opacity: 0.22; }
-.say-o:hover::after, .say-o:focus-visible::after { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
-.say-o:hover::before, .say-o:focus-visible::before { opacity: 0.6; }
-.say-o:focus-visible { outline: none; }
-.say-o:focus-visible::after { opacity: 0.8; border-color: var(--mint-deep); }
-.say-o.is-playing > span { opacity: 0; }
-.say-o.is-playing::after {
-  opacity: 1; transform: translate(-50%, -50%) scale(1);
-  border-color: var(--mint-deep); animation: say-pulse 1.6s ease-out infinite;
-}
-.say-o.is-playing::before { /* pause bars */
-  opacity: 1; width: 0.1em; height: 0.32em; transform: translate(-50%, -50%);
-  border: 0; background: var(--mint-deep); box-shadow: 0.17em 0 0 var(--mint-deep);
-}
-h1 em .say-o::after { border-color: var(--mint-deep); }
-
-/* Reading progress — a hairline at the very top of the viewport while playing. */
-.say-progress {
-  position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 30;
-  background: var(--coral); transform: scaleX(0); transform-origin: left;
-  opacity: 0; transition: transform .3s ease, opacity .3s ease;
-}
-.say-progress.is-on { opacity: 1; }
-
-@keyframes say-pulse { from { box-shadow: 0 0 0 0 rgba(110,162,141,.5); } to { box-shadow: 0 0 0 0.5em rgba(110,162,141,0); } }
-@keyframes say-blink { 50% { opacity: 0.35; } }
-
 html.dys-mode {
   --body: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
   --display: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
@@ -305,7 +232,7 @@ html.dys-mode .button,
 html.dys-mode .brand,
 html.dys-mode .nav-cta,
 html.dys-mode .feature-icon,
-html.dys-mode .profile-score,
+html.dys-mode .profile-state,
 html.dys-mode .specimen-meta h2 { letter-spacing: 0; }
 html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.skip-link) {
   text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
@@ -323,14 +250,16 @@ html.dys-mode a:not(.button):not(.nav-cta):not(.brand):not(.a11y-toggle):not(.sk
   .feature-grid { grid-template-columns: repeat(2, 1fr); row-gap: 40px; }
 }
 @media (max-width: 650px) {
+  /* Decorative off-canvas strokes should never create a sideways reading path. */
+  html, body { overflow-x: clip; }
   .shell { width: min(100% - 36px, 1180px); }
   .site-header { min-height: 76px; }
   .brand, .site-header .brand { gap: 8px; font-size: 1.05rem; }
   .brand-mark, .site-header .brand-mark { width: 34px; height: 34px; border-radius: 9px; }
   .nav { gap: 12px; }
   .nav a:not(.nav-cta) { display: none; }
-  .a11y-toggle-text, .say-btn-text { display: none; }
-  .a11y-toggle, .say-btn { padding: 7px 10px; }
+  .a11y-toggle-text { display: none; }
+  .a11y-toggle { padding: 7px 10px; }
   .nav-cta { padding: 7px 10px; font-size: .76rem; box-shadow: 2px 2px 0 var(--mint); }
   h1 { font-size: clamp(3.25rem, 16vw, 5rem); }
   .hero { padding-block: 65px 90px; }

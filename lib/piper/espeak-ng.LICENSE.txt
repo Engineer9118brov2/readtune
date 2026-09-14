@@ -39,14 +39,11 @@ HOW espeak-ng IS COMBINED WITH READTUNE
   as talking to a separate process over a pipe. ReadTune does not link against
   espeak-ng's internals or include its headers.
 
-  ReadTune's position is that this is aggregation, not a single combined work,
-  so ReadTune as a whole stays under the MIT License while this bundled
-  espeak-ng build remains under the GPLv3. Even if that line were drawn
-  differently, ReadTune's entire source is already public and MIT is
-  GPL-compatible, so every recipient already has the full corresponding
-  source and the freedoms the GPL is there to protect. A future release may
-  replace espeak-ng with a permissively licensed grapheme-to-phoneme step to
-  remove the question entirely (tracked in docs/PIPER.md).
+  This is a technical description of the integration, not a legal conclusion
+  about the extension's overall licensing. A future release may replace
+  espeak-ng with a permissively licensed grapheme-to-phoneme step to remove the
+  question entirely (tracked in docs/PIPER.md). Obtain legal review before a
+  commercial distribution that relies on this notice.
 
 --------------------------------------------------------------------------------
 

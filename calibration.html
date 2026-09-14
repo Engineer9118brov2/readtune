@@ -15,15 +15,16 @@
         <span class="rt-chip">Calibration</span>
         <h1 id="intro-heading">Try a few reading settings</h1>
         <p>
-          You'll read a short warm-up, then five passages. Each one changes
+          You'll read a short warm-up, then six passages. Two use the standard
+          setup and the others each change
           <b>one</b> thing from a clean, research-backed page — the font, the
-          spacing, or the bolding — so you can see which settings are worth
-          keeping, rather than getting a random bundle. Skipping keeps that
+          spacing, or the bolding — in a shuffled order, so you can see which
+          settings are worth trying rather than getting a random bundle. Skipping keeps that
           research-backed page.
         </p>
         <p>
           After each passage: pick the two words that were blanked out (so a
-          skim doesn't count), then rate how it felt. About three minutes.
+          skim doesn't count), then rate how it felt. About four minutes.
         </p>
         <div class="cal-hero-grid">
           <article class="cal-hero-note">
@@ -51,8 +52,8 @@
       </section>
 
       <section id="screen-passage" hidden tabindex="-1" aria-labelledby="passage-head">
-        <h2 class="cal-passage-head" id="passage-head">
-          Passage <span id="p-num">1</span><span id="p-total-wrap"> of <span id="p-total">5</span></span>
+          <h2 class="cal-passage-head" id="passage-head">
+          Passage <span id="p-num">1</span><span id="p-total-wrap"> of <span id="p-total">6</span></span>
           — read it at your normal pace
         </h2>
         <main class="rt-surface cal-surface" id="passage-surface" aria-label="Passage to read"><div id="passage-view"></div></main>
@@ -125,7 +126,7 @@
             </table>
           </div>
           <p class="cal-fine">
-            Words/min is adjusted for practice effect (you can speed up as you go, regardless of the setting). This is a quick preference check, not an assessment.
+            Words/min is adjusted for practice effect, every setting appears in a shuffled order, and standard text is tried twice on different passages. This is a quick preference check, not an assessment.
           </p>
         </details>
 
@@ -155,11 +156,12 @@
           </div>
           <button class="rt-btn rt-primary" id="fit-voice" type="button">Choose my local voice</button>
         </section>
-        <p class="cal-fine">These are saved as a starting setup for Reader View and PDF mode. You can adjust or ignore any of them later.</p>
+        <p class="cal-fine">These are saved as a starting setup for Reader View and PDF mode. You can adjust, ignore, or return to the research-backed starter at any time.</p>
         <div class="cal-result-actions">
           <button class="rt-btn" id="try-pdf" type="button">Try it on a PDF</button>
           <button class="rt-btn" id="btn-lab" type="button">Open Reading Lab</button>
           <button class="rt-btn" id="retake" type="button">Retake the test</button>
+          <button class="rt-btn" id="use-starter" type="button">Keep the standard starter</button>
           <button class="rt-btn" id="finish" type="button">Done</button>
         </div>
       </section>

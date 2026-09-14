@@ -416,6 +416,14 @@ export function createTTS({
     return true;
   }
 
+  function resetPiperAfterFailure() {
+    clearSentencePrefetch();
+    if (piper) {
+      try { piper.destroy(); } catch {}
+      piper = null;
+    }
+  }
+
   /* Synthesise a sentence at the current rate, reusing the one-ahead prefetch
      when it's for the right index and rate. */
   function synthSentence(idx) {
@@ -489,6 +497,7 @@ export function createTTS({
       if (fallbackToPiper("Premium voice unavailable — using the on-device voice.")) {
         return sentenceSpeak(); // retry this sentence on Piper
       }
+      resetPiperAfterFailure();
       const message = err && err.message ? err.message : "The on-device voice couldn't start.";
       onStatus({ provider: "piper", kind: "error", message, percent: null });
       readAloudFailed(message);

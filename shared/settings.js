@@ -13,6 +13,9 @@ import { DEFAULT_RULER_LINES, inferLegacyRulerLines, normalizeRulerLines, rulerS
 export const PROFILE_KEY = "readtune_profile";
 export const HISTORY_KEY = "readtune_calibrations";
 export const ARTICLE_KEY = "readtune_article";
+const ARTICLE_HANDOFF_PREFIX = `${ARTICLE_KEY}:`;
+const MAX_PENDING_ARTICLES = 6;
+const ARTICLE_TTL_MS = 10 * 60 * 1000;
 export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle }
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
@@ -568,33 +571,70 @@ export async function saveReaderUi(patch) {
 
 /* ---- article hand-off ---- */
 
+function articleHandoffId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function articleHandoffKey(id) {
+  return `${ARTICLE_HANDOFF_PREFIX}${id}`;
+}
+
+async function pruneArticleHandoffs(store) {
+  try {
+    const all = await store.get(null);
+    const now = Date.now();
+    const entries = Object.entries(all)
+      .filter(([key]) => key.startsWith(ARTICLE_HANDOFF_PREFIX))
+      .map(([key, article]) => ({ key, capturedAt: Number(article && article.capturedAt) || 0 }));
+    const expired = entries.filter(({ capturedAt }) => !capturedAt || now - capturedAt > ARTICLE_TTL_MS);
+    const fresh = entries
+      .filter(({ capturedAt }) => capturedAt && now - capturedAt <= ARTICLE_TTL_MS)
+      .sort((a, b) => a.capturedAt - b.capturedAt);
+    const overflow = fresh.slice(0, Math.max(0, fresh.length - (MAX_PENDING_ARTICLES - 1)));
+    const staleKeys = [...new Set([...expired, ...overflow].map(({ key }) => key))];
+    if (staleKeys.length) await store.remove(staleKeys);
+  } catch (err) {
+    // A failed cleanup must never prevent the current article from opening.
+    console.warn("[ReadTune] pruneArticleHandoffs failed:", err);
+  }
+}
+
 export async function stashArticle(payload) {
+  const id = articleHandoffId();
+  const key = articleHandoffKey(id);
   try {
     if (chrome.storage.session) {
-      await chrome.storage.session.set({ [ARTICLE_KEY]: payload });
-      return "session";
+      await pruneArticleHandoffs(chrome.storage.session);
+      await chrome.storage.session.set({ [key]: payload });
+      return id;
     }
   } catch (err) {
     console.warn("[ReadTune] stashArticle(session) failed, trying local:", err);
   }
   try {
-    await chrome.storage.local.set({ [ARTICLE_KEY]: payload });
-    return "local";
+    await pruneArticleHandoffs(chrome.storage.local);
+    await chrome.storage.local.set({ [key]: payload });
+    return id;
   } catch (err) {
     console.warn("[ReadTune] stashArticle(local) failed:", err);
     return null;
   }
 }
 
-export async function takeArticle() {
+export async function takeArticle(id = null) {
+  const validId = typeof id === "string" && /^[a-z0-9-]{8,100}$/i.test(id);
+  const key = validId ? articleHandoffKey(id) : ARTICLE_KEY;
   for (const area of ["session", "local"]) {
     try {
       const store = chrome.storage[area];
       if (!store) continue;
-      const got = await store.get(ARTICLE_KEY);
-      if (got && got[ARTICLE_KEY]) {
-        await store.remove(ARTICLE_KEY).catch(() => {});
-        return got[ARTICLE_KEY];
+      const got = await store.get(key);
+      if (got && got[key]) {
+        await store.remove(key).catch(() => {});
+        return got[key];
       }
     } catch (err) {
       console.warn(`[ReadTune] takeArticle(${area}) failed:`, err);

@@ -8,7 +8,7 @@
  *     tested change is a deviation from a page that is already good, so "keep
  *     nothing" leaves you with the research default — never a downgrade.
  *   • A warm-up passage (not scored) absorbs the biggest practice-speed jump.
- *   • Each remaining passage changes exactly ONE thing vs the baseline — font,
+ *   • Each remaining variant passage changes exactly ONE thing vs the baseline — font,
  *     spacing, or bionic bolding — so a win can be attributed to that one
  *     change, not a bundle.
  *   • Reading speed is de-trended for practice effect (a small linear fit across
@@ -49,7 +49,7 @@ import {
   clozeOptions,
 } from "./shared/calibration-passages.js";
 import { createReadingView, applyTypography, paintPage } from "./shared/render.js";
-import { analyse, buildProfile, effectText, HELP_THRESHOLD } from "./shared/calibration-score.js";
+import { analyse, buildProfile, effectText, HELP_THRESHOLD, randomizeConditions } from "./shared/calibration-score.js";
 import { summarizeCalibrations } from "./shared/calibration-insights.js";
 
 /* The anchor every change is measured against: the research-backed starter,
@@ -81,7 +81,7 @@ const WARMUP = {
 /* Each scored dimension = one change from BASELINE. Its passage is assigned at
  * run time from the pool (see buildSequence). `baseline` applies nothing. */
 const DIMENSIONS = [
-  { key: "baseline", label: "Standard", apply: {} },
+  { key: "baseline", label: "Standard", apply: {}, isBaseline: true },
   { key: "dyslexic", label: "OpenDyslexic font", apply: { font: "dyslexic" } },
   { key: "atkinson", label: "Atkinson Hyperlegible font", apply: { font: "atkinson" } },
   {
@@ -93,6 +93,7 @@ const DIMENSIONS = [
 ];
 
 const FONT_KEYS = new Set(["dyslexic", "atkinson"]);
+const BASELINE_REPEAT = { key: "baseline-repeat", label: "Standard repeat", apply: {}, isBaseline: true };
 const PREVIEW_TEXT =
   "This line shows the settings the test chose for you. Reader View and PDF mode use them automatically from now on, and you can adjust any of it from the reading-settings panel.";
 const MIN_READ_MS = 1400;
@@ -110,17 +111,15 @@ const passageSurface = $("passage-surface");
 const passageView = createReadingView($("passage-view"));
 const voiceFitUrl = () => extUrl("lab.html?focus=voice&source=calibration");
 
-/* run order: warm-up, baseline, then the non-baseline dimensions shuffled —
- * each with a distinct pool passage, plus two spares for cloze re-runs. */
+/* Run order: warm-up, then every scored condition in a randomized order.
+ * The baseline moves too: otherwise its fixed early position could favour later
+ * variants as the reader settles in or tires. Each condition gets a distinct
+ * pool passage, plus two spares for cloze re-runs. The second standard passage
+ * makes the baseline less dependent on one passage's difficulty. */
 let sequence = [];
 let spares = [];
 async function buildSequence() {
-  const variants = DIMENSIONS.filter((d) => d.key !== "baseline");
-  for (let i = variants.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [variants[i], variants[j]] = [variants[j], variants[i]];
-  }
-  const ordered = [DIMENSIONS.find((d) => d.key === "baseline"), ...variants];
+  const ordered = randomizeConditions([...DIMENSIONS, BASELINE_REPEAT]);
   const { passages, seenIds } = pickPassages(ordered.length + 2, await loadSeenPassages());
   await saveSeenPassages(seenIds);
   spares = passages.slice(ordered.length);
@@ -130,7 +129,8 @@ async function buildSequence() {
   ];
 }
 
-$("p-total").textContent = String(DIMENSIONS.length); // scored passages (baseline + variants)
+const SCORED_PASSAGE_COUNT = DIMENSIONS.length + 1; // two baseline passages + four variants
+$("p-total").textContent = String(SCORED_PASSAGE_COUNT);
 
 let step = 0;
 let shownAt = 0;
@@ -153,15 +153,15 @@ function renderProgress() {
   progressEl.hidden = false;
   progressEl.replaceChildren();
   const scoredDone = results.length;
-  for (let i = 0; i < DIMENSIONS.length; i++) {
+  for (let i = 0; i < SCORED_PASSAGE_COUNT; i++) {
     const dot = document.createElement("i");
     if (i < scoredDone) dot.className = "done";
     else if (i === scoredDone && step > 0) dot.className = "on";
     progressEl.appendChild(dot);
   }
-  progressEl.setAttribute("aria-valuemax", String(DIMENSIONS.length));
-  progressEl.setAttribute("aria-valuenow", String(Math.min(scoredDone, DIMENSIONS.length)));
-  progressEl.setAttribute("aria-valuetext", `Passage ${Math.min(scoredDone + (current && current.warmup ? 0 : 1), DIMENSIONS.length)} of ${DIMENSIONS.length}`);
+  progressEl.setAttribute("aria-valuemax", String(SCORED_PASSAGE_COUNT));
+  progressEl.setAttribute("aria-valuenow", String(Math.min(scoredDone, SCORED_PASSAGE_COUNT)));
+  progressEl.setAttribute("aria-valuetext", `Passage ${Math.min(scoredDone + (current && current.warmup ? 0 : 1), SCORED_PASSAGE_COUNT)} of ${SCORED_PASSAGE_COUNT}`);
 }
 
 const wordCount = (t) => t.trim().split(/\s+/).filter(Boolean).length;
@@ -245,6 +245,7 @@ function advance() {
   if (!current.warmup) {
     results.push({
       key: current.dim.key,
+      isBaseline: !!current.dim.isBaseline,
       id: current.passage.id,
       label: current.dim.label,
       apply: current.dim.apply,
@@ -356,12 +357,15 @@ async function finish() {
   const rows = $("result-rows");
   rows.replaceChildren();
   const byKey = Object.fromEntries(results.map((r) => [r.key, r]));
-  for (const d of [DIMENSIONS[0], ...dims]) {
-    const r = byKey[d.key];
+  const resultRows = [
+    ...results.filter((r) => r.isBaseline),
+    ...dims.map((d) => byKey[d.key]).filter(Boolean),
+  ];
+  for (const r of resultRows) {
     if (!r) continue;
     const tr = document.createElement("tr");
-    if (kept.includes(d.key) || (d.key === "baseline" && !kept.length)) tr.className = "cal-winner";
-    for (const c of [d.label, String(Math.round(r.wpm)), r.correct ? "Yes" : "No", "★".repeat(r.ease)]) {
+    if (kept.includes(r.key) || (r.isBaseline && !kept.length)) tr.className = "cal-winner";
+    for (const c of [r.label, String(Math.round(r.wpm)), r.correct ? "Yes" : "No", "★".repeat(r.ease)]) {
       const td = document.createElement("td");
       td.textContent = c;
       tr.appendChild(td);
@@ -444,6 +448,27 @@ $("scale").addEventListener("click", (e) => {
   if (b) recordEase(Number(b.dataset.v));
 });
 $("retake").addEventListener("click", () => location.reload());
+$("use-starter").addEventListener("click", async () => {
+  const button = $("use-starter");
+  button.disabled = true;
+  const prior = await loadProfile();
+  const starter = {
+    ...DEFAULT_PROFILE,
+    ...RESEARCH_STARTER_PROFILE,
+    dyslexicUiMode: prior.dyslexicUiMode,
+    ttsRate: prior.ttsRate,
+  };
+  const saved = await writeProfile(starter);
+  if (!saved) {
+    button.disabled = false;
+    button.textContent = "Couldn't save starter - try again";
+    return;
+  }
+  $("result-title").textContent = "Research-backed starter saved";
+  $("result-desc").textContent = "You can keep exploring later. Reader View and PDF mode will now start from the standard research-backed setup.";
+  $("result-headline").hidden = true;
+  button.textContent = "Standard starter saved";
+});
 $("try-pdf").addEventListener("click", () => {
   location.href = extUrl("pdf.html");
 });

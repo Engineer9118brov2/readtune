@@ -14,9 +14,8 @@ get that.
 
 ### 0:00 – 0:25 · The problem, with a face
 
-> "This is my friend [name]. [She]'s dyslexic. Reading a normal web page takes
-> [her] about twice as long as it takes me, and it's tiring — not because [she]
-> can't read, but because of how the text is laid out."
+> "A reader who experiences screen-reading fatigue told us: '[approved quote].'
+> They chose a real page that felt tiring to read."
 
 *(If you have the real-person clip, this is where a few seconds of it goes:
 them reading something dense, then the same thing in ReadTune, then a sentence
@@ -24,31 +23,30 @@ of their reaction.)*
 
 ### 0:25 – 0:55 · Why the existing tools don't solve it
 
-> "There are tools for this. Bionic Reading, BeeLine, Immersive Reader,
-> Speechify. I researched them" *(show the comparison table for ~4 seconds)*.
-> "They all have the same two problems. One: they give you twenty toggles and
-> make you guess which ones help you. Two: the ones that actually do the most
-> are behind a subscription or a school login. If you don't have money or a
-> school account, you get nothing."
+> "There are useful tools for this: Bionic Reading, BeeLine, Immersive Reader,
+> Speechify. Many either offer many settings without a clear starting point, or
+> put some features behind an account or subscription. ReadTune takes a
+> different approach: it is free, local-first, and starts with a small set of
+> settings to try."
 
 ### 0:55 – 2:05 · The calibration test (the core idea)
 
-> "So ReadTune doesn't make you guess. It measures."
+> "So ReadTune doesn't make you guess. It gives you a small, local preference check."
 
 Screen-record the test. Talk over it:
 
-> "Five short passages — or I skip it and just start reading. Each one changes
-> exactly *one* thing from a clean, research-backed page — here it's the
-> spacing, here it's the font. It times my reading, corrects for the fact that
-> everyone speeds up as they go, then blanks out two words and makes me pick
-> them — so a skim doesn't count — and asks how it felt."
+> "Six short passages — or I skip it and just start reading. Standard text is
+> shown twice on different passages; each of the other four changes exactly one
+> setting. It records reading time, uses a two-word cloze comprehension check, and asks
+> how the passage felt. The result is a local preference check, not a diagnosis
+> or a clinical assessment."
 
 Land on the results screen. Point at the breakdown:
 
-> "And here's the part nothing else does — it tells me *which* change helped.
-> Roomier spacing made me 22% faster. OpenDyslexic did nothing for me. So it
-> turned spacing up and left the font alone. It even says right here that it's a
-> rough estimate, not a medical test — because it is."
+> "It shows the clearest signal among the settings it tried. Today, roomier
+> spacing is worth trying again, while a font change was less compelling. It is
+> a rough estimate, not a medical test, and I can keep the standard starter or
+> adjust any setting myself."
 
 ### 2:05 – 2:55 · It just works everywhere now
 
@@ -60,18 +58,18 @@ Land on the results screen. Point at the breakdown:
 - Open a PDF worksheet → same reading view.
 - Tap **Listen** → show the sentence and word highlighting as it speaks.
 
-> "Article, any web page, PDF — same settings, the ones the test picked for me.
-> Read-aloud highlights every word. No account, nothing sent anywhere — there's
-> no server. It works on a plane."
+> "Article, selectable PDF, or the page I already have open — the same starting
+> setup carries through. The default read-aloud follows the sentence and word
+> on-device. Ask AI and optional cloud voices are clearly disclosed before they
+> send text."
 
 ### 2:55 – 3:30 · Who it's for, and honesty
 
-> "This is for the [15–20]% of people with dyslexia and the [7]% with ADHD who
-> can read fine but are fighting the layout every time. It's free because the
-> people who need it most are the ones who can't pay for it, and it's private
-> because it genuinely never needs to send your reading anywhere."
+> "This is for people who find screen reading slow, tiring, or distracting. It
+> is free, and the core reading tools stay local. Optional features that send
+> text say so plainly."
 >
-> "It's not a cure and I'm not claiming the three-minute test is a clinical
+> "It's not a cure and I'm not claiming the four-minute check is a clinical
 > assessment. It's a good starting point instead of a wall of toggles — and you
 > can skip it and start reading. That's the whole idea."
 

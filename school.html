@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#10201f" />
-    <meta name="description" content="ReadTune for school IT: no student data collected, minimal permissions, no cost, and how to allow-list it in the Google Admin console." />
+    <meta name="description" content="ReadTune for school IT: local-first reading tools, minimal permissions, disclosed optional network features, and how to allow-list it in the Google Admin console." />
     <title>For school IT — ReadTune</title>
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
     <link rel="apple-touch-icon" href="/icons/icon128.png" />
@@ -39,15 +39,15 @@
       <a class="doc-back" href="/">← ReadTune home</a>
       <p class="eyebrow"><span class="eyebrow-dot"></span> For school technology administrators</p>
       <h1>ReadTune in a managed environment</h1>
-      <p class="doc-lede">ReadTune is a free reading-accessibility extension. It collects no student information and stores its settings locally on the device. One optional feature, Ask AI, sends text to a relay only when a student chooses to use it — disclosed in full below. This page is for the person deciding whether to add it to an allow-list.</p>
+      <p class="doc-lede">ReadTune is a free reading-accessibility extension. Its core tools store settings locally on the device. Optional cloud voice and Ask AI features can send selected text only when a student chooses them, and are disclosed below. This page is for the person deciding whether to add it to an allow-list.</p>
 
       <div class="doc-key">
-        <p style="margin:0"><strong>The short version.</strong> No accounts, ever. No analytics or telemetry, anywhere. Reading profile, calibration history, and highlights never leave the device. The one exception: if a student turns on <strong>Ask AI</strong> and types a question, that question and the article text go to ReadTune's relay to generate an answer — nothing else does, and nothing happens automatically. Installs with <code>activeTab</code>, <code>scripting</code>, and <code>storage</code> only. No cost, no licence, no renewal. Works offline except for that one opt-in feature.</p>
+        <p style="margin:0"><strong>The short version.</strong> No accounts, analytics, or telemetry. Reading profile, calibration history, and highlights stay on the device. Core tools work offline. Ask AI, Premium voice, and reader-configured ElevenLabs are optional routes that send selected text only when chosen; the network details are below. Installs with <code>activeTab</code>, <code>scripting</code>, and <code>storage</code> only. No cost, no licence, no renewal.</p>
       </div>
 
       <h2>Student data</h2>
-      <p>ReadTune does not collect, store, or transmit any personally identifiable information. It requires no login, no email, and no account of any kind. A student's reading profile, calibration history, reading position, and highlights are written to the browser's local extension storage (<code>chrome.storage.local</code>) on that device and are never sent anywhere.</p>
-      <p>The one exception is <strong>Ask AI</strong> (see "Network behaviour" below): if a student types a question about an article, that question and the article text are sent to ReadTune's relay to generate an answer. It is off unless a student opens it and asks something — nothing is sent automatically, and the relay keeps no record of who asked. We'd rather a school district see this stated plainly than discover it later, so treat Ask AI as the one part of ReadTune to evaluate against your own AI-in-the-classroom policy before enabling it district-wide; everything else has nothing for COPPA or FERPA to attach to, and we'll put that in writing on request.</p>
+      <p>ReadTune requires no login, email, or account. A student's reading profile, calibration history, reading position, and highlights are written to the browser's local extension storage (<code>chrome.storage.local</code>) on that device and are never sent anywhere.</p>
+      <p>Optional network features (see "Network behaviour" below) can send selected article text and, for Ask AI, a typed question. They are off unless a student explicitly chooses them. Districts should evaluate those options under their own student-data and AI policies rather than treating this page as a COPPA or FERPA certification.</p>
 
       <h2>Permissions, and why each is needed</h2>
       <table class="doc-table">
@@ -60,8 +60,8 @@
 
       <h2>Network behaviour</h2>
       <p>Read-aloud uses Piper, a neural voice that runs entirely on the device. The default voice ships inside the extension, so it works offline with nothing to download and the reading text is never uploaded. If a student picks one of the optional voices in the Reading Lab, that one model file downloads once from Hugging Face and is then cached on the device. Page reformatting, PDF text extraction, and the calibration test all run entirely in the browser using code bundled in the extension (no CDN, no remote scripts — Manifest V3 forbids them and ReadTune loads none).</p>
-      <p><strong>Ask AI (opt-in, the one feature to evaluate):</strong> Reader View has an "Ask AI" panel where a student can request a summary or type a question about the article they're reading. If they do, the article text — and, for a typed question, the question itself — is sent to ReadTune's own relay (<code>readtune.tech/api/assist</code>), which forwards it to a third-party AI model to generate the response. This is off unless a student opens the panel and asks; it never runs automatically. The relay does not log who asked or keep any account trail; it may cache a generated answer by the article's URL (and question) purely so a popular article isn't re-processed on every request. Treat this the way you would any AI tool against your district's policy — everything else on this page is unaffected either way.</p>
-      <p><strong>One further opt-in exception:</strong> a student can paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key to use higher-quality read-aloud voices. If they do, the passage being read and their key are sent to <code>api.elevenlabs.io</code> to generate audio. This requires a personal ElevenLabs account and API key, which students on a school account will not have, and it can be disregarded for your evaluation. The feature is off by default and there is no ElevenLabs integration unless a key is entered.</p>
+      <p><strong>Ask AI (opt-in):</strong> Reader View has an "Ask AI" panel where a student can request a summary or type a question about the article they're reading. If they do, the article text — and, for a typed question, the question itself — is sent to ReadTune's own relay (<code>readtune.tech/api/assist</code>), which forwards it to a third-party AI model to generate the response. This is off unless a student opens the panel and asks; it never runs automatically. The relay does not log who asked or keep an account trail; it may cache a generated answer by the article's URL (and question) purely so a popular article isn't re-processed on every request. Treat this as an AI tool under the district's policy.</p>
+      <p><strong>Optional cloud voices:</strong> Premium voice sends the sentence being spoken to ReadTune's text-to-speech relay, which forwards it to a third-party provider. A student can also paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key; that sends the passage being read and key directly to <code>api.elevenlabs.io</code>. Both options are off by default. The default Piper voice remains local and needs neither a key nor a network request.</p>
 
       <h2>Support burden</h2>
       <ul>

@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const PIPER_SMOKE = process.env.HARNESS_MODE === "piper";
 const TYPES = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
   ".css": "text/css", ".json": "application/json", ".woff2": "font/woff2",
@@ -35,7 +36,7 @@ const server = createServer(async (req, res) => {
 
 await new Promise((r) => server.listen(0, r));
 const port = server.address().port;
-const url = `http://127.0.0.1:${port}/test/harness.html`;
+const url = `http://127.0.0.1:${port}${PIPER_SMOKE ? "/test/piper-smoke.html" : "/test/harness.html"}`;
 
 function findChrome() {
   if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
@@ -134,29 +135,50 @@ try {
 
   let done = false;
   let fails = -1;
-  for (let i = 0; i < 100; i++) {
+  let smokeResult = null;
+  for (let i = 0; i < (PIPER_SMOKE ? 900 : 100); i++) {
     const r = await send(
       "Runtime.evaluate",
-      { expression: "({done: !!window.__DONE, fails: window.__FAILS ?? -1})", returnByValue: true },
+      {
+        expression: PIPER_SMOKE
+          ? "window.__PIPER_SMOKE ?? null"
+          : "({done: !!window.__DONE, fails: window.__FAILS ?? -1})",
+        returnByValue: true,
+      },
       sessionId
     );
-    ({ done, fails } = r.result.value);
+    if (PIPER_SMOKE) {
+      smokeResult = r.result.value;
+      done = !!smokeResult;
+      fails = smokeResult && smokeResult.ok ? 0 : 1;
+    } else {
+      ({ done, fails } = r.result.value);
+    }
     if (done) break;
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  const summary = await send(
-    "Runtime.evaluate",
-    { expression: `[...document.querySelectorAll('#results li')].map(l=>l.textContent).join('\\n')`, returnByValue: true },
-    sessionId
-  );
-  console.log(summary.result.value);
+  if (PIPER_SMOKE) {
+    const progress = await send(
+      "Runtime.evaluate",
+      { expression: "window.__PIPER_PROGRESS || []", returnByValue: true },
+      sessionId
+    );
+    console.log(JSON.stringify({ result: smokeResult, progress: progress.result.value }));
+  } else {
+    const summary = await send(
+      "Runtime.evaluate",
+      { expression: `[...document.querySelectorAll('#results li')].map(l=>l.textContent).join('\\n')`, returnByValue: true },
+      sessionId
+    );
+    console.log(summary.result.value);
+  }
 
   if (!done) {
     console.error("\n✗ harness did not finish");
     cleanup(1);
   } else if (fails > 0) {
-    console.error(`\n✗ ${fails} assertion(s) failed`);
+    console.error(PIPER_SMOKE ? `\n✗ Piper smoke failed: ${smokeResult && smokeResult.error}` : `\n✗ ${fails} assertion(s) failed`);
     cleanup(1);
   } else {
     console.log("\n✓ harness passed");

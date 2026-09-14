@@ -3,8 +3,9 @@
 Paste one of these into a **fresh** Claude or Codex session that has the ReadTune
 repo checked out. They're written for *this* codebase — vanilla JS, Manifest V3,
 no build step, no framework — so ignore any advice a model gives that assumes
-React, a bundler, or a hosted TTS model. ReadTune's read-aloud is the Web Speech
-API plus an optional user-supplied ElevenLabs key, and that is deliberate.
+React, a bundler, or a hosted TTS model. ReadTune's default read-aloud is Piper,
+an on-device neural voice; it also has optional relay and user-supplied
+ElevenLabs paths, each deliberately disclosed in the privacy copy.
 
 ---
 

@@ -28,22 +28,22 @@ nothing.
 
 ## What ReadTune does differently
 
-**It runs the experiment on you.** The first thing you do is a ~3-minute
+**It runs the experiment on you.** The first thing you do is a ~4-minute
 calibration test — or you skip it and start reading on a research-backed
-default. The test is a warm-up, then five short passages. Each passage changes
+default. The test is a warm-up, then six short passages in a shuffled order. Standard text appears twice on different passages; the other four passages each change
 *exactly one* thing from that research-backed page — the font, the spacing, or
 bionic bolding. It times your reading (correcting for the speed-up everyone gets
 from practice), runs a **cloze check** (two words blanked in a middle sentence,
 pick the missing pair — you can't answer it from the title or a skim), and asks
 how each one felt. Passages are drawn from a pool and never repeat on a retake.
-Then it scores every change against a genuinely good baseline and tells you
-which ones helped:
+Then it scores every change against the average of those standard readings and identifies
+which settings are the clearest ones to try:
 
-> *"Roomier spacing helped you most — about 22% faster. OpenDyslexic didn't help
-> you. We turned spacing up and left the font standard."*
+> *"Roomier spacing was the clearest signal today. Try it as your starting
+> setup; the standard font held up just as well as OpenDyslexic."*
 
-That last part — telling you *which dimension mattered* — is something no other
-reading tool does. And now the **Reading Lab** keeps a local history of your
+That last part — showing which setting was the clearest signal in a short check —
+is a different workflow from a wall of manual toggles. The **Reading Lab** keeps a local history of your
 retakes so you can see whether spacing, a font, or sentence chunking keeps
 winning or whether today's result was just a close call. It's a piece of
 self-knowledge, not just a settings blob.
@@ -71,11 +71,11 @@ with both a reading profile and a chosen on-device voice.
 | Helperbird | manual toggles | ✓ | ✓ | ~$4.99/mo+ | ✕ |
 | MS Immersive Reader | manual toggles | limited | ✓ | needs MS/school account | ✕ |
 | Speechify | manual toggles | ✓ | ✓ | subscription | ✕ |
-| **ReadTune** | **a test finds your settings** | **✓** | **✓** | **✓ — no login, no paywall** | **✓ — local by default, one opt-in AI exception** |
+| **ReadTune** | **a short preference check suggests settings to try** | **✓** | **✓** | **✓ — no login, no paywall** | **✓ — local by default, optional cloud features disclosed** |
 
 ## How it works (for the judges who ask)
 
-Chrome extension, Manifest V3. Everything runs on your device.
+Chrome extension, Manifest V3. Core reading features run on your device; optional cloud features are disclosed and user-initiated.
 
 - **Reader View** pulls the article out of any page with Mozilla Readability,
   then rebuilds it through a strict allowlist sanitizer (no scripts, no
@@ -101,16 +101,17 @@ Chrome extension, Manifest V3. Everything runs on your device.
 
 The calibration scoring is a small, testable model:
 `shared/calibration-score.js`, with unit tests. There's a CI pipeline and a
-~110-assertion test harness.
+test harness with hundreds of behavioural assertions.
 
 ## What we're honest about
 
-The calibration test is a **quick estimate from a few short readings, not a
-clinical assessment** — the results screen says exactly that and offers a
-retake. Five ~20-second readings is a small sample. The cloze check makes the
-comprehension signal hard to fake, and the baseline is the research-backed
-starter so "keep nothing" is never a downgrade — but it's still a *starting
-point that beats a wall of toggles*, and that's the claim we're making.
+The calibration test is a **quick estimate from six short readings plus a
+warm-up, not a clinical assessment**. Two readings use the standard setup and
+are averaged as a steadier baseline; each other reading changes one setting.
+The results screen offers the standard starter, a retake, and full manual
+control. Cloze questions and ease ratings make the signal more useful, but it
+remains a *starting point instead of a wall of toggles*, not proof of a best
+configuration.
 
 Some of the options ReadTune offers have strong evidence behind them (read-aloud,
 increased spacing, lower contrast). Some are contested (coloured tints, bionic
@@ -119,13 +120,13 @@ them as optional and off by default, and we let the calibration test decide
 per-person instead of asserting they work. The full evidence rundown is in
 [`docs/RESEARCH.md`](../docs/RESEARCH.md).
 
-"Local by default" has exactly one exception, and we say so everywhere rather
-than burying it: **Ask AI**. Fonts, spacing, focus, calibration, highlights,
-and on-device read-aloud never leave the browser. If you open Ask AI and
-request a summary or type a question, that article text — and the question,
-for a typed one — goes to ReadTune's own relay to generate the response, only
-when you ask, never automatically. It's disclosed the same way to a judge, a
-school IT admin, and a reader: [`privacy.html`](https://readtune.tech/privacy.html).
+"Local by default" has clearly labelled opt-in exceptions. Fonts, spacing,
+focus, calibration, highlights, and on-device read-aloud never send reading
+text off the device. Ask AI may route article text and a typed question through
+ReadTune's relay; Premium voice routes the current sentence through its voice
+relay; and ElevenLabs sends a selected passage directly to the reader's own
+account. Each is disclosed before use to a judge, school IT admin, and reader:
+[`privacy.html`](https://readtune.tech/privacy.html).
 
 ## What's next
 

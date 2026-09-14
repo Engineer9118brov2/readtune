@@ -28,7 +28,8 @@ function cleanByline(raw) {
 async function init() {
   const view = createReadingView(viewHost);
 
-  const article = await takeArticle();
+  const handoffId = new URL(location.href).searchParams.get("article");
+  const article = await takeArticle(handoffId);
   if (!article || !article.ok || !article.html) {
     showMessage(messageHost, {
       title: "Open ReadTune from an article",

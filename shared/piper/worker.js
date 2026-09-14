@@ -2,6 +2,7 @@ import { TtsSession, setBundledResolver } from "./piper-tts-web.js";
 
 let session = null;
 let activeVoice = "";
+const SYNTHESIS_TIMEOUT_MS = 60000;
 
 const runtimeUrl = (path) => new URL(`../../${path}`, import.meta.url).href;
 
@@ -16,12 +17,23 @@ setBundledResolver(async (url) => {
   const res = await fetch(runtimeUrl(`lib/piper/voices/${file}`));
   if (!res.ok) return null;
   return await res.blob();
-});
+}, { voiceIds: [...BUNDLED_VOICES] });
 
 function progress(event) {
   const total = Number(event.total) || 0;
   const loaded = Number(event.loaded) || 0;
   postMessage({ type: "progress", loaded, total, phase: String(event.url || "") });
+}
+
+function synthesizeWithTimeout(text, rate) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("The natural voice took too long. Try again or choose another voice.")), SYNTHESIS_TIMEOUT_MS);
+  });
+  return Promise.race([
+    session.predict(text, { rate }),
+    timeout,
+  ]).finally(() => clearTimeout(timer));
 }
 
 async function prepare(voiceId) {
@@ -49,7 +61,7 @@ self.onmessage = async ({ data }) => {
     }
     if (data.type === "synthesize") {
       postMessage({ type: "status", kind: "speaking", message: "Natural voice is reading along." });
-      const audio = await session.predict(data.text, { rate: Number(data.rate) > 0 ? Number(data.rate) : 1 });
+      const audio = await synthesizeWithTimeout(data.text, Number(data.rate) > 0 ? Number(data.rate) : 1);
       postMessage({ id: data.id, type: "audio", audio });
     }
   } catch (error) {

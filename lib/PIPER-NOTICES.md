@@ -23,8 +23,8 @@ uploaded.
 ## On the GPLv3 phonemizer
 
 espeak-ng is compiled to a standalone WebAssembly module with its own linear
-memory; ReadTune calls it only across that boundary (text in, phoneme string
-out) and never links its internals. ReadTune as a whole remains under the MIT
-License; this espeak-ng build remains under the GPLv3. See
-[`docs/PIPER.md`](../docs/PIPER.md) for the full reasoning and the planned
-long-term switch to a permissively licensed grapheme-to-phoneme step.
+memory; ReadTune calls it across that boundary (text in, phoneme string out) and
+does not link its internals. That is a technical description, not a legal
+conclusion about the extension's overall licensing. See
+[`docs/PIPER.md`](../docs/PIPER.md) for the distribution notes, planned
+permissive replacement, and the need for legal review before commercial use.
