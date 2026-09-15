@@ -10,7 +10,7 @@ that suggests settings to try.**
 ### Before the Web Store listing is live
 - Ship the demo video (see `docs/VIDEO.md`). Nothing below works without it.
 - Make sure `readtune.tech`, `/privacy.html`, and `/school.html` are live
-  and the fonts load (check the dyslexia toggle actually renders OpenDyslexic).
+  and the bundled fonts load (check the dyslexia-friendly UI toggle actually applies the roomier Atkinson/Lexend chrome).
 - Have "load unpacked" instructions ready for people who want it before it's
   approved.
 

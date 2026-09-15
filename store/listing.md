@@ -103,7 +103,7 @@ Where it works
 • Optional per-site automation: auto-open Reader View, or auto-restyle, on a site you choose (asks for that one site's permission only when you turn it on)
 
 Accessibility of the app itself
-• A "dyslexia-friendly menus" switch renders ReadTune's own buttons, sliders and settings in OpenDyslexic — so the person who needs that font can read the controls, not only the article
+• A "dyslexia-friendly menus" switch makes ReadTune's own buttons, sliders and settings roomier and uses the high-legibility Atkinson/Lexend UI stack — so the controls themselves stay readable without squeezing labels into a wider specialty font
 
 Memory
 • Your profile and history are saved with the browser's local storage — no account

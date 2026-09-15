@@ -46,7 +46,7 @@ The extension does not sell or share data, run analytics, create an account, sen
 
 ## The readtune.tech website
 
-The marketing pages at `readtune.tech` are hosted on Vercel and use [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy) and Speed Insights for page views and load timings. It is cookieless, does not track you across sites, and does not build a profile: it records the page URL, referrer, country and coarse device type, and Vercel discards the IP address after deriving those. **None of this ships in the extension** — every statement above about the extension still holds exactly as written.
+The public marketing pages at `readtune.tech` are hosted on Vercel. ReadTune does **not** load a pageview analytics SDK, advertising pixel, or product-tracking script on those pages. Like ordinary web hosting, Vercel may process basic request and security logs needed to deliver the site; ReadTune does not use those logs to build reader profiles or connect website visits to extension activity. **Nothing you read inside the extension is visible to the website.**
 
 ## Your control
 

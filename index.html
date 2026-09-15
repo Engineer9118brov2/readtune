@@ -1,186 +1,424 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#10201f" />
-    <meta name="description" content="ReadTune suggests a reading setup worth trying, then carries your profile into articles, PDFs, and read-aloud. Ask AI answers questions about what you're reading. Free, local-first, no account." />
-    <title>ReadTune — reading that fits</title>
-    <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
-    <link rel="apple-touch-icon" href="/icons/icon128.png" />
-    <link rel="stylesheet" href="site.css" />
-    <script>
-      try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
-    </script>
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header shell">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f211f" />
+  <meta name="description" content="ReadTune is a free, local-first Chrome extension that runs a short preference check, suggests reading settings to try, and carries them into articles, PDFs, web pages, read-aloud, and study tools." />
+  <title>ReadTune — stop guessing at reading settings</title>
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
+  <link rel="apple-touch-icon" href="/icons/icon128.png" />
+  <link rel="stylesheet" href="site.css" />
+  <script>
+    try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header" data-site-header>
+    <div class="shell header-inner">
       <a class="brand" href="/" aria-label="ReadTune home">
         <img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" />
         <span>ReadTune</span>
       </a>
-      <nav class="nav" aria-label="Primary navigation">
-        <button class="say-btn" id="say-nav" type="button" data-say aria-label="Read this page aloud">
-          <span class="say-btn-glyph" aria-hidden="true"></span>
+
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" data-menu-toggle>
+        <span></span><span></span><span></span><span class="sr-only">Menu</span>
+      </button>
+
+      <nav class="nav" id="primary-nav" aria-label="Primary navigation" data-nav>
+        <a href="#method">Method</a>
+        <a href="#ai-mode">AI mode</a>
+        <a href="#lab">Reading Lab</a>
+        <a href="#listen">Read aloud</a>
+        <a href="#privacy">Privacy</a>
+        <button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false">
+          <span aria-hidden="true">Aa</span><span>Dyslexia-friendly UI</span>
         </button>
-        <button class="a11y-toggle" id="dys-toggle" type="button" aria-pressed="false" aria-label="Use a dyslexia-friendly view of this site">
-          <span class="a11y-toggle-mark" aria-hidden="true">Aa</span>
-          <span class="a11y-toggle-text">Dyslexia-friendly</span>
-        </button>
-        <a href="#how-it-works">How it works</a>
-        <a href="#read-along">Read along</a>
-        <a href="#ask-ai">Ask AI</a>
-        <a href="/privacy.html">Privacy</a>
-        <a class="nav-cta" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+        <a class="nav-cta" href="#install">Try ReadTune <span aria-hidden="true">↘</span></a>
       </nav>
-    </header>
+    </div>
+  </header>
 
-    <main id="main">
-      <section class="hero shell" data-reveal>
-        <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot"></span> A free reading companion for the web</p>
-          <h1>St<span class="say-o-wrap"><button class="say-o-hit" type="button" data-say aria-hidden="true" tabindex="-1"></button><span class="say-o-letter">o</span></span>p guessing.<br /><em>Read what fits.</em></h1>
-          <p class="hero-lede">ReadTune runs a quick check to suggest a reading setup worth trying, then carries your profile into articles, PDFs, web pages, and read-aloud.</p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Install from GitHub <span aria-hidden="true">↗</span></a>
-            <a class="text-link" href="#how-it-works">See the method <span aria-hidden="true">↓</span></a>
+  <main id="main">
+    <section class="hero shell section-pad">
+      <div class="hero-copy" data-reveal>
+        <div class="eyebrow"><span class="status-dot"></span> Free · open source · Chrome</div>
+        <h1>Stop guessing.<br /><em>Read what fits.</em></h1>
+        <p class="hero-lede">If dense pages make you lose your place, reread the same line, or give up halfway, ReadTune gives you somewhere better to start: a short preference check, a reading profile that follows you, and help inside the article when you get stuck.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#install">Try ReadTune <span aria-hidden="true">↗</span></a>
+          <a class="button button-quiet" href="#ai-mode">Watch AI mode</a>
+        </div>
+        <ul class="proof-row" aria-label="ReadTune product qualities">
+          <li><strong>~4 min</strong><span>preference check</span></li>
+          <li><strong>0</strong><span>accounts</span></li>
+          <li><strong>Local-first</strong><span>core reading tools</span></li>
+          <li><strong>Free</strong><span>no paywall</span></li>
+        </ul>
+      </div>
+
+      <div class="hero-demo" data-reveal>
+        <div class="demo-window">
+          <div class="demo-window-top">
+            <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="mono">READTUNE / LIVE PROFILE</span>
+            <span class="profile-chip">provisional</span>
           </div>
-          <div class="hero-proof" aria-label="Product qualities">
-            <span><b>4 min</b> calibration</span>
-            <span><b>0</b> accounts</span>
-            <span><b>100%</b> local by default</span>
+          <div class="demo-heading-row">
+            <div><span class="mono">YOUR CURRENT PROFILE</span><h2 id="demo-title">Calm focus</h2></div>
+            <div class="demo-score" aria-label="Profile confidence is still provisional"><strong>01</strong><span>run</span></div>
           </div>
+          <div class="demo-reading" id="demo-reading">
+            <div class="focus-band" aria-hidden="true"></div>
+            <p class="demo-kicker">A small change can make room for a whole idea.</p>
+            <p>ReadTune starts with a short check. It changes one reading setting at a time, then looks at pace, comprehension, and comfort together.</p>
+            <p>There is no universal “best” font. The useful question is which setup is worth <strong>you</strong> trying again.</p>
+          </div>
+          <div class="demo-controls" role="group" aria-label="Preview reading styles">
+            <button type="button" class="demo-control is-active" data-demo-style="atkinson" aria-pressed="true">Atkinson</button>
+            <button type="button" class="demo-control" data-demo-style="lexend" aria-pressed="false">Lexend</button>
+            <button type="button" class="demo-control" data-demo-style="roomy" aria-pressed="false">Roomier</button>
+            <button type="button" class="demo-control is-active" data-demo-style="focus" aria-pressed="true">Focus</button>
+          </div>
+          <p class="demo-caption">A starting point, not a diagnosis.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Product principles">
+      <div class="shell trust-grid">
+        <span>NO LOGIN</span><span>NO SUBSCRIPTION</span><span>NO EXTENSION ANALYTICS</span><span>ON-DEVICE VOICE</span><span>OPEN SOURCE</span>
+      </div>
+    </section>
+
+    <section class="friction section-pad shell" aria-labelledby="friction-title">
+      <div class="friction-intro" data-reveal>
+        <p class="section-kicker">Start with the problem, not the feature</p>
+        <h2 id="friction-title">What is the page doing
+          <em>to you?</em></h2>
+        <p>Different reading friction needs different help. Pick the thing that sounds familiar; ReadTune takes you straight to the part built for it.</p>
+      </div>
+      <div class="friction-grid" data-reveal>
+        <a href="#method" class="friction-card"><span>01</span><strong>“I have no idea which settings actually help.”</strong><p>Run the four-minute preference check instead of guessing through a settings wall.</p><b>Find a starting point →</b></a>
+        <a href="#reading" class="friction-card"><span>02</span><strong>“This page is exhausting to look at.”</strong><p>Carry one calmer profile into articles, PDFs, or the live page you already have open.</p><b>Change the reading surface →</b></a>
+        <a href="#ai-mode" class="friction-card"><span>03</span><strong>“I can read the words, but this part is not clicking.”</strong><p>Ask, simplify, define, explain, annotate, and save the useful answer beside the text.</p><b>Use AI inside the article →</b></a>
+        <a href="#listen" class="friction-card"><span>04</span><strong>“I keep losing my place halfway through.”</strong><p>Use focus guides, read-aloud with follow-along, sentence stepping, or auto-scroll.</p><b>Keep your place →</b></a>
+      </div>
+    </section>
+
+    <section class="difference section-pad shell" data-reveal>
+      <div class="section-head split-head">
+        <div>
+          <p class="section-kicker">The difference</p>
+          <h2>Most tools start with twenty toggles.<br /><em>ReadTune starts with a question.</em></h2>
+        </div>
+        <p>Which settings actually feel worth keeping for this reader? ReadTune tries a small set, uses the result as a starting profile, and lets later retakes show whether the same preference keeps coming back.</p>
+      </div>
+
+      <div class="loop-grid">
+        <article><span class="step-no">01</span><h3>Try</h3><p>Warm up, then read six short passages. Standard text appears twice; the other passages each change one thing.</p></article>
+        <article><span class="step-no">02</span><h3>Compare</h3><p>Reading pace, a two-word cloze check, and a 1–5 ease rating feed a lightweight preference score.</p></article>
+        <article><span class="step-no">03</span><h3>Carry</h3><p>The suggested profile follows you into Reader View, PDFs, and the page you already have open.</p></article>
+        <article><span class="step-no">04</span><h3>Repeat</h3><p>Reading Lab keeps recent runs locally and shows whether the same result is beginning to repeat—or not.</p></article>
+      </div>
+    </section>
+
+    <section class="method section-pad" id="method">
+      <div class="shell method-grid">
+        <div class="method-copy" data-reveal>
+          <p class="section-kicker">01 · Preference check</p>
+          <h2>A small experiment.<br /><em>Kept deliberately honest.</em></h2>
+          <p class="large-copy">A four-minute preference check: one warm-up. Six short passages are scored. Two standard readings form the baseline; four other readings each change a single condition such as typeface, spacing, or leading-letter emphasis.</p>
+          <div class="passage-sequence" aria-label="Calibration sequence illustration">
+            <span class="warmup">W</span><span>B</span><span>F</span><span>S</span><span>B</span><span>F</span><span>E</span>
+          </div>
+          <ul class="check-list">
+            <li>Scored order is shuffled to reduce position bias.</li>
+            <li>Speed is adjusted for practice effect.</li>
+            <li>Nothing wins unless it clears a minimum margin.</li>
+            <li>If nothing stands out, standard text can stay the answer.</li>
+          </ul>
+          <p class="honesty-note"><strong>Not a clinical assessment.</strong> One run is provisional. The point is to suggest a setup worth trying—not to prove a permanent “best” configuration.</p>
+          <a class="text-link" href="https://github.com/Engineer9118brov2/readtune/blob/main/docs/RESEARCH.md" target="_blank" rel="noreferrer">Read the evidence + limits ↗</a>
         </div>
 
-        <div class="specimen" aria-label="Interactive ReadTune reading preview">
-          <div class="specimen-topline">
-            <span class="mono-label">READING LAB / LIVE SPECIMEN</span>
-            <span class="status"><span></span> PROFILE ACTIVE</span>
+        <figure class="media-card media-placeholder" data-video-slot="calibration-flow" data-image-slot="calibration-results" data-reveal>
+          <div class="media-placeholder-inner">
+            <span class="placeholder-tag">VIDEO / IMAGE SLOT 01</span>
+            <strong>Preference check → result</strong>
+            <p>Preferred: a short clip ending on the provisional result. A result screenshot works as fallback.</p>
+            <code>assets/site/calibration-flow.mp4</code>
           </div>
-          <div class="specimen-meta">
-            <div>
-              <p class="mono-label">YOUR CURRENT PROFILE</p>
-              <h2>Calm focus</h2>
-            </div>
-            <span class="profile-state">Provisional<span> profile</span></span>
-          </div>
-          <div class="specimen-reading" id="specimen-reading">
-            <div class="reading-rule" aria-hidden="true"></div>
-            <p class="reading-kicker">A small change can make room for a whole idea.</p>
-            <p class="reading-body">ReadTune begins with a short calibration. It tries a handful of different ways to set a page, then looks at your pace, comprehension, and comfort together.</p>
-            <p class="reading-body">There is no universal “best” font. The useful answer is the one that helps <strong>you</strong> stay with the sentence.</p>
-            <p class="reading-caption">Your settings travel with you.</p>
-          </div>
-          <div class="specimen-controls" role="group" aria-label="Preview settings">
-            <button class="specimen-control is-active" type="button" data-demo-font="atkinson">Atkinson</button>
-            <button class="specimen-control" type="button" data-demo-font="dyslexic">OpenDyslexic</button>
-            <button class="specimen-control" type="button" data-demo-font="lexend">Lexend</button>
-            <span class="control-divider" aria-hidden="true"></span>
-            <button class="specimen-control is-active" type="button" data-demo-focus="3">3-line focus</button>
-          </div>
-          <p class="specimen-note"><span aria-hidden="true">⌁</span> The profile comes from a quick check, not a guess.</p>
-        </div>
-      </section>
+          <figcaption>Suggested image: result screen showing the clearest signal, kept settings, and “Provisional” language.</figcaption>
+        </figure>
+      </div>
+    </section>
 
-      <section class="manifesto shell" id="how-it-works" data-reveal>
-        <div class="section-label"><span>01</span><span>THE DIFFERENCE</span></div>
-        <div class="manifesto-grid">
-          <h2>Most reading tools give you toggles.<br /><em>ReadTune gives you a starting point.</em></h2>
-          <p>Fonts and spacing are personal. What feels helpful to one reader can be tiring for another. ReadTune makes that uncertainty useful: it tests one change at a time, checks whether you understood the passage, and keeps the settings that earn their place.</p>
-        </div>
-      </section>
+    <section class="reading section-pad shell" id="reading">
+      <div class="section-head split-head" data-reveal>
+        <div><p class="section-kicker">02 · Carry it forward</p><h2>One profile.<br /><em>Three ways to read.</em></h2></div>
+        <p>ReadTune’s formatting engine is shared across its clean Reader View, text-based PDFs, and in-place restyling. You do not rebuild your setup for every surface.</p>
+      </div>
 
-      <section class="method shell" data-reveal>
-        <div class="method-card method-card-main" data-reveal>
-          <div class="card-number">01</div>
-          <div>
-            <p class="card-label">CALIBRATE</p>
-            <h3>A four-minute preference check built around your reading.</h3>
-            <p>Six short passages, or skip and start reading. One focused change at a time, with standard text repeated on a different passage. Reading time, a guess-proof cloze check, and your own ease rating work together.</p>
-          </div>
-          <div class="calibration-lines" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-        </div>
-        <div class="method-card method-card-dark" data-reveal>
-          <div class="card-number">02</div>
-          <div>
-            <p class="card-label">CARRY IT FORWARD</p>
-            <h3>Your reading profile follows the text.</h3>
-            <p>Reader View, PDFs, and live web pages share one profile. Your saved setup does not disappear when the tab changes.</p>
-          </div>
-          <div class="carry-chip"><span>font</span><b>spacing</b><i>focus</i></div>
-        </div>
-        <div class="method-card method-card-accent" data-reveal>
-          <div class="card-number">03</div>
-          <div>
-            <p class="card-label">KEEP AGENCY</p>
-            <h3>Nothing is permanent. Nothing is hidden.</h3>
-            <p>Adjust anything, retake the test, or turn it off. Your profile and history stay on your device.</p>
-          </div>
-          <div class="device-stamp">LOCAL<br />FIRST</div>
-        </div>
-      </section>
+      <div class="surface-cards" data-reveal>
+        <article><span class="surface-icon">A</span><h3>Reader View</h3><p>Extracts the article with Mozilla Readability, sanitizes it, then rebuilds it in your profile.</p><small>Alt + R</small></article>
+        <article><span class="surface-icon">PDF</span><h3>PDF mode</h3><p>Pulls selectable text from worksheets and handouts with pdf.js and renders it through the same engine.</p><small>Text PDFs</small></article>
+        <article><span class="surface-icon">↗</span><h3>Restyle this page</h3><p>Applies font, spacing, tint, bionic emphasis, and focus aids to the live page, then restores it when toggled off.</p><small>Alt + Shift + R</small></article>
+      </div>
 
-      <section class="read-along shell" id="read-along" data-reveal>
-        <div class="section-label"><span>02</span><span>READ ALONG</span></div>
-        <div class="read-along-grid">
-          <div class="read-along-copy">
-            <p class="eyebrow eyebrow-light"><span class="eyebrow-dot"></span> On-device by default</p>
-            <h2>Listen without<br /><em>losing your place.</em></h2>
-            <p>ReadTune reads the current sentence while the same words stay visible in your chosen font. The voice is Piper, a natural neural voice that runs on your device — the default ships inside the extension, so it works offline with nothing to download.</p>
-            <div class="voice-note"><span class="voice-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>Sentence + word highlighting</span><b>FREE</b></div>
+      <figure class="wide-media media-placeholder" data-image-slot="reader-settings" data-reveal>
+        <div class="media-placeholder-inner">
+          <span class="placeholder-tag">IMAGE SLOT 02</span>
+          <strong>Reader View + settings</strong>
+          <p>Use the cleaned-up Reader View screenshot with the polished settings rail.</p>
+          <code>assets/site/reader-settings.png</code>
+        </div>
+        <figcaption>Suggested image: a real article with settings open, showing typography, quick modes, and a clean reading surface.</figcaption>
+      </figure>
+    </section>
+
+    <section class="ai-showcase section-pad" id="ai-mode">
+      <div class="shell ai-showcase-head" data-reveal>
+        <div>
+          <p class="section-kicker light">03 · AI mode</p>
+          <h2>Not a chatbot pasted onto a reader.<br /><em>AI that works inside the reading workflow.</em></h2>
+        </div>
+        <p>Article chat sits beside the text you are already reading. Use it to understand, simplify, annotate, and keep useful explanations without leaving your reading setup.</p>
+      </div>
+
+      <div class="shell ai-stage">
+        <figure class="video-card ai-video media-placeholder" data-video-slot="ai-mode" data-reveal>
+          <div class="media-placeholder-inner">
+            <span class="placeholder-tag">VIDEO SLOT 01</span>
+            <strong>AI mode walkthrough</strong>
+            <p>Best clip: open Article chat → ask a question → switch answer level → annotate or save an explanation.</p>
+            <code>assets/site/ai-mode.mp4</code>
           </div>
-          <div class="audio-card">
-            <div class="audio-card-top"><span class="mono-label">NOW READING · ON DEVICE</span><span class="audio-time">00:18 / 01:04</span></div>
-            <p class="audio-text">The useful answer is the one that helps <mark>you stay with the sentence.</mark></p>
-            <div class="audio-progress"><span></span></div>
-            <div class="audio-controls"><span class="audio-play-indicator" aria-hidden="true"><span></span></span><span class="audio-voice">Linden <small>· on-device voice</small></span><span class="audio-speed">1.0×</span></div>
+          <figcaption>Suggested 12–20 second silent loop. Keep the article visible so judges see AI working beside the reading surface, not replacing it.</figcaption>
+        </figure>
+
+        <div class="ai-capabilities" data-reveal>
+          <article class="ai-primary-card">
+            <span class="mono">ARTICLE CHAT / ZERO-COST OPEN</span>
+            <div class="ai-chip-row"><span>Summary</span><span>Key terms</span><span>Simple</span><span>Annotate</span></div>
+            <p class="ai-question">Why does the author think this matters?</p>
+            <p class="ai-answer">The answer stays grounded in the article first. If the article does not cover something, ReadTune says so instead of pretending it does.</p>
+            <div class="ai-answer-tools"><span>Answer: Simpler</span><span>▶ Read aloud</span><span>＋ Save note</span></div>
+          </article>
+          <div class="ai-mini-grid">
+            <article><span class="feature-glyph">Aa</span><h3>Match the answer to the reader</h3><p>Switch between As written, Simpler, and Simplest without changing the question itself.</p></article>
+            <article><span class="feature-glyph">✦</span><h3>Annotate the article</h3><p>AI can suggest passages worth defining or explaining; you review them before anything is applied.</p></article>
+            <article><span class="feature-glyph">?</span><h3>Define + Explain in context</h3><p>Select a word or passage and ask what it means right where you found it.</p></article>
+            <article><span class="feature-glyph">↳</span><h3>Keep useful help</h3><p>Save an explanation back into a highlight note instead of losing it in a disposable chat.</p></article>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section class="ask-ai shell" id="ask-ai" data-reveal>
-        <div class="section-label"><span>03</span><span>ASK AI</span></div>
-        <div class="ask-ai-grid">
-          <div class="ask-card">
-            <div class="ask-card-top"><span class="mono-label">ASK AI · DOCKED RAIL</span></div>
-            <p class="ask-bubble-q">What's the main point of this article?</p>
-            <p class="ask-bubble-a">The article argues that reading tools should test settings <mark>on you</mark>, not hand you a pile of toggles — most of what helps is different person to person.</p>
-            <p class="ask-caption">Grounded in the article. Says so plainly when it isn't.</p>
+      <div class="shell ai-privacy-line" data-reveal>
+        <strong>Opening AI mode sends nothing.</strong>
+        <span>Chrome's ready on-device AI gets first chance. Otherwise, only an action you explicitly run can use ReadTune's disclosed relay. Simplify remains on-device only. Premium voice and ElevenLabs are separate optional voice paths.</span>
+        <a href="/privacy.html">See the exact data paths ↗</a>
+      </div>
+    </section>
+
+    <section class="repeat section-pad" id="lab">
+      <div class="shell repeat-grid">
+        <div class="repeat-panel" data-reveal>
+          <div class="repeat-top"><span class="mono">READING LAB / LAST 3 CHECKS</span><span class="signal-pill">local history</span></div>
+          <div class="repeat-signal"><span>Today</span><strong>Roomier spacing</strong><small>clearest signal</small></div>
+          <div class="repeat-row"><span>Roomier spacing</span><div class="dotline"><i class="on"></i><i class="on"></i><i class="on"></i></div><b>3/3</b></div>
+          <div class="repeat-row"><span>Atkinson</span><div class="dotline"><i></i><i class="on"></i><i></i></div><b>1/3</b></div>
+          <div class="repeat-row"><span>Bionic emphasis</span><div class="dotline"><i></i><i></i><i></i></div><b>0/3</b></div>
+          <p class="repeat-foot">The real signal is repetition, not one dramatic run.</p>
+        </div>
+        <div class="repeat-copy" data-reveal>
+          <p class="section-kicker">04 · Reading Lab</p>
+          <h2>Does it hold up<br /><em>another day?</em></h2>
+          <p>Reading Lab keeps the last ten checks on your device. It shows what repeated, what was a close call, and when the current profile is still only provisional.</p>
+          <p>It also includes <strong>Voice Fit</strong>, where you can preview the bundled on-device voice and optional downloadable voices while reading in your own typography.</p>
+          <a class="text-link" href="#privacy">Why the history stays local ↓</a>
+        </div>
+      </div>
+
+      <div class="shell">
+        <figure class="wide-media compact-media media-placeholder" data-video-slot="reading-lab" data-image-slot="reading-lab" data-reveal>
+          <div class="media-placeholder-inner">
+            <span class="placeholder-tag">VIDEO / IMAGE SLOT 03</span>
+            <strong>Reading Lab</strong>
+            <p>Preferred: a short clip moving from repeatability history into Voice Fit. A still works as fallback.</p>
+            <code>assets/site/reading-lab.mp4</code>
           </div>
-          <div class="ask-ai-copy">
-            <p class="eyebrow eyebrow-light"><span class="eyebrow-dot"></span> On by request, not by default</p>
-            <h2>Ask the article<br /><em>a real question.</em></h2>
-            <p>A docked rail sits beside whatever you're reading — summarize it, ask it a question, or get key terms explained. It answers from the article first, and says plainly when the article doesn't cover something.</p>
-            <p>Ask AI can send the article text and your typed question to ReadTune's relay only when you ask, never automatically. Premium voice and ElevenLabs are separate optional voice paths. Fonts, spacing, focus, calibration, and on-device read-aloud stay local. <a class="text-link" href="/privacy.html">Read exactly what's sent →</a></p>
+          <figcaption>Suggested image: Reading Lab showing repeatability, recent runs, and Voice Fit.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="listen section-pad" id="listen">
+      <div class="shell listen-grid">
+        <div class="listen-copy" data-reveal>
+          <p class="section-kicker light">05 · Read aloud</p>
+          <h2>Listen without<br /><em>losing your place.</em></h2>
+          <p class="large-copy">The default voice is Piper, a neural voice that runs entirely on-device. The current sentence and word stay highlighted in your reading setup while audio plays.</p>
+          <div class="voice-stack">
+            <article><span>DEFAULT</span><h3>Piper on-device</h3><p>Bundled Linden voice, offline, no account, no text upload.</p></article>
+            <article><span>OPTIONAL</span><h3>Voice Fit</h3><p>Preview Joe and Kristin; extra model weights download once and cache locally.</p></article>
+            <article><span>OPTIONAL</span><h3>Premium / ElevenLabs</h3><p>Cloud paths are opt-in and disclose exactly which text is sent.</p></article>
+          </div>
+          <p class="listen-note">If the original article already publishes its own narration, ReadTune can surface that source audio instead of reading over it.</p>
+        </div>
+
+        <figure class="media-card dark-media media-placeholder" data-video-slot="read-aloud" data-image-slot="read-aloud" data-reveal>
+          <div class="media-placeholder-inner">
+            <span class="placeholder-tag">VIDEO / IMAGE SLOT 04</span>
+            <strong>Read-aloud in motion</strong>
+            <p>Prefer a short clip showing sentence + word highlighting and transport controls. A screenshot is the fallback.</p>
+            <code>assets/site/read-aloud.mp4</code>
+          </div>
+          <figcaption>Suggested image: live Reader View with sentence/word highlighting and the playback transport.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="focus section-pad shell">
+      <div class="section-head split-head" data-reveal>
+        <div><p class="section-kicker">06 · Focus + pacing</p><h2>Keep your place.<br /><em>Choose your rhythm.</em></h2></div>
+        <p>Focus tools are session choices, not permanent traits. Use them when a page needs them; a new reading surface starts calmly instead of trapping you in the last pacing mode.</p>
+      </div>
+      <div class="feature-bento" data-reveal>
+        <article class="feature-big"><div class="mini-ruler" aria-hidden="true"><span></span></div><h3>Adaptive reading ruler</h3><p>1, 3, or 5-line focus band that tracks the current line and, during read-aloud, follows the spoken word.</p></article>
+        <article><span class="feature-glyph">¶</span><h3>Paragraph focus</h3><p>Dims the rest while keeping the active block clear—even when the block is taller than the viewport.</p></article>
+        <article><span class="feature-glyph">→</span><h3>Sentence stepping</h3><p>Move through one sentence at a time with keyboard or transport controls.</p></article>
+        <article><span class="feature-glyph">250</span><h3>RSVP</h3><p>One-word-at-a-time focus with adjustable WPM and pivot-letter alignment.</p></article>
+        <article><span class="feature-glyph">↓</span><h3>Auto-scroll</h3><p>Let the page move at your reading pace without constant manual scrolling.</p></article>
+      </div>
+    </section>
+
+    <section class="toolkit section-pad shell" id="toolkit">
+      <div class="section-head" data-reveal>
+        <p class="section-kicker">07 · The full toolkit</p>
+        <h2>Everything is adjustable.<br /><em>Nothing is pretending to be universal.</em></h2>
+      </div>
+
+      <div class="tool-groups" data-reveal>
+        <article>
+          <span class="group-label">TYPE</span><h3>Typography</h3>
+          <ul><li>System Sans, OpenDyslexic, Atkinson Hyperlegible, Lexend</li><li>Text size + line, letter, word, paragraph spacing</li><li>Named line-width stops</li><li>Remove italics</li></ul>
+        </article>
+        <article>
+          <span class="group-label">VISUAL</span><h3>Colour + legibility</h3>
+          <ul><li>9 reading-tint presets + custom hex</li><li>Gentler contrast control</li><li>Optional alternating line tint</li><li>Hide images + freeze animations/GIFs</li></ul>
+        </article>
+        <article>
+          <span class="group-label">WORDS</span><h3>Word support</h3>
+          <ul><li>Bionic leading-letter emphasis</li><li>Automatic hyphenation</li><li>Visible syllable breaks</li><li>Tap/double-click word support + hear-it</li></ul>
+        </article>
+        <article>
+          <span class="group-label">MEMORY</span><h3>Keep your place</h3>
+          <ul><li>Per-page reading position</li><li>Highlights + notes</li><li>Jump back to saved highlights</li><li>Last ~10 preference checks in Reading Lab</li></ul>
+        </article>
+        <article>
+          <span class="group-label">AUTOMATION</span><h3>Per-site choices</h3>
+          <ul><li>Auto-open Reader View on a site you choose</li><li>Auto-restyle a chosen site</li><li>Permission requested only for that site</li><li>Quick modes: Focus, Study, Listen, Skim</li></ul>
+        </article>
+        <article>
+          <span class="group-label">INPUT</span><h3>Talk to type</h3>
+          <ul><li>Dictate into text fields across the web</li><li>Spoken punctuation like “period” and “new line”</li><li>Alt + Shift + D shortcut</li><li>Uses Chrome’s speech-recognition service</li></ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="restyle section-pad shell">
+      <div class="restyle-head" data-reveal>
+        <div><p class="section-kicker">08 · Same page, different reading</p><h2>Sometimes you do not want a reader tab.<br /><em>So ReadTune can meet the page where it is.</em></h2></div>
+      </div>
+      <figure class="wide-media media-placeholder" data-video-slot="restyle-page" data-image-slot="restyle-page" data-reveal>
+        <div class="media-placeholder-inner">
+          <span class="placeholder-tag">VIDEO / IMAGE SLOT 05</span>
+          <strong>Restyle this page</strong>
+          <p>Prefer a short before/after clip showing the live page change. A screenshot is the fallback.</p>
+          <code>assets/site/restyle-page.mp4</code>
+        </div>
+        <figcaption>Suggested image: real web page restyled in-place, with the original site chrome still recognizable.</figcaption>
+      </figure>
+    </section>
+
+    <section class="evidence section-pad">
+      <div class="shell evidence-grid">
+        <div class="evidence-copy" data-reveal>
+          <p class="section-kicker">09 · Evidence, not vibes</p>
+          <h2>ReadTune does not call every feature “research-backed.”</h2>
+          <p>Read-aloud and spacing have stronger support. Dyslexia-specific fonts, coloured overlays, and bionic emphasis are more mixed. The interface says so and keeps the weaker claims optional.</p>
+          <a class="text-link" href="https://github.com/Engineer9118brov2/readtune/blob/main/docs/RESEARCH.md" target="_blank" rel="noreferrer">Open the research notes ↗</a>
+        </div>
+        <div class="evidence-list" data-reveal>
+          <div><span class="evidence-chip strong">better supported</span><strong>Read-aloud + follow-along</strong><p>Prominent and available without a subscription.</p></div>
+          <div><span class="evidence-chip strong">better supported</span><strong>Roomier spacing</strong><p>Part of the moderate default starter and the preference check.</p></div>
+          <div><span class="evidence-chip mixed">mixed evidence</span><strong>Specialized fonts</strong><p>Offered as preferences to test, not a dyslexia cure.</p></div>
+          <div><span class="evidence-chip personal">comfort first</span><strong>Tints + bionic emphasis</strong><p>Optional experiments, not universal recommendations.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="privacy section-pad" id="privacy">
+      <div class="shell privacy-grid">
+        <div class="privacy-copy" data-reveal>
+          <p class="section-kicker light">10 · Local-first by design</p>
+          <h2>Your reading profile<br /><em>stays yours.</em></h2>
+          <p>Core reading features, calibration history, highlights, Reader View formatting, PDF text processing, and the default Piper voice run locally. There is no ReadTune account and no analytics or telemetry inside the extension.</p>
+          <a class="button button-light" href="/privacy.html">Read the plain-language privacy page</a>
+        </div>
+        <div class="privacy-map" data-reveal>
+          <article><span>ON DEVICE</span><h3>Core reading</h3><p>Profile, calibration, highlights, Reader View, PDF mode, Piper read-aloud.</p></article>
+          <article><span>ONLY WHEN CHOSEN</span><h3>Ask AI relay</h3><p>Article text + your typed question when you explicitly run an AI action and Chrome has no ready on-device model.</p></article>
+          <article><span>ONLY WHEN CHOSEN</span><h3>Cloud voice</h3><p>Current sentence (and the next one prepared ahead) for Premium voice, or your selected text to your own ElevenLabs account.</p></article>
+          <article><span>BROWSER SERVICE</span><h3>Talk to type</h3><p>Chrome’s speech recognition sends microphone audio to Google for transcription; ReadTune does not store it.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="build section-pad shell" data-reveal>
+      <div class="build-card">
+        <div><p class="section-kicker">Under the hood</p><h2>A real extension, not a landing-page prototype.</h2></div>
+        <div class="build-stats">
+          <span><strong>MV3</strong>Chrome extension</span>
+          <span><strong>112</strong>files checked</span>
+          <span><strong>Hundreds</strong>of behavior assertions</span>
+          <span><strong>0</strong>remote executable code</span>
+        </div>
+        <p>Vanilla JavaScript modules, Mozilla Readability, pdf.js, Piper + onnxruntime-web, a strict sanitizer, local storage, CI, and a browser test harness. All executable code—including WebAssembly—ships with the extension.</p>
+        <a class="text-link" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Inspect the source ↗</a>
+      </div>
+    </section>
+
+    <section class="install section-pad" id="install">
+      <div class="shell install-grid">
+        <div data-reveal>
+          <p class="section-kicker light">Try it now</p>
+          <h2>Make the page meet<br /><em>the reader.</em></h2>
+          <p>ReadTune is free and open source. The Chrome Web Store submission is being prepared; the current beta can be loaded directly from GitHub.</p>
+          <div class="install-actions">
+            <a class="button button-light" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Get the beta on GitHub ↗</a>
+            <a class="button button-dark-outline" href="/school.html">For schools</a>
           </div>
         </div>
-      </section>
+        <ol class="install-steps" data-reveal>
+          <li><span>1</span><div><strong>Download the repo</strong><p>Use the latest main branch or release package.</p></div></li>
+          <li><span>2</span><div><strong>Open chrome://extensions</strong><p>Enable Developer mode and choose Load unpacked.</p></div></li>
+          <li><span>3</span><div><strong>Run the check—or skip it</strong><p>Start from the research-informed default and tune whenever you want.</p></div></li>
+        </ol>
+      </div>
+    </section>
+  </main>
 
-      <section class="feature-strip shell" data-reveal>
-        <div class="section-label"><span>04</span><span>THE TOOLKIT</span></div>
-        <div class="feature-grid">
-          <article><span class="feature-icon">Aa</span><h3>Typography with intent</h3><p>Atkinson Hyperlegible, OpenDyslexic, Lexend, spacing, line width, and calm contrast.</p></article>
-          <article><span class="feature-icon">⌁</span><h3>Focus that follows you</h3><p>Paragraph focus, sentence steps, and an adaptive 1 / 3 / 5-line reading guide.</p></article>
-          <article><span class="feature-icon">↗</span><h3>Works where text lives</h3><p>Reader View for articles, selectable PDFs, and a live restyle mode for the page already open.</p></article>
-          <article><span class="feature-icon">◌</span><h3>No account, ever</h3><p>Your reading, profile, and highlights stay in browser storage. Optional AI and cloud voices disclose when they send text.</p></article>
-        </div>
-      </section>
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div><a class="brand brand-light" href="/"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></a><p>Reading support that starts with the reader.</p></div>
+      <div class="footer-links"><button class="footer-key" type="button" data-open-command>Alt+K · map</button><a href="/privacy.html">Privacy</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a><span>© 2026</span></div>
+    </div>
+  </footer>
 
-      <section class="closing shell" data-reveal>
-        <img class="closing-mark" src="/icons/icon128.png" alt="" aria-hidden="true" />
-        <p class="eyebrow">A calmer place to start</p>
-        <h2>Make the page meet<br /><em>the reader.</em></h2>
-        <p>ReadTune is free, open source, and built for the moment when a page should feel possible again.</p>
-        <a class="button button-light" href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">Explore the project <span aria-hidden="true">↗</span></a>
-      </section>
-    </main>
-
-    <footer class="site-footer shell">
-      <div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div>
-      <p>Measured reading support for the open web.</p>
-      <div class="footer-links"><a href="/privacy.html">Privacy</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a><span>© 2026</span></div>
-    </footer>
-    <script src="site.js"></script>
-  </body>
+  <script src="site.js"></script>
+</body>
 </html>
