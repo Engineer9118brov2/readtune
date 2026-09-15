@@ -35,9 +35,30 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   let profile = {};
   let rulerY = window.innerHeight * 0.4;
   let rulerTarget = null;
+  let rulerObserver = null;
+  let observedRulerFlow = null;
   let saveTimer = 0;
   let highlights = [];
   let savedRange = null;
+
+  /* While read-aloud is active, sentence-level tracking is not precise enough:
+     a sentence can wrap across several lines, so pinning the guide to the
+     sentence's top makes the ruler visibly run ahead of the spoken word. Watch
+     the existing TTS word marker and keep the guide centred on that exact word. */
+  function ensureRulerWordTracking() {
+    const flow = getFlow();
+    if (!flow || observedRulerFlow === flow || typeof MutationObserver !== "function") return;
+    if (rulerObserver) rulerObserver.disconnect();
+    observedRulerFlow = flow;
+    rulerObserver = new MutationObserver(() => {
+      if (ruler.hidden || profile.focus !== "ruler" || profile.pacing !== "aloud") return;
+      const spoken = flow.querySelector(".rt-speak-word") || flow.querySelector(".rt-speak-sentence");
+      if (!spoken || spoken === rulerTarget) return;
+      rulerTarget = spoken;
+      positionRuler();
+    });
+    rulerObserver.observe(flow, { subtree: true, attributes: true, attributeFilter: ["class"] });
+  }
 
   /* ---- scroll: progress + resume + paragraph focus ---- */
   function onScroll() {
@@ -403,6 +424,7 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   /* ---- public ---- */
   function apply(next) {
     profile = next || {};
+    ensureRulerWordTracking();
     // the ruler / focus dimming / scroll progress only make sense over flowing text
     const flowing = ["flow", "scroll", "aloud"].includes(profile.pacing || "flow");
     progress.hidden = !flowing;
@@ -430,6 +452,9 @@ export function createReadingAids({ getFlow, onSaveScroll, onSaveHighlights, onH
   }
 
   function destroy() {
+    if (rulerObserver) rulerObserver.disconnect();
+    rulerObserver = null;
+    observedRulerFlow = null;
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("resize", onScroll);
@@ -482,6 +507,23 @@ function textNodesIn(root) {
 }
 
 function wrapRange(range, className) {
+  /* Prefer one semantic <mark> around the whole selection. That keeps a normal
+     sentence highlight visually continuous across links/emphasis instead of
+     painting a separate rounded rectangle for every text node. Selections that
+     cross partially-selected block elements cannot be surrounded as one node,
+     so they fall back to the fragment-safe path below. */
+  if (range && !range.collapsed && range.toString()) {
+    const whole = range.cloneRange();
+    const mark = document.createElement("mark");
+    mark.className = className;
+    try {
+      whole.surroundContents(mark);
+      return [mark];
+    } catch {
+      /* Cross-block / partially-selected element: use fragment wrappers. */
+    }
+  }
+
   const marks = [];
   const nodes = textNodesIn(
     range.commonAncestorContainer.nodeType === 3

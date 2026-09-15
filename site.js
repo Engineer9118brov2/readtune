@@ -90,3 +90,110 @@ document.querySelector("[data-demo-focus]")?.addEventListener("click", (button) 
   rule.style.height = isWide ? "134px" : "86px";
   rule.style.top = isWide ? "83px" : "105px";
 });
+
+/* Read this marketing page aloud with the browser's local/system voice. The
+   header play button is the accessible control; the O in “Stop” mirrors it as
+   a visual mouse/touch shortcut without becoming part of the H1 name. */
+(function readPageAloud() {
+  const triggers = [...document.querySelectorAll("[data-say]")];
+  if (!triggers.length) return;
+  const synth = window.speechSynthesis;
+  const supported = synth && typeof window.SpeechSynthesisUtterance === "function";
+  if (!supported) {
+    triggers.forEach((trigger) => trigger.remove());
+    return;
+  }
+
+  const root = document.querySelector("main") || document.body;
+  const skip = '.specimen, .audio-card, .ask-card, .section-label, .eyebrow, .mono-label, .card-label, .hero-proof, .voice-note, [aria-hidden="true"]';
+  const cleanText = (node) => {
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll("br").forEach((br) => br.replaceWith(" "));
+    return clone.textContent.replace(/\s+/g, " ").replace(/([.!?])(?=[A-Za-z])/g, "$1 ").trim();
+  };
+  const splitSentences = (text) =>
+    (text.match(/[^.!?]+[.!?]*\s*/g) || [text]).map((part) => part.trim()).filter(Boolean);
+  const lines = [];
+  root.querySelectorAll("h1, h2, h3, p, li").forEach((node) => {
+    if (node.closest(skip)) return;
+    const text = cleanText(node);
+    if (text.length < 2) return;
+    if (/^H[1-3]$/.test(node.tagName)) lines.push(text);
+    else splitSentences(text).forEach((sentence) => lines.push(sentence));
+  });
+  if (!lines.length) return;
+
+  const progress = document.body.appendChild(Object.assign(document.createElement("div"), { className: "say-progress" }));
+  let playing = false;
+  let index = 0;
+  let run = 0;
+  let voice = null;
+  let keepAlive = 0;
+
+  const pickVoice = () => {
+    const voices = synth.getVoices() || [];
+    const english = voices.filter((candidate) => /^en\b/i.test(candidate.lang));
+    return english.find((candidate) => candidate.localService && /US|GB/i.test(candidate.lang))
+      || english.find((candidate) => candidate.localService)
+      || english[0]
+      || voices[0]
+      || null;
+  };
+  voice = pickVoice();
+  synth.addEventListener?.("voiceschanged", () => { voice = pickVoice(); });
+
+  const paint = () => {
+    progress.classList.toggle("is-on", playing);
+    progress.style.transform = `scaleX(${playing ? index / lines.length : 0})`;
+    triggers.forEach((trigger) => {
+      trigger.classList.toggle("is-playing", playing);
+      if (trigger.getAttribute("aria-hidden") !== "true") {
+        trigger.setAttribute("aria-label", playing ? "Stop reading this page" : "Read this page aloud");
+      }
+    });
+  };
+
+  const stop = () => {
+    run += 1;
+    playing = false;
+    index = 0;
+    clearInterval(keepAlive);
+    try { synth.cancel(); } catch (e) {}
+    paint();
+  };
+
+  const step = (mine) => {
+    if (!playing || mine !== run) return;
+    if (index >= lines.length) { stop(); return; }
+    paint();
+    const utterance = new SpeechSynthesisUtterance(lines[index]);
+    if (voice) utterance.voice = voice;
+    utterance.rate = 1;
+    const advance = () => {
+      if (!playing || mine !== run) return;
+      index += 1;
+      step(mine);
+    };
+    utterance.onend = advance;
+    utterance.onerror = advance;
+    try { synth.speak(utterance); } catch (e) { stop(); }
+  };
+
+  const start = () => {
+    try { synth.cancel(); } catch (e) {}
+    run += 1;
+    playing = true;
+    index = 0;
+    clearInterval(keepAlive);
+    keepAlive = setInterval(() => {
+      try { if (synth.paused && playing) synth.resume(); } catch (e) {}
+    }, 5000);
+    step(run);
+  };
+
+  triggers.forEach((trigger) => trigger.addEventListener("click", () => (playing ? stop() : start())));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && playing) stop();
+  });
+  window.addEventListener("pagehide", stop);
+})();

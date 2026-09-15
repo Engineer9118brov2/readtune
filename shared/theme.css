@@ -69,16 +69,18 @@
   --rt-reading-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Dyslexic UI mode: swap the chrome to OpenDyslexic so the settings themselves
-   are readable to someone who needs that font. settings.js toggles the class on
-   <html>; everything below inherits via --rt-ui-font / --rt-ui-display. */
+/* Dyslexia-friendly UI mode keeps ReadTune's chrome visually consistent with
+   the rest of the product. Instead of swapping the entire interface to a much
+   wider novelty font (which caused cramped cards and chopped labels), it makes
+   the chrome roomier, reduces all-caps tracking, and keeps the hyperlegible
+   Atkinson/Lexend stack already used throughout ReadTune. */
 :root.rt-ui-dyslexic {
-  --rt-ui-font: "OpenDyslexic", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --rt-ui-display: "OpenDyslexic", "Lexend", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rt-ui-font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --rt-ui-display: "Lexend", "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root.rt-ui-dyslexic body.rt-ui { line-height: 1.62; }
-/* ALL-CAPS + wide tracking hurts word-shape recognition and, once the font gets
-   wider, overflows the little pills. Soften both wherever the chrome uses them. */
+/* ALL-CAPS + wide tracking can hurt word-shape recognition. Soften both
+   wherever the chrome uses them. */
 :root.rt-ui-dyslexic .rt-chip,
 :root.rt-ui-dyslexic .rt-evidence-chip {
   text-transform: none;
@@ -792,25 +794,15 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-page-audio {
   border-radius: 3px;
 }
 
-/* ---- reader-made highlights (shared/aids.js) — annotation, not just marking:
-   each one can carry a note, shown as a small corner dot so the reader knows
-   there's more than a marked passage to revisit. ---- */
+/* ---- reader-made highlights (shared/aids.js) ----
+   Notes are surfaced in the Highlights list/popover, not as dots painted on
+   every DOM fragment of a multi-node selection. */
 .rt-hl {
   background: color-mix(in srgb, #ffd23f 55%, transparent);
-  border-radius: 3px;
+  border-radius: 2px;
   cursor: pointer;
-  position: relative;
-}
-.rt-hl-noted::after {
-  content: "";
-  position: absolute;
-  top: -2px;
-  right: -3px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--rt-ui-accent);
-  box-shadow: 0 0 0 1.5px var(--rt-ui-panel);
+  -webkit-box-decoration-break: slice;
+  box-decoration-break: slice;
 }
 @keyframes rt-hl-flash {
   0%, 100% { background: color-mix(in srgb, #ffd23f 55%, transparent); }
@@ -1192,28 +1184,40 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-page-audio {
   font-size: .75rem;
   font-weight: 500;
 }
-.rt-assist-play { min-width: 84px; }
+.rt-assist-play { min-width: 72px; }
 
-/* Ask AI: quick-ask chips, the echoed question, and the composer */
-.rt-assist-chips {
+/* Ask AI: one compact tool shelf. Quick actions and answer-level choice live
+   together instead of splitting controls between the top and bottom of the rail. */
+.rt-assist-tools {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  margin: 0;
-  padding: 12px 16px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .1));
   background: var(--rt-ui-panel, #fff);
+}
+.rt-assist-chips {
+  display: flex;
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
 }
 .rt-assist-chip {
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .16));
   background: var(--rt-ui-bg, #faf9f5);
   color: var(--rt-ui-ink, #1f2430);
   border-radius: var(--rt-ui-radius-pill);
-  padding: 5px 11px;
+  padding: 4px 8px;
   font: inherit;
-  font-size: .8rem;
-  font-weight: 600;
+  font-size: .72rem;
+  line-height: 1.2;
+  font-weight: 650;
   cursor: pointer;
+  white-space: nowrap;
 }
 .rt-assist-chip:hover {
   border-color: color-mix(in srgb, var(--rt-ui-accent, #1f7a5c) 45%, var(--rt-ui-line, #ccc));
@@ -1233,15 +1237,27 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-page-audio {
 .rt-assist-thread {
   min-height: 0;
   overflow-y: auto;
-  padding: 18px 16px 22px;
+  padding: 12px 12px 16px;
   background: color-mix(in srgb, var(--rt-ui-bg, #faf9f5) 72%, var(--rt-ui-panel, #fff));
 }
-.rt-chat-row { margin: 0 0 14px; }
+.rt-assist-empty {
+  display: grid;
+  gap: 4px;
+  margin: 8px 2px;
+  padding: 12px;
+  border: 1px dashed color-mix(in srgb, var(--rt-ui-accent, #1f7a5c) 28%, var(--rt-ui-line, #ddd));
+  border-radius: var(--rt-ui-radius-sm);
+  color: var(--rt-ui-ink-soft, #5b5d53);
+  font-size: .8rem;
+  line-height: 1.4;
+}
+.rt-assist-empty strong { color: var(--rt-ui-ink, #1f2430); font-size: .84rem; }
+.rt-chat-row { margin: 0 0 10px; }
 .rt-chat-row-user { display: flex; justify-content: flex-end; }
 .rt-chat-row-ai {
   width: fit-content;
-  max-width: 94%;
-  padding: 12px 14px;
+  max-width: 100%;
+  padding: 10px 12px;
   border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .12));
   border-radius: 4px 16px 16px 16px;
   background: var(--rt-ui-panel, #fff);
@@ -1254,28 +1270,33 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-page-audio {
 .rt-chat-row .rt-assist-result p { line-height: 1.52; }
 .rt-chat-error { border-color: color-mix(in srgb, #b23b3b 30%, var(--rt-ui-line, #ddd)); }
 .rt-assist-level {
-  display: flex;
-  gap: 4px;
-  padding: 8px 14px 0;
-  background: var(--rt-ui-panel, #fff);
-}
-.rt-assist-level-btn {
-  flex: 1;
-  border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .16));
-  background: var(--rt-ui-bg, #faf9f5);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
   color: var(--rt-ui-ink-soft, #5b5d53);
-  border-radius: var(--rt-ui-radius-sm);
-  padding: 5px 6px;
-  font: inherit;
-  font-size: .74rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
 }
-.rt-assist-level-btn[aria-pressed="true"] {
-  border-color: var(--rt-ui-accent, #1f7a5c);
-  background: color-mix(in srgb, var(--rt-ui-accent, #1f7a5c) 14%, var(--rt-ui-bg, #fff));
-  color: var(--rt-ui-accent, #1f7a5c);
+.rt-assist-level-label {
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.rt-assist-level-select {
+  min-width: 86px;
+  border: 1px solid var(--rt-ui-line, rgba(0, 0, 0, .16));
+  border-radius: var(--rt-ui-radius-pill);
+  padding: 4px 22px 4px 8px;
+  background: var(--rt-ui-bg, #faf9f5);
+  color: var(--rt-ui-ink, #1f2430);
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.rt-assist-level-select:focus-visible {
+  outline: 2px solid var(--rt-ui-accent, #1f7a5c);
+  outline-offset: 1px;
 }
 .rt-annotate-review { display: flex; flex-direction: column; gap: 10px; }
 .rt-annotate-header {

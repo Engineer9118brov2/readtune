@@ -131,7 +131,17 @@ export async function callChat(provider, system, user, fetchImpl = fetch, maxTok
   }
 
   const data = await res.json();
-  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  const choice = data && data.choices && data.choices[0];
+  const text = choice && choice.message && choice.message.content;
+  /* A provider can return HTTP 200 while ending only because max_tokens was
+     exhausted. Surfacing that half-sentence as a "successful" summary is what
+     produced the random-looking cutoffs in the chat rail. Treat it as a soft
+     provider failure so relayChat can try the next configured provider instead. */
+  if (choice && choice.finish_reason === "length") {
+    const err = new Error("The AI helper stopped before finishing its answer.");
+    err.status = 502;
+    throw err;
+  }
   const trimmed = (text || "").trim();
   if (!trimmed) {
     const err = new Error("The AI helper returned nothing usable.");

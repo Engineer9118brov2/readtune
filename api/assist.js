@@ -23,6 +23,7 @@ const MAX_ASK_QUESTION = 500; // matches shared/assist.js's MAX_ASK_QUESTION
 const MAX_DEFINE_CONTEXT = 800; // a sentence or two around the word, not a whole article
 const MAX_DEFINE_WORD = 80; // a word or short phrase — generous, still nowhere near article-sized
 const MAX_LEVEL_HINT = 200; // a short phrasing instruction, not user content
+const SUMMARY_MAX_TOKENS = 600; // headroom so providers never chop a short summary mid-sentence
 const ASK_MAX_TOKENS = 800; // a Q&A answer needs more room than a 3-5 line summary
 const DEFINE_MAX_TOKENS = 150; // one plain sentence
 const EXPLAIN_MAX_TOKENS = 300; // a few short sentences on figurative language / theme
@@ -68,6 +69,7 @@ const KINDS = {
   summary: {
     system: SUMMARY_SYSTEM,
     maxText: MAX_INPUT,
+    maxTokens: SUMMARY_MAX_TOKENS,
     buildUser: (text) => text,
     validate: (text) => (!text ? "No article text to work with." : null),
   },

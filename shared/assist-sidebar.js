@@ -6,8 +6,9 @@
  * Escape. Reading keeps working alongside it — it isn't a dialog and it does
  * NOT close when you click the article.
  *
- * On open it summarises the article; a composer at the bottom takes freeform
- * questions about it (assistant.ask). Every answer gets a Play button that
+ * Opening the rail is deliberately zero-cost: nothing is sent anywhere until
+ * the reader picks a quick action or asks a question. A composer at the bottom
+ * takes freeform questions about it (assistant.ask). Every answer gets a Play button that
  * reads it aloud through the same voice as everything else in ReadTune, and
  * the same honest working / fail states as the Simplify card.
  *
@@ -30,13 +31,15 @@ function extractJsonArray(text) {
 }
 
 const CHIPS = [
-  { label: "Summarise", run: (a, opts) => a.summarize(opts) },
+  { id: "summary", label: "Summary", run: (a, opts) => a.summarize(opts) },
   {
+    id: "terms",
     label: "Key terms",
     run: (a, opts) => a.ask("What are the key terms, names or numbers in this article, and what does each mean?", opts),
   },
   {
-    label: "Explain simply",
+    id: "simple",
+    label: "Simple",
     run: (a, opts) => a.ask("Explain what this article is about in plain language, for someone new to the topic.", opts),
   },
 ];
@@ -143,7 +146,11 @@ export function createAssistSidebar({
     const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Collapse" }, "×");
     closeBtn.addEventListener("click", () => close());
 
-    bodyEl = el("div", { class: "rt-assist-body rt-assist-thread", "aria-live": "polite", "aria-busy": "true" });
+    bodyEl = el("div", { class: "rt-assist-body rt-assist-thread", "aria-live": "polite", "aria-busy": "false" });
+    bodyEl.append(el("div", { class: "rt-assist-empty" }, [
+      el("strong", {}, "What do you want from this article?"),
+      el("span", {}, "Choose a quick action above or ask a question below. Nothing runs just because you opened chat."),
+    ]));
 
     const input = el("textarea", {
       class: "rt-assist-input",
@@ -196,10 +203,9 @@ export function createAssistSidebar({
           el("div", {}, [el("span", { class: "rt-assist-title" }, "Article chat"), el("span", { class: "rt-assist-kicker" }, "Ask about what you're reading")]),
           closeBtn,
         ]),
-        chipRow(),
+        el("div", { class: "rt-assist-tools" }, [chipRow(), levelControl()]),
         bodyEl,
         diagWrap,
-        levelControl(),
         composer,
       ],
     );
@@ -243,32 +249,26 @@ export function createAssistSidebar({
       assistant.ask() — no relay/API change, the model just reads a slightly
       different question. */
   function levelControl() {
-    const buttons = LEVELS.map((l) => {
-      const b = el(
-        "button",
-        { type: "button", class: "rt-assist-level-btn", "aria-pressed": String(l.id === level) },
-        l.label,
-      );
-      b.addEventListener("click", () => {
-        if (level === l.id) return;
-        level = l.id;
-        buttons.forEach((btn, i) => btn.setAttribute("aria-pressed", String(LEVELS[i].id === level)));
-        if (onLevelChange) onLevelChange(level);
-      });
-      return b;
+    const select = el("select", { class: "rt-assist-level-select", "aria-label": "Reading level for answers" },
+      LEVELS.map((l) => el("option", { value: l.id }, l.label)));
+    select.value = level;
+    select.addEventListener("change", () => {
+      const next = LEVELS.some((l) => l.id === select.value) ? select.value : "written";
+      if (next === level) return;
+      level = next;
+      if (onLevelChange) onLevelChange(level);
     });
-    return el(
-      "div",
-      { class: "rt-assist-level", role: "group", "aria-label": "Reading level for answers" },
-      buttons,
-    );
+    return el("label", { class: "rt-assist-level" }, [
+      el("span", { class: "rt-assist-level-label" }, "Answer"),
+      select,
+    ]);
   }
 
   function chipRow() {
     const chips = CHIPS.map((c) => {
       const b = el("button", { type: "button", class: "rt-assist-chip" }, c.label);
       b.addEventListener("click", () =>
-        runTask(c.label === "Summarise" ? "summary" : "ask", c.label, c.run));
+        runTask(c.id === "summary" ? "summary" : "ask", c.label, c.run, false));
       return b;
     });
     // Only offered when the caller wired somewhere to put the results —
@@ -288,6 +288,7 @@ export function createAssistSidebar({
       and a different renderer (annotationReview, not resultBlock). */
   async function runAnnotate() {
     stopSpeaking();
+    if (bodyEl) bodyEl.querySelector(".rt-assist-empty")?.remove();
     if (controller) { try { controller.abort(); } catch {} }
     controller = new AbortController();
     const mine = controller;
@@ -349,6 +350,7 @@ export function createAssistSidebar({
       is echoed above the answer when the reader typed one (null otherwise). */
   async function runTask(kind, question, invoke, echoQuestion = true) {
     stopSpeaking();
+    if (bodyEl) bodyEl.querySelector(".rt-assist-empty")?.remove();
     if (controller) { try { controller.abort(); } catch {} }
     controller = new AbortController();
     const mine = controller;
@@ -394,7 +396,7 @@ export function createAssistSidebar({
 
   function open() {
     mount();
-    return runTask("summary", null, (a, opts) => a.summarize(opts));
+    return Promise.resolve();
   }
 
   return {

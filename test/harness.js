@@ -465,9 +465,18 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     onHighlightsChanged: (list) => { changedHighlights = list; },
   });
   aids.apply({ ...S.DEFAULT_PROFILE, focus: "ruler" });
-  assert(!document.querySelector(".rt-ruler").hidden, "ruler shown for focus=ruler (flow)");
+  const rulerEl = document.querySelector(".rt-ruler");
+  assert(!rulerEl.hidden, "ruler shown for focus=ruler (flow)");
+  aids.apply({ ...S.DEFAULT_PROFILE, focus: "ruler", pacing: "aloud" });
+  const spokenTarget = [...view.getFlowEl().querySelectorAll(".rt-s")].find((node) => node.getBoundingClientRect().height > 0);
+  assert(!!spokenTarget, "ruler word-tracking test has a rendered sentence");
+  const beforeWordTrack = rulerEl.style.top;
+  spokenTarget.classList.add("rt-speak-word");
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(rulerEl.style.top !== beforeWordTrack, "read-aloud ruler follows the current spoken word instead of staying at the sentence start");
+  spokenTarget.classList.remove("rt-speak-word");
   aids.apply({ ...S.DEFAULT_PROFILE, focus: "ruler", pacing: "word" });
-  assert(document.querySelector(".rt-ruler").hidden, "ruler hidden in word mode");
+  assert(rulerEl.hidden, "ruler hidden in word mode");
 
   /* ---- highlights are annotation, not just marking: a note, a jump-to, a
      clean remove ---- */
@@ -517,6 +526,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     assert(!document.querySelector(`mark.rt-hl[data-hl-id="${id}"]`), "removeHighlight un-wraps the mark from the DOM");
     assert(!aids.listHighlights().some((h) => h.id === id), "removeHighlight drops it from listHighlights() too");
     assert(/the sea climbs the rocks/.test(flow.textContent), "the underlying article text survives removing the highlight");
+
+    // A normal selection that crosses inline markup should still be one mark,
+    // not a row of chopped fragments with separate rounded edges.
+    const inline = document.createElement("p");
+    inline.append(document.createTextNode("One continuous "), Object.assign(document.createElement("em"), { textContent: "highlight across" }), document.createTextNode(" inline markup."));
+    flow.append(inline);
+    const inlineRange = document.createRange();
+    inlineRange.setStart(inline.firstChild, 4);
+    inlineRange.setEnd(inline.lastChild, " inline markup.".length - 1);
+    const inlineHighlight = aids.addHighlightFromRange(inlineRange, "");
+    const inlineMarks = [...flow.querySelectorAll(`mark.rt-hl[data-hl-id="${inlineHighlight.id}"]`)];
+    assert(inlineMarks.length === 1 && /continuous highlight across inline markup/.test(inlineMarks[0].textContent),
+      "a highlight across inline markup stays visually continuous in one mark");
+    aids.removeHighlight(inlineHighlight.id);
+    inline.remove();
   }
 
   /* ---- addHighlightFromRange: the entry point AI tools (Define/Explain's
@@ -2004,9 +2028,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       ui.simplifySelection();
       assert(/Select a sentence or paragraph/.test(uiError), "Simplify with nothing selected asks you to select something");
 
-      // the Summary sidebar: cloud failure surfaces a retry, and focus moves
-      // in on open / back to the opener on close, same contract as the card had
-      self.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "cloud is down" }) });
+      // Opening chat itself must be zero-cost. A summary only runs after the
+      // reader explicitly picks Summary; then failures still surface a retry.
+      let openFetches = 0;
+      self.fetch = async () => { openFetches++; return { ok: false, status: 500, json: async () => ({ error: "cloud is down" }) }; };
       const opener = document.body.appendChild(Object.assign(document.createElement("button"), { textContent: "open" }));
       opener.focus();
       const sidebar = ASB.createAssistSidebar({
@@ -2017,7 +2042,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       const panelEl = document.querySelector(".rt-assist-sidebar");
       assert(panelEl && panelEl.contains(document.activeElement), "opening the summary sidebar moves focus into it");
       assert(panelEl.querySelector(".rt-assist-body").getAttribute("aria-live") === "polite", "the sidebar body is a polite live region");
-      assert(panelEl && /assist-error/.test(panelEl.innerHTML), "the sidebar shows a failure message rather than hanging");
+      assert(openFetches === 0 && /Nothing runs just because you opened chat/.test(panelEl.textContent),
+        "opening Article chat sends no AI request and shows a zero-cost empty state");
+      [...panelEl.querySelectorAll(".rt-assist-chip")].find((b) => b.textContent === "Summary").click();
+      await new Promise((r) => setTimeout(r, 10));
+      assert(openFetches === 1 && /assist-error/.test(panelEl.innerHTML), "Summary only runs after the reader asks for it");
       assert(panelEl.textContent.includes("Try again"), "a cloud failure still offers a retry — nothing is a dead end anymore");
       assert(sidebar.isOpen(), "isOpen reflects the mounted panel");
       sidebar.destroy();
@@ -2035,9 +2064,11 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
           }),
         },
       });
-      const cancelling = cancellable.open();
+      await cancellable.open();
+      [...document.querySelectorAll(".rt-assist-sidebar .rt-assist-chip")].find((b) => b.textContent === "Summary").click();
+      await new Promise((r) => setTimeout(r, 0));
       document.querySelector(".rt-assist-sidebar .rt-assist-cancel").click();
-      await cancelling;
+      await new Promise((r) => setTimeout(r, 0));
       assert(!document.querySelector(".rt-assist-sidebar .rt-chat-pending"),
         "cancelling a chat request removes its pending response bubble");
       cancellable.destroy();
@@ -2048,8 +2079,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         assistant: A.createAssistant({ getArticleText: () => "Some article text to summarize." }),
       });
       await sidebar2.open();
-      await new Promise((r) => setTimeout(r, 0));
       const panel2 = document.querySelector(".rt-assist-sidebar");
+      [...panel2.querySelectorAll(".rt-assist-chip")].find((b) => b.textContent === "Summary").click();
+      await new Promise((r) => setTimeout(r, 780));
       assert(panel2 && /Try again/.test(panel2.textContent), "a transient engine failure offers a retry");
       sidebar2.destroy();
 
@@ -2064,8 +2096,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
         speak: async (text) => { spoke = text; return speakPromise; },
       });
       await sidebar3.open();
-      await new Promise((r) => setTimeout(r, 0));
-      const playBtn = document.querySelector(".rt-assist-sidebar .rt-assist-play");
+      const panel3 = document.querySelector(".rt-assist-sidebar");
+      [...panel3.querySelectorAll(".rt-assist-chip")].find((b) => b.textContent === "Summary").click();
+      await new Promise((r) => setTimeout(r, 10));
+      const playBtn = panel3.querySelector(".rt-assist-play");
       assert(playBtn && /Play/.test(playBtn.textContent), "the sidebar shows a Play button once the summary is in");
       playBtn.click();
       await new Promise((r) => setTimeout(r, 0));
@@ -2125,15 +2159,16 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       await sidebar5.open();
       await new Promise((r) => setTimeout(r, 0));
       const panel5 = document.querySelector(".rt-assist-sidebar");
-      const levelBtns = [...panel5.querySelectorAll(".rt-assist-level-btn")];
+      const levelSelect = panel5.querySelector(".rt-assist-level-select");
       assert(
-        levelBtns.length === 3 && levelBtns[0].getAttribute("aria-pressed") === "true",
-        "the reading-level control renders three levels, defaulting to As written",
+        levelSelect && levelSelect.options.length === 3 && levelSelect.value === "written" && panel5.querySelector(".rt-assist-tools").contains(levelSelect),
+        "the compact tool shelf keeps quick actions and the answer-level selector in one place",
       );
-      levelBtns[2].click(); // "Simplest"
+      levelSelect.value = "simplest";
+      levelSelect.dispatchEvent(new Event("change", { bubbles: true }));
       assert(
-        savedLevel === "simplest" && levelBtns[2].getAttribute("aria-pressed") === "true" && levelBtns[0].getAttribute("aria-pressed") === "false",
-        "picking a level updates its pressed state and is reported for persistence",
+        savedLevel === "simplest" && levelSelect.value === "simplest",
+        "picking a level updates the selector and is reported for persistence",
       );
       const composer5 = panel5.querySelector(".rt-assist-input");
       composer5.value = "What lives in a tide pool?";
@@ -2318,9 +2353,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   /* ---- cloud relay provider fan-out (api/_relay.mjs) ---- */
   {
     const R = await import("../api/_relay.mjs");
-    const chatOk = (content) => async () => ({
+    const chatOk = (content, finishReason = "stop") => async () => ({
       ok: true,
-      json: async () => ({ choices: [{ message: { content } }] }),
+      json: async () => ({ choices: [{ message: { content }, finish_reason: finishReason }] }),
     });
     const chatErr = (status) => async () => ({
       ok: false,
@@ -2347,6 +2382,10 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     const out = await R.relayChat(two, "s", "u", (url) =>
       (String(url).includes("ollama") ? chatErr(500)() : chatOk("  from openrouter  ")()));
     assert(out === "from openrouter", "relayChat falls through a 5xx provider to the next and trims the reply");
+
+    const completed = await R.relayChat(two, "s", "u", (url) =>
+      (String(url).includes("ollama") ? chatOk("cut off mid-sent", "length")() : chatOk("complete summary.")()));
+    assert(completed === "complete summary.", "a provider response cut off by max_tokens falls through instead of showing a chopped summary");
 
     let tries = 0;
     let allFail;

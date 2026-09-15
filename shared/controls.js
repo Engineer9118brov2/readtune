@@ -118,8 +118,10 @@ export function buildControls(profile, onChange, opts = {}) {
     return el("span", { class: `rt-evidence-chip rt-evidence-chip-${meta.tone}` }, label || meta.label);
   }
 
-  function sectionTitle(title, level, label = "") {
-    return el("span", { class: "rt-sec-title" }, [el("span", {}, title), evidenceChip(level, label)]);
+  function sectionTitle(title, level = "", label = "") {
+    const kids = [el("span", {}, title)];
+    if (level) kids.push(evidenceChip(level, label));
+    return el("span", { class: "rt-sec-title" }, kids);
   }
 
   function researchCard(item) {
@@ -191,16 +193,24 @@ export function buildControls(profile, onChange, opts = {}) {
 
   const researchButton = el("button", { class: "rt-btn rt-primary rt-research-btn", type: "button" }, "Use this starter");
   researchButton.addEventListener("click", () => emit(researchStarterPatch(state)));
-  /* Settings people actually reach for come first. The research explainer is
-     worth having and worth *reading once* — it does not need to be the first
-     half-screen of the panel every single time. */
-  body.append(toggle("dyslexicUiMode", "Dyslexia-friendly menus"));
-
+  /* Keep the two global helpers together without visually colliding. The
+     research explainer is intentionally compact until the reader opens it. */
   const researchDetails = el("details", { class: "rt-research-fold" });
   researchDetails.append(
-    el("summary", {}, [evidenceChip("strong", "Research-backed starter"), " What tends to help most"]),
+    el("summary", {}, [
+      el("span", { class: "rt-research-summary-mark", "aria-hidden": "true" }, "✓"),
+      el("span", { class: "rt-research-summary-copy" }, [
+        el("strong", {}, "Research-backed starter"),
+        el("small", {}, "What tends to help most"),
+      ]),
+    ]),
   );
-  body.append(researchDetails);
+  body.append(
+    el("div", { class: "rt-settings-intro" }, [
+      toggle("dyslexicUiMode", "Dyslexia-friendly menus"),
+      researchDetails,
+    ]),
+  );
   researchDetails.append(
     el("section", { class: "rt-research-box" }, [
       el("div", { class: "rt-research-top" }, [
@@ -229,7 +239,7 @@ export function buildControls(profile, onChange, opts = {}) {
   /* ---- Quick modes ---- */
   // Each button already carries its own label + one-line blurb (modeButtons()
   // below) — a hint sentence above them was saying the same thing again.
-  const secQuick = section(sectionTitle("Quick modes", "supported", "Task presets"), true);
+  const secQuick = section(sectionTitle("Quick modes"), true);
   secQuick.append(modeButtons());
 
   /* ---- Highlights: the marks a reader made in this article, each with an

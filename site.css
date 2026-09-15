@@ -202,6 +202,106 @@ html.js-ready [data-reveal].is-visible { opacity: 1; transform: none; }
 .a11y-toggle[aria-pressed="true"] { background: var(--mint-deep); border-color: var(--mint-deep); color: var(--ink); }
 .a11y-toggle-mark { font-family: "OpenDyslexic", var(--body); font-size: 0.85rem; letter-spacing: 0; }
 
+/* ---- Read this page aloud ----------------------------------------------- */
+/* The header control is the keyboard/screen-reader entry point. The tiny
+   control over the O in “Stop” mirrors it for mouse/touch users without
+   polluting the heading's accessible name. */
+.say-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--mint-deep);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .2s ease, transform .18s var(--ease-out), border-color .2s ease;
+}
+.say-btn:hover, .say-btn.is-playing { background: var(--mint); border-color: var(--mint-deep); }
+.say-btn:active { transform: scale(.95); }
+.say-btn:focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
+.say-btn-glyph {
+  display: block;
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-left: 8px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+.say-btn.is-playing .say-btn-glyph {
+  width: 3px;
+  height: 12px;
+  margin-left: -5px;
+  border: 0;
+  background: currentColor;
+  box-shadow: 7px 0 0 currentColor;
+}
+.say-o-wrap { position: relative; display: inline-block; }
+.say-o-letter { display: inline-block; transition: opacity .16s ease; }
+.say-o-hit {
+  position: absolute;
+  z-index: 2;
+  inset: 0 -.04em;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.say-o-hit::before {
+  content: "";
+  position: absolute;
+  left: 52%;
+  top: 48%;
+  width: 0;
+  height: 0;
+  transform: translate(-35%, -50%);
+  border-left: .18em solid currentColor;
+  border-top: .11em solid transparent;
+  border-bottom: .11em solid transparent;
+  opacity: .32;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.say-o-hit::after {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: .045em solid var(--mint-deep);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity .16s ease, transform .16s ease;
+}
+.say-o-hit:hover::before { opacity: .85; transform: translate(-35%, -50%) scale(1.08); }
+.say-o-hit:hover::after { opacity: .65; transform: scale(1); }
+.say-o-hit.is-playing + .say-o-letter { opacity: .12; }
+.say-o-hit.is-playing::after { opacity: 1; transform: scale(1); }
+.say-o-hit.is-playing::before {
+  width: .07em;
+  height: .25em;
+  transform: translate(-115%, -50%);
+  border: 0;
+  background: var(--mint-deep);
+  box-shadow: .14em 0 0 var(--mint-deep);
+  opacity: 1;
+}
+.say-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
+  height: 3px;
+  background: var(--coral);
+  transform: scaleX(0);
+  transform-origin: left;
+  opacity: 0;
+  transition: transform .25s ease, opacity .2s ease;
+}
+.say-progress.is-on { opacity: 1; }
+
 html.dys-mode {
   --body: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;
   --display: "OpenDyslexic", "Comic Sans MS", "Trebuchet MS", sans-serif;

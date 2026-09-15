@@ -79,7 +79,18 @@
 }
 
 .rt-panel-body {
-  padding: 6px 16px 30px;
+  padding: 10px 16px 30px;
+}
+
+.rt-settings-intro {
+  display: grid;
+  gap: 10px;
+  padding: 2px 0 14px;
+  border-bottom: 1px solid var(--rt-ui-line);
+}
+.rt-settings-intro > .rt-toggle {
+  min-height: 44px;
+  padding: 7px 4px;
 }
 
 .rt-tts-progress {
@@ -504,23 +515,63 @@ input[type="range"]::-moz-range-thumb {
 .rt-hex:focus-visible { outline: 2px solid var(--rt-ui-accent); outline-offset: 1px; }
 .rt-hex[aria-invalid="true"] { border-color: #c2452f; }
 
-/* The research explainer, folded. It reads once and then gets in the way. */
-.rt-research-fold { margin-bottom: 14px; }
+/* The research explainer stays compact until opened. The old summary squeezed a
+   long evidence pill and a second sentence onto one line; at rail width that
+   wrapped into a chopped-looking two-column badge. */
+.rt-research-fold { margin: 0; min-width: 0; }
 .rt-research-fold > summary {
   cursor: pointer;
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 11px;
   border: 1px solid var(--rt-ui-line);
-  border-radius: 11px;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--rt-ui-ink-soft);
+  border-radius: var(--rt-ui-radius);
+  background: color-mix(in srgb, var(--rt-ui-panel) 88%, var(--rt-ui-accent-soft));
+  color: var(--rt-ui-ink);
+  list-style: none;
 }
-.rt-research-fold > summary:hover { background: var(--rt-ui-accent-soft); }
+.rt-research-fold > summary::-webkit-details-marker { display: none; }
+.rt-research-fold > summary::after {
+  content: "+";
+  color: var(--rt-ui-accent);
+  font-size: 1rem;
+  line-height: 1;
+}
+.rt-research-fold[open] > summary::after { content: "–"; }
+.rt-research-fold > summary:hover { border-color: color-mix(in srgb, var(--rt-ui-accent) 35%, var(--rt-ui-line)); }
+.rt-research-summary-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--rt-ui-radius-pill);
+  background: var(--rt-ui-accent-soft);
+  color: var(--rt-ui-accent-ink);
+  font-weight: 700;
+}
+.rt-research-summary-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.rt-research-summary-copy strong {
+  font-size: 0.82rem;
+  line-height: 1.15;
+  font-family: var(--rt-ui-display);
+}
+.rt-research-summary-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--rt-ui-ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
 .rt-research-fold[open] > summary { margin-bottom: 10px; }
-.rt-research-fold .rt-research-box { margin-top: 0; }
+.rt-research-fold .rt-research-box { margin: 0; }
 
 .rt-select {
   width: 100%;
