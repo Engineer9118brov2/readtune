@@ -12,6 +12,7 @@
  */
 
 const API = "https://api.elevenlabs.io/v1";
+const TTS_STORAGE_KEY = "readtune_tts";
 export const ELEVEN_ORIGIN = "https://api.elevenlabs.io/*";
 
 /** True once the user has granted ReadTune permission to reach the API host. */
@@ -30,6 +31,29 @@ export async function requestElevenPermission() {
     console.warn("[ReadTune] ElevenLabs permission request failed:", err);
     return false;
   }
+}
+
+export async function removeElevenPermission() {
+  try {
+    return await chrome.permissions.remove({ origins: [ELEVEN_ORIGIN] });
+  } catch (err) {
+    console.warn("[ReadTune] ElevenLabs permission removal failed:", err);
+    return false;
+  }
+}
+
+// The explicit “Remove key” action clears apiKey in readtune_tts. Keep the
+// permission lifecycle tied to that state change so removing the integration
+// also returns its optional host access. Switching temporarily to Piper keeps
+// the key and therefore keeps permission, matching the existing UX.
+if (globalThis.chrome?.storage?.onChanged?.addListener && globalThis.chrome?.permissions?.remove) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local") return;
+    const change = changes && changes[TTS_STORAGE_KEY];
+    const oldKey = change && change.oldValue && change.oldValue.apiKey;
+    const newKey = change && change.newValue && change.newValue.apiKey;
+    if (oldKey && !newKey) removeElevenPermission();
+  });
 }
 
 async function apiError(res, fallback) {
@@ -70,7 +94,6 @@ export async function fetchVoices(apiKey) {
 /** Lightweight key check that doesn't need voices_read — returns true if the key can do TTS. */
 export async function keyCanSynthesize(apiKey) {
   if (!apiKey) return { ok: false, reason: "No API key." };
-  // a deliberately tiny request to a premade voice id; 402 still means the key authenticates
   const res = await fetch(`${API}/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_22050_32`, {
     method: "POST",
     headers: { "xi-api-key": apiKey, "content-type": "application/json" },
@@ -78,7 +101,7 @@ export async function keyCanSynthesize(apiKey) {
   }).catch(() => null);
   if (!res) return { ok: false, reason: "Couldn't reach ElevenLabs." };
   if (res.ok) return { ok: true };
-  if (res.status === 402) return { ok: true, note: "free-plan" }; // authenticates, but library voices need a paid plan
+  if (res.status === 402) return { ok: true, note: "free-plan" };
   const err = await apiError(res);
   return { ok: false, reason: err.message };
 }
