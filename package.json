@@ -9,9 +9,10 @@
     "check": "node scripts/check.mjs",
     "capture-privacy-check": "node scripts/capture-privacy-check.mjs",
     "relay-error-check": "node scripts/relay-error-check.mjs",
+    "piper-recovery-check": "node scripts/piper-recovery-check.mjs",
     "harness": "node scripts/harness.mjs",
     "piper-smoke": "node scripts/piper-smoke.mjs",
-    "test": "npm run check && npm run capture-privacy-check && npm run relay-error-check && npm run harness"
+    "test": "npm run check && npm run capture-privacy-check && npm run relay-error-check && npm run piper-recovery-check && npm run harness"
   },
   "license": "MIT"
 }
