@@ -49,7 +49,7 @@ try {
     if (!p || !existsSync(join(ROOT, p))) fail(`manifest → icons.${size}: missing`);
   }
   const webResources = new Set((manifest.web_accessible_resources || []).flatMap((entry) => entry.resources || []));
-  for (const need of ["shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js"]) {
+  for (const need of ["shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js", "shared/page-audio.js"]) {
     if (!webResources.has(need)) fail(`manifest → web_accessible_resources: missing ${need}`);
   }
 } catch (e) {
