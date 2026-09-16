@@ -13,14 +13,15 @@
   let payload;
   try {
     const root = document.documentElement.cloneNode(true);
-    // Readability doesn't need executable/embedded content or form controls,
-    // and keeping them in the temporary handoff can capture hidden form values,
-    // signed iframe URLs, or other page-specific state that Reader View will
-    // never use. Remove them before serialising the clone, not only later when
-    // the extracted article is sanitised.
+    // Readability doesn't need executable/embedded content, form controls, or
+    // editable drafting surfaces. Keeping any of those in the temporary handoff
+    // can capture hidden form values, signed iframe URLs, unsent comments, or
+    // other page-specific state that Reader View will never use. Remove them
+    // before serialising the clone, not only later when the extracted article
+    // is sanitised.
     root
       .querySelectorAll(
-        "script, noscript, template, style, link[rel='stylesheet'], input, textarea, select, button, iframe, object, embed",
+        "script, noscript, template, style, link[rel='stylesheet'], input, textarea, select, button, iframe, object, embed, [contenteditable]:not([contenteditable='false']), [role='textbox']",
       )
       .forEach((n) => n.remove());
 
