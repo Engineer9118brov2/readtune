@@ -414,8 +414,9 @@ body.rt-shell:has(#rail-right:not([hidden])) .rt-voice-orb {
   display: none;
 }
 
-/* the source page's own "Listen to this article" — only shown when one was
-   found at capture time. Sits just above the voice orb; same idea as
+/* the source page's own "Listen to this article" — shown when capture-time
+   detection or a later source-tab probe finds one. Sits just above the voice orb;
+   same idea as
    .rt-rail-open (a labelled pill), not the orb's icon-only circle, since
    this one needs to say what it does (site audio vs. ReadTune's own voice). */
 .rt-page-audio {

@@ -28,6 +28,15 @@ const LISTEN_WEAK_RE = /\blisten\b(?!\s+live)/i;
 const DURATION_RE = /\b\d{1,2}:\d{2}\b|\b\d+[\s-]?(?:minute|min)\b/i;
 const AUDIO_CLASS_HINT_RE = /(audio|listen|player|narrat|podcast)/i;
 
+// Some newsroom players (CNBC/JW Player is a common example) put the useful
+// context on a wrapper — "Listen · 6 min", class="...audio-player..." — while
+// the actual actionable child is named only "Play" / "Pause". Treat that
+// child as narration only when a nearby ancestor provides strong audio
+// evidence; a generic Play button by itself must never match.
+const PLAYBACK_NAME_RE = /^(?:play|pause|resume)(?:\s+(?:audio|article|story|narration))?$/i;
+const PLAYBACK_CLASS_RE = /(playback|play[-_]?button|jw-icon-playback)/i;
+const VIDEO_CONTEXT_RE = /(^|[-_\s])(video|watch)([-_\s]|$)/i;
+
 // Kill switches: if any of these show up in the name it's almost certainly
 // video / music / navigation / a live stream, not recorded article narration.
 const DENY_RE =
@@ -47,6 +56,53 @@ function matchesListenControl(el, name) {
   const evidence = `${el.id} ${el.className}`;
   if (LIVE_EVIDENCE_RE.test(evidence)) return false;
   return AUDIO_CLASS_HINT_RE.test(evidence);
+}
+
+function nearbyAudioContext(el) {
+  // Stay close to the control. Looking at the whole article would let an
+  // unrelated "Listen" link elsewhere turn an ordinary video Play button into
+  // a false positive. Five ancestors is enough for nested player chrome.
+  let node = el && el.parentElement;
+  for (let depth = 0; node && depth < 5; depth++, node = node.parentElement) {
+    const attrs = `${node.id || ""} ${node.className || ""} ${node.getAttribute("data-testid") || ""} ${node.getAttribute("data-component") || ""}`;
+    if (LIVE_EVIDENCE_RE.test(attrs) || VIDEO_CONTEXT_RE.test(attrs)) return false;
+    const text = String(node.textContent || "").replace(/\s+/g, " ").trim().slice(0, 220);
+    const attrAudio = AUDIO_CLASS_HINT_RE.test(attrs);
+    const textAudio = LISTEN_STRONG_RE.test(text) || (LISTEN_WEAK_RE.test(text) && DURATION_RE.test(text));
+    if (attrAudio || textAudio) return true;
+  }
+  return false;
+}
+
+function matchesContextualPlayback(el, name) {
+  const ownEvidence = `${el.id || ""} ${el.className || ""}`;
+  if (!PLAYBACK_NAME_RE.test(name || "") && !PLAYBACK_CLASS_RE.test(ownEvidence)) return false;
+  if (DENY_RE.test(name || "")) return false;
+  return nearbyAudioContext(el);
+}
+
+/** Best-effort state for a narration handle. Third-party players expose state
+ * in different places, so keep this deliberately conservative: a Pause label,
+ * aria-pressed=true, JW's data-playback-state, or a nearby `jw-state-playing`
+ * class all mean playing. Unknown controls remain false rather than pretending. */
+export function narrationPlaying(found) {
+  if (!found || !found.el) return false;
+  const el = found.el;
+  if (found.kind === "audio") return !el.paused && !el.ended;
+  if (found.kind !== "control") return false;
+
+  const name = accessibleName(el);
+  if (/^pause(?:\s+(?:audio|article|story|narration))?$/i.test(name)) return true;
+  if (el.getAttribute("aria-pressed") === "true") return true;
+  if ((el.getAttribute("data-playback-state") || "").toLowerCase() === "playing") return true;
+
+  let node = el;
+  for (let depth = 0; node && depth < 5; depth++, node = node.parentElement) {
+    const cls = String(node.className || "");
+    if (/\bjw-state-playing\b/i.test(cls)) return true;
+    if (node.hasAttribute && node.hasAttribute("data-controlbar-playing")) return true;
+  }
+  return false;
 }
 
 // Something in an <audio>'s own markup or its immediate surroundings that ties
@@ -138,7 +194,22 @@ export function findPageNarration(root) {
     return { kind: "control", el, name };
   }
 
-  // 3 — an embedded podcast episode of the article.
+  // 3 — contextual playback chrome. Newsroom players often expose a parent
+  //     as "Listen 6 min" but name the actual button only "Play". Require
+  //     strong nearby audio evidence before accepting such a generic control.
+  for (const el of scope.querySelectorAll('button, [role="button"], input[type="button"]')) {
+    if (inReadTune(el)) continue;
+    const name = accessibleName(el);
+    // Icon-only players (including some JW builds) can have no useful
+    // accessible text at all. A playback-specific class is still acceptable
+    // when the nearby wrapper independently proves this is article audio.
+    if (name.length > 80) continue;
+    if (!matchesContextualPlayback(el, name)) continue;
+    if (!hasSize(el)) continue;
+    return { kind: "control", el, name };
+  }
+
+  // 4 — an embedded podcast episode of the article.
   for (const el of scope.querySelectorAll("iframe[src]")) {
     if (inReadTune(el)) continue;
     if (EMBED_HOSTS.test(el.getAttribute("src") || "")) return { kind: "embed", el };

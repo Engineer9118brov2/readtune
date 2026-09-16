@@ -34,7 +34,7 @@ var __readtuneBoot = (async () => {
   const { measuredLineHeight, adaptiveRulerHeight, normalizeRulerLines, rulerSpanLabel } = await import(
     chrome.runtime.getURL("shared/ruler.js")
   );
-  const { findPageNarration } = await import(chrome.runtime.getURL("shared/page-audio.js"));
+  const { findPageNarration, narrationPlaying } = await import(chrome.runtime.getURL("shared/page-audio.js"));
 
   const FONT_ORDER = ["sans", "dyslexic", "atkinson", "lexend"];
   const FONT_LABEL = { sans: "System Sans", dyslexic: "OpenDyslexic", atkinson: "Atkinson", lexend: "Lexend" };
@@ -210,7 +210,10 @@ var __readtuneBoot = (async () => {
   const pageAudioBtn = root.querySelector('[data-a="pageaudio"]');
   let narration = null; // { kind, el }
   let narrationAudio = null; // the <audio> element we attached listeners to
+  let narrationStateObserver = null; // state classes/attrs on third-party players
   const narrationRetries = [];
+  let narrationObserver = null;
+  let narrationMutationTimer = 0;
 
   // A real button we can safely fire a synthetic click on. Anchors are
   // scroll-only even when they carry role="button" — clicking one can follow
@@ -224,8 +227,8 @@ var __readtuneBoot = (async () => {
       return;
     }
     pageAudioBtn.hidden = false;
-    if (narration.kind === "audio") {
-      const playing = !narration.el.paused && !narration.el.ended;
+    const playing = narrationPlaying(narration);
+    if (narration.kind === "audio" || (narration.kind === "control" && isClickableControl(narration.el))) {
       pageAudioBtn.textContent = playing ? "❙❙ Page audio" : "▶ Page audio";
       pageAudioBtn.title = playing ? "Pause the page's own narration" : "Play the page's own narration";
       pageAudioBtn.classList.toggle("on", playing);
@@ -246,6 +249,10 @@ var __readtuneBoot = (async () => {
   }
 
   function detachNarrationAudio() {
+    if (narrationStateObserver) {
+      narrationStateObserver.disconnect();
+      narrationStateObserver = null;
+    }
     if (!narrationAudio) return;
     narrationAudio.removeEventListener("play", paintPageAudio);
     narrationAudio.removeEventListener("pause", paintPageAudio);
@@ -275,6 +282,17 @@ var __readtuneBoot = (async () => {
       narrationAudio.addEventListener("play", paintPageAudio);
       narrationAudio.addEventListener("pause", paintPageAudio);
       narrationAudio.addEventListener("ended", paintPageAudio);
+    } else if (narration.kind === "control" && typeof MutationObserver !== "undefined") {
+      // Third-party controls expose state through class/data attributes rather
+      // than media events. Watch only the small player subtree, not the page.
+      let context = narration.el;
+      for (let i = 0; i < 3 && context.parentElement; i++) context = context.parentElement;
+      narrationStateObserver = new MutationObserver(() => paintPageAudio());
+      narrationStateObserver.observe(context, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "aria-pressed", "data-playback-state", "data-controlbar-playing"],
+      });
     }
     paintPageAudio();
   }
@@ -306,6 +324,10 @@ var __readtuneBoot = (async () => {
     if (narration.kind === "control" && isClickableControl(narration.el)) {
       try {
         narration.el.click();
+        // Give page frameworks a chance to flip their playback state, then
+        // mirror it in ReadTune even if they do not mutate a watched attribute.
+        setTimeout(paintPageAudio, 80);
+        setTimeout(paintPageAudio, 260);
       } catch {
         /* the page's handler threw — nothing we can do */
       }
@@ -377,6 +399,9 @@ var __readtuneBoot = (async () => {
     chrome.storage.onChanged.removeListener(onStorage);
     window.removeEventListener("pointermove", onPointer);
     narrationRetries.forEach((t) => { clearTimeout(t); clearInterval(t); });
+    clearTimeout(narrationMutationTimer);
+    if (narrationObserver) narrationObserver.disconnect();
+    narrationObserver = null;
     detachNarrationAudio();
     removeBionic();
     styleEl.remove();
@@ -396,18 +421,29 @@ var __readtuneBoot = (async () => {
   applyRuler(profile.focus === "ruler");
   paintBar();
 
-  // Look for the page's own "Listen to this article" now, and again shortly
-  // after in case its player is lazy-loaded. Stops once something is found.
+  // Look for the page's own "Listen to this article" now. Newsroom players
+  // are often hydrated after the article itself (CNBC's JW audio player does
+  // this), so also watch child insertions instead of relying only on a couple
+  // of lucky timeout scans. Debounce the observer: a player can add dozens of
+  // nodes while booting and one scan after the burst is enough.
   mountNarration();
-  for (const delay of [1400, 4000]) {
+  if (typeof MutationObserver !== "undefined" && document.documentElement) {
+    narrationObserver = new MutationObserver(() => {
+      if (removed) return;
+      clearTimeout(narrationMutationTimer);
+      narrationMutationTimer = setTimeout(() => mountNarration(), 140);
+    });
+    narrationObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+  for (const delay of [1400, 4000, 9000, 18000]) {
     narrationRetries.push(setTimeout(() => {
       if (!removed) mountNarration();
     }, delay));
   }
-  // Keep a slow watch so a client-side route change (stale element, or a
-  // player that only mounts on the new view) is picked up. Stop scanning a
-  // page that clearly has no narration, but never stop once we've found one —
-  // an SPA can still swap it out from under us.
+  // A low-frequency sweep covers player state/SPA changes that do not replace
+  // child nodes in a useful way. It is deliberately bounded on pages where no
+  // narration ever appears; the MutationObserver remains the cheap late-load
+  // path after that.
   let narrationSweeps = 0;
   const narrationWatch = setInterval(() => {
     if (removed) return;

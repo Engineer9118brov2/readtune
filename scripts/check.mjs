@@ -111,6 +111,31 @@ for (const dir of ["shared", "lib", "icons"]) {
   }
 }
 
+// 3c. Security invariants that previously produced CodeQL alerts. Keep these
+//     checks local so a future dependency/workflow edit cannot silently bring
+//     the same findings back after GitHub has gone green.
+try {
+  const ci = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  if (!/permissions:\s*\n\s+contents:\s*read/.test(ci)) {
+    fail("CI workflow must explicitly restrict GITHUB_TOKEN to contents: read");
+  }
+  for (const m of ci.matchAll(/uses:\s*([^\s#]+)/g)) {
+    const spec = m[1];
+    const at = spec.lastIndexOf("@");
+    const ref = at >= 0 ? spec.slice(at + 1) : "";
+    if (!/^[0-9a-f]{40}$/i.test(ref)) fail(`CI action is not pinned to a full commit SHA: ${spec}`);
+  }
+
+  const readability = readFileSync(join(ROOT, "lib", "readability.js"), "utf8");
+  for (const scheme of ["javascript:", "vbscript:", "data:"]) {
+    if (!readability.includes(`unsafeHref.indexOf("${scheme}")`)) {
+      fail(`vendored Readability URL hardening no longer blocks ${scheme}`);
+    }
+  }
+} catch (e) {
+  fail("security invariant check failed: " + e.message);
+}
+
 // 4. lib present — incl. the on-device voice engine and the bundled default voice
 for (const need of [
   "lib/readability.js",
