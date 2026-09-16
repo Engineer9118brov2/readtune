@@ -18,6 +18,10 @@ const MAX_PENDING_ARTICLES = 6;
 const ARTICLE_TTL_MS = 10 * 60 * 1000;
 export const SITES_KEY = "readtune_sites"; // per-origin: { autoOpen, autoStyle }
 export const MARKS_PREFIX = "readtune_mark:"; // per-URL resume + highlights
+const MAX_PAGE_MEMORIES = 120;
+const PAGE_MEMORY_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+const PAGE_MEMORY_PRUNE_INTERVAL_MS = 10 * 60 * 1000;
+let lastPageMemoryPrune = 0;
 export const TTS_KEY = "readtune_tts"; // read-aloud engine config (incl. the user's own API key)
 export const SETUP_KEY = "readtune_setup"; // lightweight onboarding progress for guided setup
 export const CAL_SEEN_KEY = "readtune_cal_seen"; // calibration passage ids already shown (for no-repeat draw)
@@ -337,18 +341,65 @@ export async function loadPageMemory(url) {
   }
 }
 
+async function prunePageMemories({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastPageMemoryPrune < PAGE_MEMORY_PRUNE_INTERVAL_MS) return 0;
+  lastPageMemoryPrune = now;
+  try {
+    const all = await chrome.storage.local.get(null);
+    const entries = Object.entries(all || {})
+      .filter(([key]) => key.startsWith(MARKS_PREFIX))
+      .map(([key, value]) => ({ key, at: Number(value && value.at) || 0 }));
+    const expired = entries.filter(({ at }) => !at || now - at > PAGE_MEMORY_TTL_MS);
+    const fresh = entries
+      .filter(({ at }) => at && now - at <= PAGE_MEMORY_TTL_MS)
+      .sort((a, b) => b.at - a.at);
+    // A forced pass is used after a quota failure, so make substantially more
+    // headroom instead of deleting only one key and immediately failing again.
+    const keep = force ? Math.min(MAX_PAGE_MEMORIES, 80) : MAX_PAGE_MEMORIES;
+    const overflow = fresh.slice(keep);
+    const staleKeys = [...new Set([...expired, ...overflow].map(({ key }) => key))];
+    if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+    return staleKeys.length;
+  } catch (err) {
+    console.warn("[ReadTune] prunePageMemories failed:", err);
+    return 0;
+  }
+}
+
 export async function savePageMemory(url, memory) {
   const key = MARKS_PREFIX + normalizeUrl(url);
-  try {
-    if (!memory || (!memory.scroll && !(memory.highlights || []).length)) {
+  if (!memory || (!memory.scroll && !(memory.highlights || []).length)) {
+    try {
       await chrome.storage.local.remove(key);
-    } else {
-      await chrome.storage.local.set({ [key]: { ...memory, at: Date.now() } });
+      return true;
+    } catch (err) {
+      console.warn("[ReadTune] savePageMemory(remove) failed:", err);
+      return false;
     }
+  }
+
+  const value = { ...memory, at: Date.now() };
+  try {
+    await chrome.storage.local.set({ [key]: value });
+    await prunePageMemories();
     return true;
-  } catch (err) {
-    console.warn("[ReadTune] savePageMemory failed:", err);
-    return false;
+  } catch (firstErr) {
+    const quotaFailure = /quota|QUOTA_BYTES|MAX_WRITE/i.test(String((firstErr && firstErr.message) || firstErr || ""));
+    if (!quotaFailure) {
+      console.warn("[ReadTune] savePageMemory failed:", firstErr);
+      return false;
+    }
+    // Storage can fill after months of saved articles. Reclaim old article
+    // memories and retry once before giving up on the reader's current notes.
+    await prunePageMemories({ force: true });
+    try {
+      await chrome.storage.local.set({ [key]: value });
+      return true;
+    } catch (err) {
+      console.warn("[ReadTune] savePageMemory failed after pruning:", err);
+      return false;
+    }
   }
 }
 

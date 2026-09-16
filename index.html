@@ -8,6 +8,8 @@
   <title>ReadTune — stop guessing at reading settings</title>
   <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon48.png" />
   <link rel="apple-touch-icon" href="/icons/icon128.png" />
+  <link rel="preload" href="/lib/fonts/lexend-700.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/lib/fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="site.css" />
   <script>
     try { if (localStorage.getItem("readtune-dys-view") === "1") document.documentElement.classList.add("dys-mode"); } catch (e) {}
@@ -19,7 +21,7 @@
   <header class="site-header" data-site-header>
     <div class="shell header-inner">
       <a class="brand" href="/" aria-label="ReadTune home">
-        <img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" />
+        <img class="brand-mark" src="/icons/icon128.png" width="34" height="34" alt="" aria-hidden="true" />
         <span>ReadTune</span>
       </a>
 
@@ -43,7 +45,7 @@
 
   <main id="main">
     <section class="hero shell section-pad">
-      <div class="hero-copy" data-reveal>
+      <div class="hero-copy">
         <div class="eyebrow"><span class="status-dot"></span> Free · open source · Chrome</div>
         <h1>Stop guessing.<br /><em>Read what fits.</em></h1>
         <p class="hero-lede">If dense pages make you lose your place, reread the same line, or give up halfway, ReadTune gives you somewhere better to start: a short preference check, a reading profile that follows you, and help inside the article when you get stuck.</p>
@@ -59,7 +61,7 @@
         </ul>
       </div>
 
-      <div class="hero-demo" data-reveal>
+      <div class="hero-demo">
         <div class="demo-window">
           <div class="demo-window-top">
             <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -146,12 +148,11 @@
 
         <figure class="media-card media-placeholder" data-video-slot="calibration-flow" data-image-slot="calibration-results" data-reveal>
           <div class="media-placeholder-inner">
-            <span class="placeholder-tag">VIDEO / IMAGE SLOT 01</span>
+            <span class="placeholder-tag">PRODUCT DEMO</span>
             <strong>Preference check → result</strong>
-            <p>Preferred: a short clip ending on the provisional result. A result screenshot works as fallback.</p>
-            <code>assets/site/calibration-flow.mp4</code>
+            <p>See the preference check move from a short reading into a provisional starting profile.</p>
           </div>
-          <figcaption>Suggested image: result screen showing the clearest signal, kept settings, and “Provisional” language.</figcaption>
+          <figcaption>The result explains the clearest signal, keeps uncertainty visible, and never presents one run as a diagnosis.</figcaption>
         </figure>
       </div>
     </section>
@@ -170,12 +171,11 @@
 
       <figure class="wide-media media-placeholder" data-image-slot="reader-settings" data-reveal>
         <div class="media-placeholder-inner">
-          <span class="placeholder-tag">IMAGE SLOT 02</span>
+          <span class="placeholder-tag">PRODUCT VIEW</span>
           <strong>Reader View + settings</strong>
-          <p>Use the cleaned-up Reader View screenshot with the polished settings rail.</p>
-          <code>assets/site/reader-settings.png</code>
+          <p>A clean article surface with the same profile, quick modes, and reading controls close at hand.</p>
         </div>
-        <figcaption>Suggested image: a real article with settings open, showing typography, quick modes, and a clean reading surface.</figcaption>
+        <figcaption>Reader View keeps typography, quick modes, highlights, AI, and movement controls around the text instead of on top of it.</figcaption>
       </figure>
     </section>
 
@@ -191,12 +191,11 @@
       <div class="shell ai-stage">
         <figure class="video-card ai-video media-placeholder" data-video-slot="ai-mode" data-reveal>
           <div class="media-placeholder-inner">
-            <span class="placeholder-tag">VIDEO SLOT 01</span>
+            <span class="placeholder-tag">AI MODE DEMO</span>
             <strong>AI mode walkthrough</strong>
-            <p>Best clip: open Article chat → ask a question → switch answer level → annotate or save an explanation.</p>
-            <code>assets/site/ai-mode.mp4</code>
+            <p>Ask beside the article, change the answer level, then keep the useful explanation as part of your reading.</p>
           </div>
-          <figcaption>Suggested 12–20 second silent loop. Keep the article visible so judges see AI working beside the reading surface, not replacing it.</figcaption>
+          <figcaption>AI stays beside the source text: ask, simplify, define, explain, annotate, and save useful help without leaving the reading surface.</figcaption>
         </figure>
 
         <div class="ai-capabilities" data-reveal>
@@ -245,12 +244,11 @@
       <div class="shell">
         <figure class="wide-media compact-media media-placeholder" data-video-slot="reading-lab" data-image-slot="reading-lab" data-reveal>
           <div class="media-placeholder-inner">
-            <span class="placeholder-tag">VIDEO / IMAGE SLOT 03</span>
+            <span class="placeholder-tag">READING LAB DEMO</span>
             <strong>Reading Lab</strong>
-            <p>Preferred: a short clip moving from repeatability history into Voice Fit. A still works as fallback.</p>
-            <code>assets/site/reading-lab.mp4</code>
+            <p>See which preferences repeat across checks, then preview voices inside the same reading setup.</p>
           </div>
-          <figcaption>Suggested image: Reading Lab showing repeatability, recent runs, and Voice Fit.</figcaption>
+          <figcaption>Reading Lab turns one provisional result into a longer-term pattern you can inspect rather than blindly trust.</figcaption>
         </figure>
       </div>
     </section>
@@ -271,12 +269,11 @@
 
         <figure class="media-card dark-media media-placeholder" data-video-slot="read-aloud" data-image-slot="read-aloud" data-reveal>
           <div class="media-placeholder-inner">
-            <span class="placeholder-tag">VIDEO / IMAGE SLOT 04</span>
+            <span class="placeholder-tag">READ-ALOUD DEMO</span>
             <strong>Read-aloud in motion</strong>
-            <p>Prefer a short clip showing sentence + word highlighting and transport controls. A screenshot is the fallback.</p>
-            <code>assets/site/read-aloud.mp4</code>
+            <p>Follow the current sentence and word while the on-device voice reads through the article.</p>
           </div>
-          <figcaption>Suggested image: live Reader View with sentence/word highlighting and the playback transport.</figcaption>
+          <figcaption>Sentence and word tracking keep audio anchored to the page so listening does not mean losing your place.</figcaption>
         </figure>
       </div>
     </section>
@@ -335,12 +332,11 @@
       </div>
       <figure class="wide-media media-placeholder" data-video-slot="restyle-page" data-image-slot="restyle-page" data-reveal>
         <div class="media-placeholder-inner">
-          <span class="placeholder-tag">VIDEO / IMAGE SLOT 05</span>
+          <span class="placeholder-tag">LIVE PAGE DEMO</span>
           <strong>Restyle this page</strong>
-          <p>Prefer a short before/after clip showing the live page change. A screenshot is the fallback.</p>
-          <code>assets/site/restyle-page.mp4</code>
+          <p>Watch the original site stay recognizable while typography, spacing, tint, and focus aids change around the content.</p>
         </div>
-        <figcaption>Suggested image: real web page restyled in-place, with the original site chrome still recognizable.</figcaption>
+        <figcaption>Restyle changes the reading layer in place and can restore the page when you are done.</figcaption>
       </figure>
     </section>
 
@@ -414,7 +410,7 @@
 
   <footer class="site-footer">
     <div class="shell footer-grid">
-      <div><a class="brand brand-light" href="/"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></a><p>Reading support that starts with the reader.</p></div>
+      <div><a class="brand brand-light" href="/"><img class="brand-mark" src="/icons/icon128.png" width="34" height="34" alt="" aria-hidden="true" /><span>ReadTune</span></a><p>Reading support that starts with the reader.</p></div>
       <div class="footer-links"><button class="footer-key" type="button" data-open-command>Alt+K · map</button><a href="/privacy.html">Privacy</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a><span>© 2026</span></div>
     </div>
   </footer>
