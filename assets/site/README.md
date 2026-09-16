@@ -1,7 +1,6 @@
 # ReadTune marketing media slots
 
-Drop real product media into this folder using these reserved names. `site.js`
-automatically replaces the designed placeholders when the asset exists.
+Drop real product media into this folder using these reserved names. After adding an asset, also add its filename to `media.json`; `site.js` then replaces the designed placeholder without probing missing files in production.
 
 ## Screenshots
 - `calibration-results.png` — result screen with signal + provisional language

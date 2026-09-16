@@ -337,6 +337,27 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   await S.savePageMemory("https://x.test/a?q=1", { scroll: 1200, highlights: [{ text: "hi", before: "" }] });
   const pm = await S.loadPageMemory("https://x.test/a?q=2");
   assert(pm.scroll === 1200 && pm.highlights.length === 1, "page memory by origin+path");
+  // A long-lived reader can accumulate one resume/highlight record per URL.
+  // Simulate a quota failure with many old records: savePageMemory should make
+  // headroom and retry without losing the article the reader is saving now.
+  for (let i = 0; i < 130; i++) {
+    mem.local[`${S.MARKS_PREFIX}https://archive.test/${i}`] = { scroll: i + 1, highlights: [], at: Date.now() - i * 1000 };
+  }
+  const originalLocalSet = chrome.storage.local.set;
+  let quotaOnce = true;
+  chrome.storage.local.set = async (obj) => {
+    if (quotaOnce) { quotaOnce = false; throw new DOMException("quota", "QuotaExceededError"); }
+    return originalLocalSet.call(chrome.storage.local, obj);
+  };
+  assert(
+    await S.savePageMemory("https://archive.test/current", { scroll: 99, highlights: [{ text: "keep me" }] }),
+    "page memory recovers from storage quota pressure by pruning old article memories and retrying",
+  );
+  chrome.storage.local.set = originalLocalSet;
+  const markKeysAfterQuota = Object.keys(mem.local).filter((key) => key.startsWith(S.MARKS_PREFIX));
+  assert(markKeysAfterQuota.length <= 81, "quota recovery leaves bounded page-memory headroom");
+  assert((await S.loadPageMemory("https://archive.test/current")).highlights[0]?.text === "keep me", "quota recovery preserves the current article memory");
+  for (const key of markKeysAfterQuota) delete mem.local[key];
   await S.setSiteAutoOpen("https://news.test", true);
   assert((await S.loadSites())["https://news.test"].autoOpen === true, "per-site autoOpen");
   await S.setSiteAutomation("https://news.test", "style");

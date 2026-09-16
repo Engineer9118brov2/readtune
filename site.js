@@ -116,15 +116,25 @@ dysToggle?.addEventListener("click", () => {
   apply();
 })();
 
-/* Media slots. A video slot prefers MP4; if it is missing, an optional PNG
-   fallback is tried. Static screenshot slots still hydrate directly. This lets
-   real product media be dropped in later without touching the page structure. */
-(function hydrateMediaSlots() {
+/* Media slots. Asset availability comes from a tiny manifest rather than
+   probing every reserved filename. Missing capture placeholders therefore cost
+   one small successful request instead of a row of expected 404s in production. */
+(async function hydrateMediaSlots() {
   const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  let available = new Set();
+  try {
+    const response = await fetch("/assets/site/media.json", { cache: "no-cache" });
+    if (response.ok) {
+      const manifest = await response.json();
+      available = new Set(Array.isArray(manifest?.files) ? manifest.files : []);
+    }
+  } catch {
+    // Placeholders remain visible when the manifest cannot be read.
+  }
 
   const promoteImage = (figure, slot) => {
-    if (!slot || figure.classList.contains("has-video") || figure.dataset.imageAttempted === "1") return;
-    figure.dataset.imageAttempted = "1";
+    const filename = slot ? `${slot}.png` : "";
+    if (!filename || !available.has(filename) || figure.classList.contains("has-video")) return;
     const image = new Image();
     image.alt = figure.querySelector("strong")?.textContent || "ReadTune product screenshot";
     image.decoding = "async";
@@ -136,13 +146,14 @@ dysToggle?.addEventListener("click", () => {
       figure.classList.add("has-image");
       figure.insertBefore(image, figure.querySelector("figcaption"));
     }, { once: true });
-    image.src = `/assets/site/${slot}.png`;
+    image.src = `/assets/site/${filename}`;
   };
 
   document.querySelectorAll("[data-video-slot], [data-image-slot]").forEach((figure) => {
     const videoSlot = figure.dataset.videoSlot;
     const imageSlot = figure.dataset.imageSlot;
-    if (!videoSlot) {
+    const videoFile = videoSlot ? `${videoSlot}.mp4` : "";
+    if (!videoFile || !available.has(videoFile)) {
       promoteImage(figure, imageSlot);
       return;
     }
@@ -156,13 +167,10 @@ dysToggle?.addEventListener("click", () => {
     video.preload = "metadata";
     video.setAttribute("aria-label", figure.querySelector("strong")?.textContent || "ReadTune feature video");
     if (!reduced) video.autoplay = true;
-
     const source = document.createElement("source");
-    source.src = `/assets/site/${videoSlot}.mp4`;
+    source.src = `/assets/site/${videoFile}`;
     source.type = "video/mp4";
     video.append(source);
-    source.addEventListener("error", () => promoteImage(figure, imageSlot), { once: true });
-
     video.addEventListener("loadeddata", () => {
       figure.querySelector(".media-placeholder-inner")?.setAttribute("hidden", "");
       figure.querySelector(".slot-image")?.remove();

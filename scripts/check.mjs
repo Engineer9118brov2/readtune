@@ -136,6 +136,22 @@ try {
   fail("security invariant check failed: " + e.message);
 }
 
+// 3d. Marketing media manifest: placeholders must never probe missing files.
+try {
+  const mediaDir = join(ROOT, "assets", "site");
+  const mediaManifest = JSON.parse(readFileSync(join(mediaDir, "media.json"), "utf8"));
+  const listed = new Set(Array.isArray(mediaManifest.files) ? mediaManifest.files : []);
+  for (const name of listed) {
+    if (!/^[a-z0-9-]+\.(?:png|mp4)$/i.test(name)) fail(`assets/site/media.json has an invalid filename: ${name}`);
+    if (!existsSync(join(mediaDir, name))) fail(`assets/site/media.json lists a missing asset: ${name}`);
+  }
+  for (const name of readdirSync(mediaDir)) {
+    if (/\.(?:png|mp4)$/i.test(name) && !listed.has(name)) fail(`assets/site/${name} exists but is not listed in media.json`);
+  }
+} catch (e) {
+  fail("marketing media manifest check failed: " + e.message);
+}
+
 // 4. lib present — incl. the on-device voice engine and the bundled default voice
 for (const need of [
   "lib/readability.js",
