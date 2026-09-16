@@ -13,6 +13,7 @@
 import { createHash } from "node:crypto";
 import { providersFromEnv, relayChat } from "./_relay.mjs";
 import { applyRelayCors } from "./_cors.mjs";
+import { clientFingerprint, createMemoryClientLimiter, retryAfterSeconds } from "./_rate-limit.mjs";
 
 const MAX_INPUT = 12000;
 const MAX_ASK_QUESTION = 500;
@@ -102,22 +103,32 @@ function cacheKeyFor(kind, url, text, question = "", levelHint = "") {
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
-const MEM_LIMIT_PER_MINUTE = 40;
+const RATE_LIMIT_SECRET = process.env.RELAY_RATE_LIMIT_SECRET || REDIS_TOKEN;
+const GLOBAL_LIMIT_PER_MINUTE = 60;
+const CLIENT_LIMIT_PER_MINUTE = 12;
+const MEM_GLOBAL_LIMIT_PER_MINUTE = 40;
+const memClientRateOk = createMemoryClientLimiter(CLIENT_LIMIT_PER_MINUTE);
 let memBucketKey = 0;
 let memBucketCount = 0;
-function memRateOk() {
+
+function memGlobalRateOk() {
   const now = Math.floor(Date.now() / 60000);
   if (now !== memBucketKey) {
     memBucketKey = now;
     memBucketCount = 0;
   }
   memBucketCount += 1;
-  return memBucketCount <= MEM_LIMIT_PER_MINUTE;
+  return memBucketCount <= MEM_GLOBAL_LIMIT_PER_MINUTE;
 }
 async function redisCall(path) {
   const res = await fetch(`${REDIS_URL}${path}`, { headers: { authorization: `Bearer ${REDIS_TOKEN}` } });
   if (!res.ok) throw new Error(`redis ${res.status}`);
   return res.json();
+}
+async function incrementBucket(bucket, limit) {
+  const r = await redisCall(`/incr/${encodeURIComponent(bucket)}`);
+  if (r && r.result === 1) await redisCall(`/expire/${encodeURIComponent(bucket)}/70`);
+  return !r || (typeof r.result === "number" && r.result <= limit);
 }
 async function cacheGet(key) {
   if (!hasRedis) return null;
@@ -135,16 +146,16 @@ async function cacheSet(key, value) {
     await redisCall(`/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}?EX=${CACHE_TTL_SECONDS}`);
   } catch {}
 }
-const RATE_LIMIT_PER_MINUTE = 60;
-async function rateLimitOk() {
-  if (!hasRedis) return memRateOk();
+async function rateLimitOk(req) {
+  const clientId = clientFingerprint(req, RATE_LIMIT_SECRET);
+  const fallback = () => memClientRateOk(clientId) && memGlobalRateOk();
+  if (!hasRedis) return fallback();
   try {
-    const bucket = `assist:rl:${Math.floor(Date.now() / 60000)}`;
-    const r = await redisCall(`/incr/${encodeURIComponent(bucket)}`);
-    if (r && r.result === 1) await redisCall(`/expire/${encodeURIComponent(bucket)}/70`);
-    return !r || (typeof r.result === "number" && r.result <= RATE_LIMIT_PER_MINUTE);
+    const minute = Math.floor(Date.now() / 60000);
+    if (!(await incrementBucket(`assist:client:${clientId}:${minute}`, CLIENT_LIMIT_PER_MINUTE))) return false;
+    return await incrementBucket(`assist:rl:${minute}`, GLOBAL_LIMIT_PER_MINUTE);
   } catch {
-    return memRateOk();
+    return fallback();
   }
 }
 
@@ -180,7 +191,10 @@ export default async function handler(req, res) {
     if (cached) return res.status(200).json({ text: cached, cached: true });
   }
 
-  if (!(await rateLimitOk())) return res.status(429).json({ error: "The AI helper is busy right now. Try again in a bit." });
+  if (!(await rateLimitOk(req))) {
+    res.setHeader("Retry-After", String(retryAfterSeconds()));
+    return res.status(429).json({ error: "The AI helper is busy right now. Try again in a bit." });
+  }
 
   try {
     const generated = await relayChat(providersFromEnv(process.env), cfg.system, cfg.buildUser(text, question, levelHint), undefined, cfg.maxTokens);
