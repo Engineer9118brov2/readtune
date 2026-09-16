@@ -10,6 +10,8 @@ import { createReadingView } from "./shared/render.js";
 import { createReadingScreen } from "./shared/screen.js";
 import { showMessage, hideMessage, prettyHost } from "./shared/ui.js";
 
+const ARTICLE_TTL_MS = 10 * 60 * 1000;
+
 applyStoredDyslexicUi();
 
 const surface = document.getElementById("surface");
@@ -30,6 +32,18 @@ async function init() {
 
   const handoffId = new URL(location.href).searchParams.get("article");
   const article = await takeArticle(handoffId);
+  const capturedAt = Number(article && article.capturedAt) || 0;
+  const expired = !capturedAt || Date.now() - capturedAt > ARTICLE_TTL_MS;
+
+  if (article && expired) {
+    showMessage(messageHost, {
+      title: "This Reader View handoff expired",
+      body: "Open the original article again and choose “Open Reader View”. Temporary captured page data is discarded after about ten minutes.",
+      actions: [{ label: "Close this tab", onClick: () => window.close() }],
+    });
+    return;
+  }
+
   if (!article || !article.ok || !article.html) {
     showMessage(messageHost, {
       title: "Open ReadTune from an article",
@@ -57,7 +71,6 @@ async function init() {
   hideMessage(messageHost);
   let title = meta.title || article.title || "Reader View";
   const site = meta.siteName || prettyHost(article.url);
-  // trim a trailing " — Site name" / " | Site" that many pages tack onto <title>
   if (site) {
     const re = new RegExp("\\s*[|\\u2013\\u2014\\-:]\\s*" + site.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "i");
     title = title.replace(re, "").trim() || title;
@@ -66,10 +79,7 @@ async function init() {
   const stats = view.getStats();
   const parts = [site, cleanByline(meta.byline), `${stats.minutes} min read`];
   if (stats.gradeReliable) parts.push(`Grade ${stats.grade} reading level`);
-  view.setMeta({
-    title,
-    parts,
-  });
+  view.setMeta({ title, parts });
 
   await createReadingScreen({
     surface,
