@@ -502,9 +502,15 @@ export function buildControls(profile, onChange, opts = {}) {
   // section already carries its own one-line evidence chip) — worth having,
   // worth reading once, folded the same way the research-starter card above
   // is: not the wall of text every settings-open has to scroll past.
-  const experimentsDetails = el("details", { class: "rt-research-fold" });
+  const experimentsDetails = el("details", { class: "rt-research-fold rt-experiments-fold" });
   experimentsDetails.append(
-    el("summary", {}, [evidenceChip("mixed", "Mixed evidence"), " Fonts, tints, bionic, and focus — what the research actually says"]),
+    el("summary", {}, [
+      el("span", { class: "rt-research-summary-copy" }, [
+        el("strong", {}, "Optional experiments"),
+        el("small", {}, "Fonts, tints, bionic + focus"),
+      ]),
+      evidenceChip("mixed", "Mixed evidence"),
+    ]),
     el("div", { class: "rt-research-mini" }, RESEARCH_EXPERIMENTS.map(researchCard)),
   );
   body.append(hint("Everything saves automatically and applies across ReadTune."), experimentsDetails);

@@ -107,14 +107,10 @@ export function createAssistSidebar({
     }
   }
 
-  function close(restoreFocus = true) {
-    const wasOpen = !!panel;
+  function collapse(restoreFocus = true) {
+    const wasOpen = !!panel && !panel.hidden;
     stop();
-    if (panel) panel.remove();
-    panel = null;
-    bodyEl = null;
-    diagPre = null;
-    diagWrap = null;
+    if (panel) panel.hidden = true;
     document.removeEventListener("keydown", onKey, true);
     if (restoreFocus && lastFocus && document.contains(lastFocus) && typeof lastFocus.focus === "function") {
       lastFocus.focus({ preventScroll: true });
@@ -122,8 +118,17 @@ export function createAssistSidebar({
     if (restoreFocus) lastFocus = null;
     if (wasOpen && onToggle) onToggle(false);
   }
+  function destroy() {
+    collapse(true);
+    if (panel) panel.remove();
+    panel = null;
+    bodyEl = null;
+    diagPre = null;
+    diagWrap = null;
+    lastFocus = null;
+  }
   function onKey(e) {
-    if (e.key === "Escape") { e.stopPropagation(); close(); }
+    if (e.key === "Escape") { e.stopPropagation(); collapse(); }
   }
 
   const stamp = () => new Date().toLocaleTimeString([], { hour12: false }) + "." + String(Date.now() % 1000).padStart(3, "0");
@@ -140,11 +145,18 @@ export function createAssistSidebar({
 
   function mount() {
     const opener = document.activeElement;
-    close(false);
+    if (panel) {
+      lastFocus = opener && opener !== document.body && document.contains(opener) ? opener : lastFocus;
+      panel.hidden = false;
+      if (onToggle) onToggle(true);
+      panel.focus({ preventScroll: true });
+      document.addEventListener("keydown", onKey, true);
+      return;
+    }
     lastFocus = opener && opener !== document.body && document.contains(opener) ? opener : null;
 
     const closeBtn = el("button", { type: "button", class: "rt-assist-x", "aria-label": "Collapse" }, "×");
-    closeBtn.addEventListener("click", () => close());
+    closeBtn.addEventListener("click", () => collapse());
 
     bodyEl = el("div", { class: "rt-assist-body rt-assist-thread", "aria-live": "polite", "aria-busy": "false" });
     bodyEl.append(el("div", { class: "rt-assist-empty" }, [
@@ -401,7 +413,8 @@ export function createAssistSidebar({
 
   return {
     open,
-    isOpen: () => !!panel,
-    destroy: close,
+    close: collapse,
+    isOpen: () => !!panel && !panel.hidden,
+    destroy,
   };
 }

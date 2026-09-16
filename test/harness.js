@@ -2049,8 +2049,13 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       assert(openFetches === 1 && /assist-error/.test(panelEl.innerHTML), "Summary only runs after the reader asks for it");
       assert(panelEl.textContent.includes("Try again"), "a cloud failure still offers a retry — nothing is a dead end anymore");
       assert(sidebar.isOpen(), "isOpen reflects the mounted panel");
+      sidebar.close();
+      assert(!sidebar.isOpen() && panelEl.hidden, "collapsing Article chat hides the rail without destroying it");
+      await sidebar.open();
+      assert(sidebar.isOpen() && /Try again/.test(panelEl.textContent) && openFetches === 1,
+        "reopening Article chat keeps the current article's conversation without another AI request");
       sidebar.destroy();
-      assert(!document.querySelector(".rt-assist-sidebar"), "closing the sidebar removes it");
+      assert(!document.querySelector(".rt-assist-sidebar"), "destroying the sidebar removes it");
       assert(!sidebar.isOpen(), "isOpen reflects the panel being torn down");
       assert(document.activeElement === opener, "closing the sidebar hands focus back to whatever opened it");
       opener.remove();

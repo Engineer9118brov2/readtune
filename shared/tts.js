@@ -556,12 +556,42 @@ export function createTTS({
     async speakOnce(text, { signal } = {}) {
       const say = String(text || "").trim();
       if (!say || (signal && signal.aborted)) return;
-      if (!piper) {
-        piper = createPiperEngine({
-          voiceId: getConfig().piperVoice,
-          onStatus: (status) => onStatus({ provider: "piper", ...status }),
-        });
-      }
+      const cfg = getConfig();
+      const oneOffProvider = resolveProvider();
+      const ensureOneOffPiper = () => {
+        if (!piper) {
+          piper = createPiperEngine({
+            voiceId: cfg.piperVoice,
+            onStatus: (status) => onStatus({ provider: "piper", ...status }),
+          });
+        }
+        return piper;
+      };
+      const synthOneOff = async () => {
+        const oneRate = Math.min(rate, 1);
+        if (oneOffProvider === "cloud") {
+          if (!cloud) cloud = createCloudEngine({
+            voice: cfg.cloudVoice,
+            onStatus: (status) => onStatus({ provider: "cloud", ...status }),
+          });
+          try {
+            return await cloud.synthesize(say, { rate: oneRate });
+          } catch {
+            onStatus({ provider: "cloud", kind: "info", message: "Premium voice unavailable — using the on-device voice.", percent: null });
+            return ensureOneOffPiper().synthesize(say, { rate: oneRate });
+          }
+        }
+        if (oneOffProvider === "elevenlabs") {
+          try {
+            const result = await synthesize({ apiKey: cfg.apiKey, voiceId: cfg.voiceId, model: cfg.model, text: say });
+            return result.audio;
+          } catch {
+            onStatus({ provider: "elevenlabs", kind: "info", message: "ElevenLabs unavailable — using the on-device voice.", percent: null });
+            return ensureOneOffPiper().synthesize(say, { rate: oneRate });
+          }
+        }
+        return ensureOneOffPiper().synthesize(say, { rate: oneRate });
+      };
       /* The caller ducks narration around this and restores it in a finally,
          and the "Hear it" button re-enables itself the same way, so this must
          always settle. A synth that never resolves, an <audio> that never
@@ -598,7 +628,7 @@ export function createTTS({
         /* A looked-up word is for clarity, not pace — never faster than 1×,
            but honour a reader who has slowed everything down. Baked into
            synthesis so it stays crisp. */
-        const blob = await withTimeout(piper.synthesize(say, { rate: Math.min(rate, 1) }), synthMs);
+        const blob = await withTimeout(synthOneOff(), synthMs);
         url = URL.createObjectURL(blob);
         one = new Audio(url);
         /* play() resolves when playback *starts*; the caller ducks narration

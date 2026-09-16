@@ -264,7 +264,7 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
   askToggle.setAttribute("aria-controls", "rail-left");
   askToggle.setAttribute("aria-expanded", "false");
   askToggle.append(railGlyph("spark"), document.createTextNode("Ask AI"));
-  askToggle.addEventListener("click", () => (assistSidebar.isOpen() ? assistSidebar.destroy() : assistSidebar.open()));
+  askToggle.addEventListener("click", () => (assistSidebar.isOpen() ? assistSidebar.close() : assistSidebar.open()));
 
   /* Floating "listen from here" control. Icon only — no text label. Starts
      read-aloud at the reader's scroll position, then mirrors play / pause. */
