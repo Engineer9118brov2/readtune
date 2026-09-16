@@ -8,7 +8,8 @@
  * signal and the extension falls back to the on-device Piper voice.
  */
 
-const TIMEOUT_MS = 25000;
+export const SPEAK_PROVIDER_TIMEOUT_MS = 6500;
+export const SPEAK_RELAY_BUDGET_MS = 18000;
 const REQUEST_FATAL = new Set([413, 422]);
 const OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech";
 
@@ -82,8 +83,9 @@ export function speakProvidersFromEnv(text, speed, env = {}, voice = "") {
   return list.filter(Boolean);
 }
 
-export async function callSpeak(provider, fetchImpl = fetch) {
-  const { signal, cancel } = timeoutSignal(TIMEOUT_MS);
+export async function callSpeak(provider, fetchImpl = fetch, timeoutMs = SPEAK_PROVIDER_TIMEOUT_MS) {
+  const boundedTimeout = Math.max(1, Math.min(SPEAK_PROVIDER_TIMEOUT_MS, Number(timeoutMs) || SPEAK_PROVIDER_TIMEOUT_MS));
+  const { signal, cancel } = timeoutSignal(boundedTimeout);
   try {
     let res;
     try {
@@ -94,10 +96,9 @@ export async function callSpeak(provider, fetchImpl = fetch) {
         body: JSON.stringify(provider.body),
       });
     } catch (e) {
-      const err = new Error(
-        e && e.name === "AbortError" ? "The premium voice took too long." : "Couldn't reach the premium voice.",
-      );
-      err.status = 502;
+      const timedOut = !!e && (e.name === "AbortError" || e.name === "TimeoutError");
+      const err = new Error(timedOut ? "The premium voice took too long." : "Couldn't reach the premium voice.");
+      err.status = timedOut ? 504 : 502;
       throw err;
     }
 
@@ -132,16 +133,26 @@ export async function callSpeak(provider, fetchImpl = fetch) {
   }
 }
 
-export async function relaySpeak(providers, fetchImpl = fetch) {
+export async function relaySpeak(providers, fetchImpl = fetch, { budgetMs = SPEAK_RELAY_BUDGET_MS, now = Date.now } = {}) {
   if (!providers.length) {
     const err = new Error("The premium voice isn't set up.");
     err.status = 503;
     throw err;
   }
+
+  const budget = Math.max(1, Number(budgetMs) || SPEAK_RELAY_BUDGET_MS);
+  const started = now();
   let lastErr;
+
   for (const provider of providers) {
+    const remaining = budget - Math.max(0, now() - started);
+    if (remaining <= 0) {
+      const err = new Error("The premium voice took too long.");
+      err.status = 504;
+      throw err;
+    }
     try {
-      return await callSpeak(provider, fetchImpl);
+      return await callSpeak(provider, fetchImpl, Math.min(SPEAK_PROVIDER_TIMEOUT_MS, remaining));
     } catch (e) {
       lastErr = e;
       if (e && REQUEST_FATAL.has(e.status)) throw e;
