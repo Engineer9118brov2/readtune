@@ -14,14 +14,6 @@
  */
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// Chat models in preference order. The first is the request's `model`; the
-// rest go in OpenRouter's `models` fallback array (max 3 total). Each is served
-// by a provider key added in OpenRouter's BYOK settings — gpt-oss-120b by
-// Cerebras/Groq, the Gemini and Mistral entries by their own keys. Those BYOK
-// routes are free to us as long as each key's "shared capacity" is left
-// disabled in OpenRouter; with it enabled OpenRouter may fall back to its own
-// paid endpoints when every BYOK route is down. `zdr: true` (below) keeps the
-// text on providers that don't retain or train on it.
 export const OPENROUTER_MODELS = [
   "openai/gpt-oss-120b",
   "google/gemini-3.5-flash-lite",
@@ -30,19 +22,11 @@ export const OPENROUTER_MODELS = [
 export const OPENROUTER_MODEL = OPENROUTER_MODELS[0];
 
 export const OLLAMA_URL = "https://ollama.com/v1/chat/completions";
-// gpt-oss:20b is Ollama Cloud's smallest always-on free model.
 export const OLLAMA_MODEL = "gpt-oss:20b";
 
 const UPSTREAM_TIMEOUT_MS = 30000;
-
-// A status that means *this request* is bad — malformed body, too large,
-// unprocessable — so every provider would reject it identically and there's
-// no point trying the next one. A 401/403 (bad key), 404 (model gone),
-// 408/429, or any 5xx is that one provider's problem: fall through.
 const REQUEST_FATAL = new Set([400, 413, 422]);
 
-// package.json pins no Node version for these functions, so don't assume
-// AbortSignal.timeout() — fall back to a plain AbortController.
 function timeoutSignal(ms) {
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
     return { signal: AbortSignal.timeout(ms), cancel: () => {} };
@@ -52,10 +36,6 @@ function timeoutSignal(ms) {
   return { signal: controller.signal, cancel: () => clearTimeout(timer) };
 }
 
-/* Build the ordered provider list from the environment. Ollama first — a
-   signed-in Ollama account carries a larger free daily allowance than the
-   keyless OpenRouter free tier — then OpenRouter. Reorder this array to
-   change preference; drop a key from the env to skip that provider. */
 export function providersFromEnv(env = {}) {
   return [
     env.OLLAMA_API_KEY && {
@@ -69,11 +49,7 @@ export function providersFromEnv(env = {}) {
       url: OPENROUTER_URL,
       key: env.OPENROUTER_API_KEY,
       model: env.OPENROUTER_MODEL || OPENROUTER_MODEL,
-      // The fallback list is everything AFTER the primary — the primary is
-      // already the `model` field, and OpenRouter tries that first. No list
-      // when a single model is pinned via env.
       models: env.OPENROUTER_MODEL ? null : OPENROUTER_MODELS.slice(1),
-      // Route only to providers that don't retain or train on the text.
       zdr: true,
       extraHeaders: { "HTTP-Referer": "https://readtune.tech", "X-Title": "ReadTune" },
     },
@@ -82,9 +58,6 @@ export function providersFromEnv(env = {}) {
 
 const DEFAULT_MAX_TOKENS = 400;
 
-/* One provider call. Throws an Error with a numeric `.status` on any failure
-   so the caller can decide whether to fall through or surface it. `maxTokens`
-   lets Ask ask for a longer answer than a Summary needs. */
 export async function callChat(provider, system, user, fetchImpl = fetch, maxTokens = DEFAULT_MAX_TOKENS) {
   const { signal, cancel } = timeoutSignal(UPSTREAM_TIMEOUT_MS);
   let res;
@@ -122,9 +95,12 @@ export async function callChat(provider, system, user, fetchImpl = fetch, maxTok
   }
 
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
+    // Never surface an upstream provider's raw error body to the public relay.
+    // It can contain provider/model/account details that are useful only to us.
     const err = new Error(
-      (data && data.error && data.error.message) || `The AI helper couldn't handle that (${res.status}).`,
+      REQUEST_FATAL.has(res.status)
+        ? "The AI helper couldn't use that request."
+        : "The AI helper couldn't handle that right now.",
     );
     err.status = res.status;
     throw err;
@@ -133,10 +109,6 @@ export async function callChat(provider, system, user, fetchImpl = fetch, maxTok
   const data = await res.json();
   const choice = data && data.choices && data.choices[0];
   const text = choice && choice.message && choice.message.content;
-  /* A provider can return HTTP 200 while ending only because max_tokens was
-     exhausted. Surfacing that half-sentence as a "successful" summary is what
-     produced the random-looking cutoffs in the chat rail. Treat it as a soft
-     provider failure so relayChat can try the next configured provider instead. */
   if (choice && choice.finish_reason === "length") {
     const err = new Error("The AI helper stopped before finishing its answer.");
     err.status = 502;
@@ -151,9 +123,6 @@ export async function callChat(provider, system, user, fetchImpl = fetch, maxTok
   return trimmed;
 }
 
-/* Walk the provider list, returning the first success. If every provider
-   fails, throw the last error (so its `.status` propagates). With no
-   providers configured at all, that's a 503 "not set up yet". */
 export async function relayChat(providers, system, user, fetchImpl = fetch, maxTokens = DEFAULT_MAX_TOKENS) {
   if (!providers.length) {
     const err = new Error("The AI helper isn't set up yet.");
@@ -166,10 +135,6 @@ export async function relayChat(providers, system, user, fetchImpl = fetch, maxT
       return await callChat(provider, system, user, fetchImpl, maxTokens);
     } catch (e) {
       lastErr = e;
-      // Stop only for a status that means *this request* is bad and every
-      // provider would reject it the same way (malformed body, too large,
-      // unprocessable). A 401/403 (bad key), 404 (model gone), 408/429, or
-      // any 5xx is that one provider's problem — try the next.
       if (e && REQUEST_FATAL.has(e.status)) throw e;
     }
   }
