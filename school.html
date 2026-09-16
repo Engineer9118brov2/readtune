@@ -39,34 +39,35 @@
       <a class="doc-back" href="/">← ReadTune home</a>
       <p class="eyebrow"><span class="eyebrow-dot"></span> For school technology administrators</p>
       <h1>ReadTune in a managed environment</h1>
-      <p class="doc-lede">ReadTune is a free reading-accessibility extension. Its core tools store settings locally on the device. Optional cloud voice and Ask AI features can send selected text only when a student chooses them, and are disclosed below. This page is for the person deciding whether to add it to an allow-list.</p>
+      <p class="doc-lede">ReadTune is a free reading-accessibility extension. Its core tools store settings locally on the device. Optional cloud voice and AI actions can send only the text needed for the action when a student explicitly chooses them; the network boundaries are disclosed below. This page is for the person deciding whether to add it to an allow-list.</p>
 
       <div class="doc-key">
-        <p style="margin:0"><strong>The short version.</strong> No accounts, analytics, or telemetry. Reading profile, calibration history, and highlights stay on the device. Core tools work offline. Ask AI, Premium voice, and reader-configured ElevenLabs are optional routes that send selected text only when chosen; the network details are below. Installs with <code>activeTab</code>, <code>scripting</code>, and <code>storage</code> only. No cost, no licence, no renewal.</p>
+        <p style="margin:0"><strong>The short version.</strong> No accounts, analytics, or telemetry. Reading profile, calibration history, and highlights stay on the device. Core reading tools work locally. PDF extraction is local and the PDF file itself is never uploaded. Ask AI, Premium voice, and reader-configured ElevenLabs are optional network routes used only when chosen. Installs with <code>activeTab</code>, <code>scripting</code>, and <code>storage</code> only. No cost, no licence, no renewal.</p>
       </div>
 
       <h2>Student data</h2>
-      <p>ReadTune requires no login, email, or account. A student's reading profile, calibration history, reading position, and highlights are written to the browser's local extension storage (<code>chrome.storage.local</code>) on that device and are never sent anywhere.</p>
-      <p>Optional network features (see "Network behaviour" below) can send selected article text and, for Ask AI, a typed question. They are off unless a student explicitly chooses them. Districts should evaluate those options under their own student-data and AI policies rather than treating this page as a COPPA or FERPA certification.</p>
+      <p>ReadTune requires no login, email, or account. A student's reading profile, calibration history, reading position, and highlights are written to the browser's local extension storage (<code>chrome.storage.local</code>) on that device and are not sent to ReadTune.</p>
+      <p>Optional network features (see "Network behaviour" below) can send relevant article text or locally extracted PDF text and, for Ask, a typed question. They run only after a student explicitly invokes that action. Districts should evaluate those options under their own student-data and AI policies rather than treating this page as a COPPA or FERPA certification.</p>
 
       <h2>Permissions, and why each is needed</h2>
       <table class="doc-table">
         <tr><th>Permission</th><th>Why</th></tr>
         <tr><td><code>activeTab</code></td><td>Read the current tab's article text — but only the moment the student clicks the ReadTune button or presses the keyboard shortcut. No standing access to any site.</td></tr>
-        <tr><td><code>scripting</code></td><td>Inject the one-off script that reads the article for Reader View, or the "restyle this page" script, on that same user action.</td></tr>
+        <tr><td><code>scripting</code></td><td>Inject ReadTune's bundled article-extraction, page-restyle, or dictation script on a user action.</td></tr>
         <tr><td><code>storage</code></td><td>Save the reading profile and progress locally on the device.</td></tr>
         <tr><td>Optional, per-site<br />(not requested at install)</td><td>Only if a student turns on "automatically open Reader View" or "automatically restyle" for one specific site, Chrome asks them to grant that one site. Revoked when they turn it off.</td></tr>
       </table>
 
       <h2>Network behaviour</h2>
-      <p>Read-aloud uses Piper, a neural voice that runs entirely on the device. The default voice ships inside the extension, so it works offline with nothing to download and the reading text is never uploaded. If a student picks one of the optional voices in the Reading Lab, that one model file downloads once from Hugging Face and is then cached on the device. Page reformatting, PDF text extraction, and the calibration test all run entirely in the browser using code bundled in the extension (no CDN, no remote scripts — Manifest V3 forbids them and ReadTune loads none).</p>
-      <p><strong>Ask AI (opt-in):</strong> Reader View has an "Ask AI" panel where a student can request a summary or type a question about the article they're reading. If they do, the article text — and, for a typed question, the question itself — is sent to ReadTune's own relay (<code>readtune.tech/api/assist</code>), which forwards it to a third-party AI model to generate the response. This is off unless a student opens the panel and asks; it never runs automatically. The relay does not log who asked or keep an account trail; it may cache a generated answer by the article's URL (and question) purely so a popular article isn't re-processed on every request. Treat this as an AI tool under the district's policy.</p>
-      <p><strong>Optional cloud voices:</strong> Premium voice sends the sentence being spoken to ReadTune's text-to-speech relay, which forwards it to a third-party provider. A student can also paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key; that sends the passage being read and key directly to <code>api.elevenlabs.io</code>. Both options are off by default. The default Piper voice remains local and needs neither a key nor a network request.</p>
+      <p>Read-aloud uses Piper, a neural voice that runs entirely on the device. The default voice ships inside the extension, so it works offline with nothing to download and the reading text is never uploaded for that voice. If a student picks one of the optional on-device voices in the Reading Lab, that model file downloads once from Hugging Face and is cached on the device. Page reformatting, <strong>PDF file loading and text extraction</strong>, and the calibration test run in the browser using code bundled in the extension. The PDF file itself is never uploaded.</p>
+      <p><strong>Ask AI (opt-in):</strong> Reader View and PDF mode have an Ask AI panel. Merely opening it sends nothing. If a student explicitly requests a Summary, Ask, Define, Explain, or Annotate action and a compatible on-device model is not used, the relevant article text — or relevant locally extracted PDF text — is sent to ReadTune's relay (<code>readtune.tech/api/assist</code>), which forwards it to a third-party AI model. A typed Ask question is sent with the context. Only article summaries are eligible for ReadTune's shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that response cache. Treat these cloud-routed actions as AI tools under the district's policy.</p>
+      <p><strong>Optional cloud voices:</strong> Premium voice sends the sentence being spoken to ReadTune's text-to-speech relay, which forwards it to a third-party provider and does not store the text or generated audio. A student can also paste their own <a href="https://elevenlabs.io/" target="_blank" rel="noreferrer">ElevenLabs</a> API key; that sends the passage being read and key directly to <code>api.elevenlabs.io</code>. Both options are off by default. Removing the ElevenLabs key also returns that optional host permission.</p>
+      <p><strong>Talk to type:</strong> Chrome's built-in speech-recognition service sends microphone audio to Google for transcription. ReadTune does not record or store the audio or transcript, and dictation is disabled for password fields.</p>
 
       <h2>Support burden</h2>
       <ul>
-        <li>~60 MB download, almost all of which is the bundled public-domain voice that lets read-aloud work offline. The extension code itself is a couple of MB. Optional extra voices download once per reader and can be skipped entirely.</li>
-        <li>Nothing to configure centrally. A student runs the 4-minute calibration once; everything else is a preference.</li>
+        <li>~60 MB download, almost all of which is the bundled voice that lets default read-aloud work offline. Optional extra voices download once per reader and can be skipped entirely.</li>
+        <li>Nothing to configure centrally. A student runs the short calibration once; everything else is a preference.</li>
         <li>Open source — the full code is on <a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub</a> for your security team to inspect before approval.</li>
         <li>The extension is inert on <code>chrome://</code> pages and the Chrome Web Store, like all extensions.</li>
       </ul>
@@ -76,7 +77,7 @@
       <p class="doc-note">Extension ID and Web Store link: <strong>published soon — check back, or email us for the ID.</strong> Until then, ReadTune can be evaluated by loading it unpacked from the GitHub source on a non-managed device.</p>
 
       <h2>Cost</h2>
-      <p>Free. There is no paid tier, no per-seat pricing, no quote, and no upsell inside the product. Every feature — including the text-to-speech and the calibration test — is available to every student at no cost to the district.</p>
+      <p>Free. There is no paid tier, no per-seat pricing, no quote, and no upsell inside the product.</p>
 
       <h2>Contact</h2>
       <p>For a compliance statement, the extension ID, a pilot, or a security question, open an issue on <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub</a> or reach the project through the <a href="/">homepage</a>.</p>

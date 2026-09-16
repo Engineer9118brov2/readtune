@@ -16,9 +16,10 @@
     "reader-privacy-lifecycle-check": "node scripts/reader-privacy-lifecycle-check.mjs",
     "relay-fairness-check": "node scripts/relay-fairness-check.mjs",
     "site-security-check": "node scripts/site-security-check.mjs",
+    "privacy-copy-check": "node scripts/privacy-copy-check.mjs",
     "harness": "node scripts/harness.mjs",
     "piper-smoke": "node scripts/piper-smoke.mjs",
-    "test": "npm run check && npm run capture-privacy-check && npm run relay-error-check && npm run piper-recovery-check && npm run dictation-privacy-check && npm run pdf-load-guard-check && npm run relay-privacy-policy-check && npm run reader-privacy-lifecycle-check && npm run relay-fairness-check && npm run site-security-check && npm run harness"
+    "test": "npm run check && npm run capture-privacy-check && npm run relay-error-check && npm run piper-recovery-check && npm run dictation-privacy-check && npm run pdf-load-guard-check && npm run relay-privacy-policy-check && npm run reader-privacy-lifecycle-check && npm run relay-fairness-check && npm run site-security-check && npm run privacy-copy-check && npm run harness"
   },
   "license": "MIT"
 }

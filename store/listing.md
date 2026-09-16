@@ -9,16 +9,15 @@ here. The extension ID (draft) is `elcekcoadkgmdjboaflcbcbebghpgpn`.
    below and the Submit button unlocks.
 2. The **Store listing** Description still holds an older draft — replace it with
    the Description block below (it matches 0.9.5: Piper on-device read-aloud, the
-   word-lookup and line-tint additions, and the optional on-device AI helpers).
-3. Upload `readtune-0.9.5.zip` (`npm run build`). The four current
-   `store/assets/0*-*.png` screenshots are ready to upload as-is.
+   word-lookup and line-tint additions, and the optional AI helpers).
+3. Upload `readtune-0.9.5.zip` (`npm run build`).
 
 ---
 
 # Build tab → Package
 
 - Upload `readtune-0.9.5.zip` (run `npm run build`). ~60 MB — the bundled
-  public-domain Piper voice is most of it; this is expected and allowed.
+  Piper voice is most of it; this is expected.
 - "Verified CRX uploads": optional. Fine to skip for now.
 
 ---
@@ -40,7 +39,7 @@ A quick check suggests reading settings to try, then applies them to any article
 ```
 ReadTune is a free reading tool. A short check suggests a reading setup worth trying — font, spacing, contrast, pacing — and then applies it to any article, PDF, or web page.
 
-No account. No subscription. No analytics. Your reading and your profile stay on your device, and read-aloud runs on-device by default. It keeps working offline.
+No account. No subscription. No extension analytics. Your reading profile stays on your device, and read-aloud runs on-device by default. It keeps working offline.
 
 ————————————————————
 
@@ -82,32 +81,35 @@ Focus and pacing
 Read aloud
 • A natural neural voice (Piper) that runs entirely on your device. The default voice ships inside the extension, so it works offline with nothing to download and no permission prompt
 • The current sentence and word are highlighted as it speaks, in your chosen font
-• "Voice Fit" in the Reading Lab lets you preview a few on-device voices and keep the clearest; extra voices download a one-time model (~60 MB) from Hugging Face and are then cached on your device
-• Optional "Premium voice" — a higher-quality voice through ReadTune's free relay, no account and no key. Each sentence as it's read is sent to synthesise it, plus the next one prepared a moment ahead; nothing else leaves your device, and it falls back to the on-device voice automatically if the relay is busy
-• Optional: bring your own ElevenLabs API key for a different voice. Your key is stored only on your device; the passage is sent only to api.elevenlabs.io, only while reading
+• "Voice Fit" in the Reading Lab lets you preview a few on-device voices and keep the clearest; extra voices download a one-time model from Hugging Face and are then cached on your device
+• Optional "Premium voice" — a hosted voice through ReadTune's relay, no account and no key. Each sentence as it's read is sent to synthesise it, plus the next one prepared a moment ahead; it falls back to the on-device voice automatically if the relay is busy
+• Optional: bring your own ElevenLabs API key for a different voice. Your key is stored only on your device; the passage is sent only to api.elevenlabs.io while reading. Removing the key also returns that optional host permission
 
 Talk to type
-• Dictate into any text field on any page — email, docs, comment boxes — with spoken punctuation ("period", "comma", "new line")
-• Uses Chrome's own speech recognition, which sends the audio to Google to transcribe. ReadTune does not record or store the audio or the text
+• Dictate into normal editable text fields on a page — email, docs, comment boxes — with spoken punctuation ("period", "comma", "new line")
+• Password fields are intentionally blocked
+• Uses Chrome's own speech recognition, which sends microphone audio to Google to transcribe. ReadTune does not record or store the audio or transcript
 
 Reading help (optional AI)
-• "Ask AI" in Reader View — a side panel that gives you the key points of an article before you commit to it, and answers questions you type about the article
-• No key, no account, ever. Where your browser has Chrome's built-in AI ready, it runs entirely on your device. Otherwise it runs through ReadTune's free AI helper — the article text, and any question you type, is sent to generate the response, and popular results may be cached so most requests never even reach the model
-• Plain-language "Simplify" for a passage you select — on-device only; if your browser has no ready model it says so rather than sending your selection anywhere
+• Ask AI is available in Reader View and PDF mode for summaries, article/PDF questions, definitions, explanations, and annotations
+• Opening the AI rail sends nothing. Where Chrome already has a compatible on-device model ready, ReadTune uses it. Otherwise, only the relevant article text — or relevant text extracted locally from the PDF — and any typed Ask question are sent through ReadTune's AI relay to generate the response
+• The PDF file itself is never uploaded
+• Only article summaries are eligible for ReadTune's shared 30-day response cache. Typed Ask answers, Define/Explain results, and annotations are not stored in that cache
+• Plain-language "Simplify" for a passage you select is on-device only; if the browser has no ready model it says so rather than sending your selection anywhere
 
 Where it works
 • Reader View — pulls the article out of any page and re-renders it
 • "Restyle this page" — reformats the page you're already on, in place, with a small floating bar; toggle off to restore it exactly
-• If the page you're restyling publishes its own "Listen to this article" audio, the bar adds a button that plays it; if the page embeds a podcast of the piece instead, the button scrolls you to that player. Either way ReadTune points you at the page's own narration rather than reading over it
-• PDF mode — extracts text from a worksheet or handout and reads it through the same engine
+• If the page publishes its own "Listen to this article" narration, ReadTune can surface that source audio rather than reading over it
+• PDF mode — extracts selectable text locally from a worksheet or handout and reads it through the same engine; the file itself is not uploaded
 • Optional per-site automation: auto-open Reader View, or auto-restyle, on a site you choose (asks for that one site's permission only when you turn it on)
 
 Accessibility of the app itself
-• A "dyslexia-friendly menus" switch makes ReadTune's own buttons, sliders and settings roomier and uses the high-legibility Atkinson/Lexend UI stack — so the controls themselves stay readable without squeezing labels into a wider specialty font
+• A "dyslexia-friendly menus" switch makes ReadTune's own buttons, sliders and settings roomier and uses the high-legibility Atkinson/Lexend UI stack
 
 Memory
 • Your profile and history are saved with the browser's local storage — no account
-• The Reading Lab keeps your last ~10 checks so you can see what's stable versus a close call
+• The Reading Lab keeps recent checks so you can see what's stable versus a close call
 • Reader View remembers where you left off and keeps your highlights, per page
 
 ————————————————————
@@ -120,11 +122,13 @@ Read-aloud with follow-along, roomier spacing, and softer contrast have the stro
 
 PRIVACY
 
-No account. No analytics or telemetry. Nothing is sold or shared. Your reading profile, check history, reading position and highlights are stored with Chrome's local extension storage, on your device. The extension installs asking for activeTab, scripting, storage, and one required host permission (ReadTune's own relay on readtune.tech, used only by "Ask AI" and the optional "Premium voice" for read-aloud).
+No account. No extension analytics or telemetry. Nothing is sold. Your reading profile, check history, reading position and highlights are stored with Chrome's local extension storage, on your device. The extension installs asking for activeTab, scripting, storage, and one required host permission for ReadTune's own relay on readtune.tech, used only by explicitly requested cloud AI actions and the optional Premium voice.
 
-Read-aloud runs on your device: the default voice ships inside the extension, so it needs no network. If you pick one of the other voices, its model is downloaded once from Hugging Face and cached locally — the text you read is never sent anywhere.
+Read-aloud uses the bundled on-device Piper voice by default. Optional extra on-device voices download a model file from Hugging Face once; the reading text is not sent for those local voices.
 
-Optional features send data, and only when you turn them on. Talk to type uses Chrome's built-in speech recognition, which sends your microphone audio to Google to transcribe (that is Chrome's engine, not ReadTune's). ElevenLabs read-aloud, if you add your own key, sends the passage you ask to hear and your key to your own ElevenLabs account. The "Premium voice" for read-aloud sends each sentence as it is spoken to ReadTune's own text-to-speech relay, which forwards it to a third-party voice provider — the built-in on-device voice is the default and needs none of this. "Ask AI" (the article summary, and any question you type about the article) runs on your device where Chrome's built-in AI is ready; otherwise the article text and your typed question are sent to ReadTune's own AI helper, which forwards them to a third-party AI model to generate the response. These optional features are the only network paths for reading text or microphone audio, and each is disclosed before use.
+Optional features send data only when you choose them. Talk to type uses Chrome's built-in speech recognition, which sends microphone audio to Google to transcribe; password fields are blocked. ElevenLabs read-aloud, if you add your own key, sends the passage and key directly to your ElevenLabs account. Premium voice sends each sentence as it is spoken to ReadTune's text-to-speech relay, which forwards it to a third-party voice provider and does not store the text or generated audio.
+
+Ask AI is available in Reader View and PDF mode. Opening the panel sends nothing. Where Chrome has compatible on-device AI already ready, it can run locally. Otherwise, the relevant article text — or relevant text extracted locally from a PDF — and any typed Ask question are sent through ReadTune's relay to a third-party AI model. The PDF file itself is never uploaded. Only article summaries are eligible for the shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that cache.
 
 Free and open source. The full code is at github.com/Engineer9118brov2/readtune
 ```
@@ -145,16 +149,15 @@ English (United States)
 
 - **Store icon (128×128):** upload `icons/icon128.png`.
 - **Screenshots (1280×800 PNG, need ≥1, up to 5).** Suggested set, most-persuasive first:
-  1. Reader View on a real article — OpenDyslexic + a tint, the settings panel open
-  2. The check's result screen — "what each change did for you", with the KEPT tags
-  3. Read-aloud running — the sentence and word highlighted, transport bar visible
-  4. "Restyle this page" in place — the original page reformatted, floating bar bottom-right
-  5. The Reading Lab — Voice Fit + the "what repeated" timeline (shows the newest work)
-  (Save as real PNG — some of the existing files in `store/assets/` are JPEG with a
-  `.png` name, which the dashboard rejects.)
+  1. Calibration result — the clearest signal / kept settings
+  2. Reader View with the polished settings rail open
+  3. Ask AI running beside a real article
+  4. Read-aloud running — sentence and current-word highlight visible
+  5. Reading Lab / repeatability view
+  (Save as real PNG — some older files in `store/assets/` may be JPEG data with a `.png` name, which the dashboard rejects.)
 - **Small promo tile (440×280):** `store/assets/promo-small.png`
 - **Marquee promo tile (1400×560):** `store/assets/promo-marquee.png`
-- **Global promo video:** leave blank until the demo video is up.
+- **Global promo video:** add the final demo video when ready.
 
 ---
 
@@ -181,50 +184,50 @@ English (United States)
 
 ## Single purpose description
 ```
-ReadTune adapts how on-screen text is presented so that people who find digital reading slow or tiring — readers with dyslexia, ADHD, low vision, or eye strain — can read it more comfortably. A short built-in check suggests font, spacing, contrast and pacing settings, and the extension then applies that one reading profile wherever the user reads: a cleaned-up Reader View, PDFs, or the current web page reformatted in place. It can also read the text aloud with a voice that runs on the user's device, and, for users who find typing as hard as reading, let them enter text by voice. Every feature serves the single goal of reducing the friction between a person and the text they are trying to read or write.
+ReadTune adapts how on-screen text is presented so that people who find digital reading slow or tiring — readers with dyslexia, ADHD, low vision, or eye strain — can read it more comfortably. A short built-in check suggests font, spacing, contrast and pacing settings, and the extension then applies that one reading profile wherever the user reads: a cleaned-up Reader View, PDFs, or the current web page reformatted in place. It can also read the text aloud with a voice that runs on the user's device and provide optional reading help. Every feature serves the single goal of reducing the friction between a person and the text they are trying to read or write.
 ```
 
 ## Permission justifications
 
 **activeTab**
 ```
-Used only when the user invokes ReadTune on the current tab — clicking one of its toolbar actions (Open Reader View, Restyle this page, Talk to type) or pressing its keyboard shortcut. It lets ReadTune read the current page's text once to reformat it into an accessible view, restyle it in place with the user's saved reading settings, or insert dictated text into the focused field. Access ends when the user navigates away. Nothing about the page is stored or transmitted.
+Used only when the user invokes ReadTune on the current tab — clicking one of its toolbar actions (Open Reader View, Restyle this page, Talk to type) or pressing its keyboard shortcut. It lets ReadTune read the current page's text once to reformat it into an accessible view, restyle it in place with the user's saved reading settings, or insert dictated text into the focused non-password field. Access ends when the user navigates away. Optional AI network behavior is separately disclosed below.
 ```
 
 **scripting**
 ```
-Used together with activeTab to inject ReadTune's own content scripts on the user's explicit action: the article-extraction script (reads page markup so Reader View can rebuild it), the in-place restyle script (applies the saved reading profile to the current page and adds a small floating control bar), and the dictation script (inserts spoken text at the cursor). All scripts are bundled in the package; none are fetched or evaluated from a remote source.
+Used together with activeTab to inject ReadTune's own content scripts on the user's explicit action: the article-extraction script, the in-place restyle script, and the dictation script. All scripts are bundled in the package; none are fetched or evaluated from a remote source.
 ```
 
 **storage**
 ```
-Stores, on the user's own device only: the reading profile and check history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and — only if the user enables it — their own ElevenLabs API key for a premium read-aloud voice. None of this is sent to the developer or any server.
+Stores, on the user's own device: the reading profile and check history, per-page reading position and highlights, the dyslexia-friendly-menus preference, short-lived Reader handoffs when session storage is unavailable, and — only if the user enables it — their own ElevenLabs API key. The stored reading profile/history is not sent to the developer.
 ```
 
 **Required host permission — https://readtune.tech/api/***
 ```
 Used by two optional, user-selected features, only when their request is made:
 
-1. "Ask AI" (Reader View) — the article summary, and freeform questions the user types about the article. Where the user's browser already has Chrome's built-in AI ready, this is never called — the response is generated on-device and nothing is sent. Otherwise, the article's opening text (and its URL, for cache lookup; and, for a question, the typed question) is sent to this ReadTune-operated endpoint, which forwards it to a third-party AI model and returns the generated text. Responses may be cached by the article's URL (an answer also by the question) — shared across all users, not tied to any individual — so a popular result is only generated once.
+1. AI reading help (Reader View and PDF mode). Opening the AI panel sends nothing. Where the browser already has compatible on-device AI ready, ReadTune can run locally. Otherwise, the relevant article text — or relevant text extracted locally from a PDF — is sent to this ReadTune-operated endpoint, together with a typed Ask question when applicable. The endpoint forwards that content to a third-party AI model and returns generated text. The PDF file itself is never uploaded. Only article summaries are eligible for a shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that cache.
 
-2. "Premium voice" for read-aloud (off by default; the built-in on-device voice is the default). When the user selects it, each sentence as it is read aloud is sent to a ReadTune-operated endpoint that forwards it to a free third-party text-to-speech provider and returns the audio. Only the sentence currently being spoken — and the next one, prepared a moment ahead — is sent; not the whole page. Nothing is stored. If the endpoint is unavailable the extension falls back to the on-device voice automatically.
+2. Premium voice for read-aloud (off by default; the bundled on-device voice is the default). When selected, each sentence as it is read aloud is sent to a ReadTune-operated endpoint that forwards it to a third-party text-to-speech provider and returns audio. Only the sentence currently being spoken — and the next one prepared ahead — is sent; not the whole page. The relay does not store the text or generated audio. If the endpoint is unavailable the extension falls back to the on-device voice automatically.
 
-No account, no auth, no per-user data of any kind is stored for either.
+No ReadTune account is required for either feature.
 ```
 
 **Optional host permission — https://api.elevenlabs.io/***
 ```
-Not requested at install. Requested only if the user enters their own ElevenLabs API key to use an ElevenLabs voice for read-aloud. Used only to send the passage being read aloud, from the user's browser to the user's own ElevenLabs account, and to get back audio with word timings.
+Not requested at install. Requested only if the user enters their own ElevenLabs API key for read-aloud. Used to send the passage being read aloud and the key from the user's browser to the user's ElevenLabs account, then receive audio and word timings. ReadTune returns this optional host permission when the user removes the key.
 ```
 
 **Optional host permission — https://huggingface.co/* and https://*.hf.co/***
 ```
-Not requested at install. Requested only if the user selects one of the optional extra on-device voices in the Reading Lab. Used once to download that voice's model file (neural network weights — data, not executable code), which is then cached on the device. The default voice ships inside the extension and needs no network. The text being read aloud is never transmitted.
+Not requested at install. Requested only if the user selects one of the optional extra on-device voices in the Reading Lab. Used once to download that voice's model weights, which are then cached on the device. The default voice ships inside the extension and needs no network. The text being read aloud is never transmitted for these on-device voices.
 ```
 
 **Optional host permission — *://*/***
 ```
-Not requested at install. Requested only if the user turns on "automatically open Reader View" or "automatically restyle" for a specific site, and is scoped to that site, so its pages are reformatted on load without the user clicking each time.
+Not requested at install. Requested only if the user turns on "automatically open Reader View" or "automatically restyle" for a specific site, and is scoped to that site. The permission is returned when the user disables automation for that origin.
 ```
 
 ## Are you using remote code?
@@ -235,15 +238,10 @@ Reasoning (keep for your reference; not pasted anywhere): every piece of
 executable code — all JavaScript, and all WebAssembly (`piper_phonemize.wasm`,
 `ort-wasm-simd.wasm`) — ships inside the package. Nothing is loaded with a
 remote `<script>`, a remote dynamic `import()`, or `eval()` of fetched text. The
-`wasm-unsafe-eval` CSP entry is for instantiating the *bundled* wasm and does
-not by itself count as remote code. Files fetched at runtime are all data, not
-code: optional neural-voice model weights from Hugging Face (read by the bundled
-onnxruntime engine). Where a browser has Chrome's built-in AI ready, "Ask AI"
-uses only that — part of the browser, not fetched by ReadTune. Otherwise, the
-request to ReadTune's own AI endpoint (`readtune.tech/api`) sends
-JSON and receives JSON — plain-text data in, plain-text data out. The optional
-"Premium voice" endpoint (same host) sends JSON and receives an audio clip.
-Never a script or executable of any kind, in or out.
+`wasm-unsafe-eval` CSP entry is for instantiating bundled wasm and does not by
+itself count as remote code. Files fetched at runtime are data, not application
+code: optional neural-voice model weights from Hugging Face. ReadTune's AI and
+Premium voice endpoints exchange JSON/text/audio, never executable code.
 
 *If a reviewer pushes back and you want to switch the answer to "Yes", paste
 this as the justification:*
@@ -263,7 +261,7 @@ personal communications, no location, no web history, no user activity).
 
 If the dashboard gives a free-text box for the disclosure, use:
 ```
-ReadTune processes the text of the page or file the user chooses to read, on the user's device, to reformat it — this is not sent to the developer. Optional, user-initiated features transmit content off the device: "Talk to type" turns on Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (Chrome's engine, not ReadTune's); "ElevenLabs read-aloud", if the user adds their own API key, sends the passage to be spoken and that key from the user's browser to the user's own ElevenLabs account; the optional "Premium voice" for read-aloud sends each sentence as it is spoken to a ReadTune-operated relay, which forwards it to a free third-party text-to-speech provider — the default read-aloud voice is on-device and sends nothing. "Ask AI" (the article summary, and freeform questions the user types about the article) runs on Chrome's built-in AI, on the user's device, where that's ready; otherwise the article's opening text (and its URL, and any typed question) is sent to a ReadTune-operated relay, which forwards it to a third-party AI model and may cache the result by URL (and question) — not tied to any individual reader. Any API key (ElevenLabs) is stored only in local storage on the device.
+ReadTune processes the text of the page or PDF the user chooses to read on the user's device to reformat it. The PDF file itself is never uploaded. Optional user-initiated features can transmit content off the device: Talk to type uses Chrome's built-in speech recognition, which sends microphone audio to Google's speech service to transcribe (password fields are blocked); ElevenLabs read-aloud, if the user adds their own key, sends the passage and key directly to their ElevenLabs account; Premium voice sends each sentence being spoken to a ReadTune-operated relay, which forwards it to a third-party text-to-speech provider and does not store the text or audio; and cloud-routed AI actions send only the relevant article text or locally extracted PDF text, plus a typed Ask question when applicable, to a ReadTune-operated relay which forwards it to a third-party AI model. Opening the AI panel sends nothing. Only article summaries are eligible for a shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that cache. The default read-aloud voice is on-device.
 ```
 
 ## Certifications — check all three (all true)
@@ -281,7 +279,7 @@ https://readtune.tech/privacy.html
 
 # Notes for later (do not block submission)
 
-- **espeak-ng (GPLv3)** is bundled inside the phonemizer wasm. `lib/piper/espeak-ng.LICENSE.txt` (shipped in the zip) carries the full license text and a source-offer notice. Its treatment for a commercial distribution should receive legal review; `docs/PIPER.md` records the technical integration and replacement plan.
-- The **screenshots** in `store/assets/` predate the Reading Lab, Piper Voice Fit, the dyslexia-friendly-menus switch, and dictation. Re-shoot before submitting (see the suggested set above).
-- **Timing:** first review for a new developer is usually 1–3 business days, occasionally up to a few weeks. For an Oct 2 deadline, submit by ~Sept 20. You do not need the store to demo — Load Unpacked works.
-- If rejected, the email names the exact policy. Fix and resubmit; each resubmit is a fresh (usually faster) review.
+- **espeak-ng (GPLv3)** is bundled inside the phonemizer wasm. `lib/piper/espeak-ng.LICENSE.txt` carries the full license text and a source-offer notice. Its treatment for a commercial distribution should receive legal review; `docs/PIPER.md` records the technical integration and replacement plan.
+- Re-shoot the **screenshots** after the final UI/media pass using the suggested set above.
+- **Timing:** review timing varies. Submit early enough to leave room for a rejection/fix/resubmit cycle.
+- If rejected, the email should identify the policy area to address; fix it and resubmit.
