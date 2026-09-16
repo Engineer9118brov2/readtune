@@ -7,9 +7,10 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/check.mjs",
+    "capture-privacy-check": "node scripts/capture-privacy-check.mjs",
     "harness": "node scripts/harness.mjs",
     "piper-smoke": "node scripts/piper-smoke.mjs",
-    "test": "npm run check && npm run harness"
+    "test": "npm run check && npm run capture-privacy-check && npm run harness"
   },
   "license": "MIT"
 }
