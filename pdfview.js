@@ -25,12 +25,21 @@ const errorEl = document.getElementById("error");
 const surface = document.getElementById("surface");
 const viewHost = document.getElementById("view");
 const messageHost = document.getElementById("message");
+let loading = false;
 
 if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = extUrl("lib/pdf.worker.min.js");
 }
 
+function setLoading(next) {
+  loading = !!next;
+  pickBtn.disabled = loading;
+  dropCard.setAttribute("aria-busy", loading ? "true" : "false");
+  dropCard.classList.toggle("busy", loading);
+}
+
 async function handleFile(file) {
+  if (loading) return;
   errorEl.textContent = "";
   if (!file) return;
   if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
@@ -42,7 +51,7 @@ async function handleFile(file) {
     return;
   }
 
-  pickBtn.disabled = true;
+  setLoading(true);
   progressEl.textContent = "Reading the file…";
 
   try {
@@ -53,7 +62,7 @@ async function handleFile(file) {
 
     if (!text || text.replace(/\s+/g, "").length < 8) {
       progressEl.textContent = "";
-      pickBtn.disabled = false;
+      setLoading(false);
       showMessage(messageHost, {
         title: "No text to pull out of this PDF",
         body:
@@ -65,6 +74,7 @@ async function handleFile(file) {
 
     dropWrap.hidden = true;
     surface.hidden = false;
+    setLoading(false);
     const name = file.name.replace(/\.pdf$/i, "");
     document.title = `${name} — ReadTune`;
 
@@ -82,18 +92,20 @@ async function handleFile(file) {
   } catch (err) {
     console.error("[ReadTune] PDF extraction failed:", err);
     progressEl.textContent = "";
-    pickBtn.disabled = false;
+    setLoading(false);
     errorEl.textContent = "Couldn't read that PDF. It may be password-protected or damaged.";
   }
 }
 
-pickBtn.addEventListener("click", () => fileInput.click());
+pickBtn.addEventListener("click", () => {
+  if (!loading) fileInput.click();
+});
 fileInput.addEventListener("change", () => handleFile(fileInput.files && fileInput.files[0]));
 
 ["dragenter", "dragover"].forEach((ev) =>
   dropCard.addEventListener(ev, (e) => {
     e.preventDefault();
-    dropCard.classList.add("drag");
+    if (!loading) dropCard.classList.add("drag");
   })
 );
 ["dragleave", "drop"].forEach((ev) =>
@@ -104,6 +116,7 @@ fileInput.addEventListener("change", () => handleFile(fileInput.files && fileInp
   })
 );
 dropCard.addEventListener("drop", (e) => {
+  if (loading) return;
   const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (file) handleFile(file);
 });
