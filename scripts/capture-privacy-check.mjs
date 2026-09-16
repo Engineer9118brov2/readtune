@@ -10,6 +10,10 @@ for (const token of requiredRemovedNodes) {
   if (!source.includes(token)) throw new Error(`Reader capture no longer removes <${token}> before storage`);
 }
 
+for (const selector of ["[contenteditable]:not([contenteditable='false'])", "[role='textbox']"]) {
+  if (!source.includes(selector)) throw new Error(`Reader capture no longer removes editable surface ${selector}`);
+}
+
 for (const attr of ["value", "action", "formaction", "srcdoc", "nonce"]) {
   if (!source.includes(`\"${attr}\"`)) throw new Error(`Reader capture no longer strips ${attr} before storage`);
 }
