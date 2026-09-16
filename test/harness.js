@@ -136,6 +136,21 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   pageAudioBtn.click();
   assert(paused && !pageAudioBtn.classList.contains("on"), "clicking again pauses it");
 
+  // Newsroom players can hydrate well after the article. Replace the original
+  // audio with CNBC/JW-style markup after ReadTune is already running and
+  // verify the MutationObserver rebinds the bottom-bar control to it.
+  pageAudioEl.closest("figure").remove();
+  const latePlayer = inpageDoc.createElement("div");
+  latePlayer.className = "ArticleHeader-audio-player-container JWAudioPlayer-audioWrapper";
+  latePlayer.innerHTML = '<span class="listen-text-label">Listen</span><span>6 min</span><button class="jw-icon-playback" aria-label="Play">▶</button>';
+  let lateClicks = 0;
+  latePlayer.querySelector("button").addEventListener("click", () => { lateClicks++; });
+  inpageDoc.querySelector("main").appendChild(latePlayer);
+  await new Promise((resolve) => setTimeout(resolve, 260));
+  assert(!pageAudioBtn.hidden, "late-hydrated CNBC-style narration is surfaced without reinjecting Restyle");
+  pageAudioBtn.click();
+  assert(lateClicks === 1, "the Restyle page-audio control clicks the late-hydrated newsroom player");
+
   inpageWindow.__readtuneInpage.toggleOff();
   assert(!inpageDoc.documentElement.classList.contains("rt-inpage") && !inpageDoc.getElementById("readtune-bar-host"), "in-page restyle removes itself cleanly");
 
@@ -861,6 +876,35 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(
     PA.findPageNarration(document) === null,
     "page-audio: a bare 'Listen' with no duration and no audio-flavoured class is NOT enough on its own",
+  );
+  bench.innerHTML =
+    '<div class="ArticleHeader-audio-player-container"><div class="JWAudioPlayer-audioWrapper">' +
+    '<span class="listen-text-label">Listen</span><span class="audio-duration-minutes">6 min</span>' +
+    '<div id="jwplayer-audio-container"><button id="cnbc-play" class="jw-icon jw-icon-playback" aria-label="Play">▶</button></div>' +
+    '</div></div>';
+  const cnbcHit = PA.findPageNarration(document);
+  assert(
+    cnbcHit && cnbcHit.kind === "control" && cnbcHit.el.id === "cnbc-play",
+    "page-audio: CNBC/JW Player markup finds the actual Play button from nearby Listen/audio context",
+  );
+  assert(!PA.narrationPlaying(cnbcHit), "page-audio: a paused CNBC/JW control reports not playing");
+  cnbcHit.el.setAttribute("data-playback-state", "playing");
+  assert(PA.narrationPlaying(cnbcHit), "page-audio: CNBC/JW data-playback-state is mirrored as playing");
+  cnbcHit.el.removeAttribute("data-playback-state");
+  cnbcHit.el.closest("#jwplayer-audio-container").classList.add("jw-state-playing");
+  assert(PA.narrationPlaying(cnbcHit), "page-audio: CNBC/JW parent playing state is mirrored too");
+  bench.innerHTML =
+    '<div class="JWAudioPlayer-audioWrapper"><span>Listen</span><span>6 min</span>' +
+    '<button id="cnbc-icon-only" class="jw-icon-playback" style="width:40px;height:40px"></button></div>';
+  const iconOnlyHit = PA.findPageNarration(document);
+  assert(
+    iconOnlyHit && iconOnlyHit.el.id === "cnbc-icon-only",
+    "page-audio: icon-only newsroom playback chrome is accepted only inside proven audio context",
+  );
+  bench.innerHTML = '<div class="video-player"><button id="generic-video-play" aria-label="Play">▶</button></div>';
+  assert(
+    PA.findPageNarration(document) === null,
+    "page-audio: a generic Play button in video context is not mistaken for article narration",
   );
   bench.innerHTML = '<button id="pa-live" class="audio-module-listen">Listen Live</button>';
   assert(

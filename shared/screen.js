@@ -283,20 +283,28 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
   });
 
   /* The source page's own narration — a "Listen to this article" player or
-     podcast embed, detected once when the article was captured (Reader View
-     itself has no live DOM connection back to that tab). Offer it instead of
-     defaulting straight to ReadTune's own voice: reading aloud a page that
-     already has free narration otherwise burns Piper/cloud for no reason. */
+     podcast embed on the source tab. Capture-time detection is only a hint:
+     modern news players can hydrate seconds later, so Reader View probes the
+     source tab again on a short bounded schedule instead of permanently
+     missing narration that was not ready at capture time. */
   let pageAudioBtn = null;
-  if (narration && sourceTabId) {
+  let pageNarrationKind = narration && narration.kind ? narration.kind : "";
+  const pageAudioTimers = [];
+  let pageAudioDisposed = false;
+
+  if (sourceTabId) {
     pageAudioBtn = document.createElement("button");
     pageAudioBtn.type = "button";
     pageAudioBtn.className = "rt-page-audio";
-    const paint = (playing) => {
-      if (narration.kind === "audio") {
+
+    const paintPageAudio = (playing = false) => {
+      if (!pageAudioBtn) return;
+      pageAudioBtn.hidden = !pageNarrationKind;
+      if (!pageNarrationKind) return;
+      if (pageNarrationKind === "audio") {
         pageAudioBtn.textContent = playing ? "❙❙ Page audio" : "▶ Page audio";
         pageAudioBtn.title = playing ? "Pause the page's own narration" : "Play the page's own narration";
-      } else if (narration.kind === "embed") {
+      } else if (pageNarrationKind === "embed") {
         pageAudioBtn.textContent = "♪ Podcast";
         pageAudioBtn.title = "This page embeds a podcast — jump to it on the original tab";
       } else {
@@ -306,25 +314,54 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
       pageAudioBtn.classList.toggle("on", !!playing);
       pageAudioBtn.setAttribute("aria-label", pageAudioBtn.title);
     };
-    paint(false);
+
+    const probePageAudio = async () => {
+      if (pageAudioDisposed || !pageAudioBtn) return false;
+      const r = await callPageAudioBridge(sourceTabId, "detect");
+      if (pageAudioDisposed || !pageAudioBtn) return false;
+      if (r.ok) {
+        pageNarrationKind = r.kind || "control";
+        paintPageAudio(!!r.playing);
+        return true;
+      }
+      if (r.reason === "not-found") {
+        pageNarrationKind = "";
+        paintPageAudio(false);
+      }
+      return false;
+    };
+
+    paintPageAudio(false);
     let busy = false;
     pageAudioBtn.addEventListener("click", async () => {
       if (busy) return;
       busy = true;
       pageAudioBtn.disabled = true;
       const r = await callPageAudioBridge(sourceTabId, "toggle");
+      if (!pageAudioBtn) return;
       pageAudioBtn.disabled = false;
       busy = false;
       if (!r.ok) {
-        // The source tab navigated, reloaded, or closed — stop offering a
-        // control that can't reach it any more rather than fail silently
-        // forever on every click.
-        pageAudioBtn.remove();
-        pageAudioBtn = null;
+        if (r.reason === "not-found") {
+          pageNarrationKind = "";
+          paintPageAudio(false);
+        } else {
+          // Source tab closed/navigated beyond our access: the control can no
+          // longer do useful work, so remove it rather than leaving a dead UI.
+          pageAudioBtn.remove();
+          pageAudioBtn = null;
+        }
         return;
       }
-      paint(narration.kind === "audio" ? r.playing : false);
+      pageNarrationKind = r.kind || pageNarrationKind || "control";
+      paintPageAudio(!!r.playing);
     });
+
+    // Immediate re-check plus a few late-hydration probes. These execute only
+    // in the already-authorized source tab and send no article text anywhere.
+    for (const delay of [0, 1200, 3500, 8000]) {
+      pageAudioTimers.push(setTimeout(() => { probePageAudio(); }, delay));
+    }
   }
 
   chrome_.append(askToggle, controls.toggle, orb);
@@ -792,6 +829,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
       transport.destroy();
       if (tts) tts.destroy();
       clearTimeout(seekTimer);
+      pageAudioDisposed = true;
+      pageAudioTimers.forEach((timer) => clearTimeout(timer));
       document.removeEventListener("keydown", onKeyDown);
       view.getFlowEl().removeEventListener("click", onFlowClick);
       chrome_.remove();

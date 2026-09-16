@@ -22,10 +22,16 @@
  */
 export async function pageAudioBridge(action) {
   try {
-    const { findPageNarration } = await import(chrome.runtime.getURL("shared/page-audio.js"));
+    const { findPageNarration, narrationPlaying } = await import(chrome.runtime.getURL("shared/page-audio.js"));
     const found = findPageNarration(document);
     if (!found) return { ok: false, reason: "not-found" };
-    if (action === "detect") return { ok: true, kind: found.kind };
+    if (action === "detect") {
+      return {
+        ok: true,
+        kind: found.kind,
+        playing: narrationPlaying(found),
+      };
+    }
 
     if (found.kind === "audio") {
       if (found.el.paused || found.el.ended) {
@@ -49,11 +55,15 @@ export async function pageAudioBridge(action) {
     if (found.kind === "control" && clickable) {
       try {
         found.el.click();
+        // React/JW-style players often update their state class on the next
+        // task. Wait a beat so Reader View gets the real play/pause state
+        // instead of always repainting the button as stopped.
+        await new Promise((resolve) => setTimeout(resolve, 80));
       } catch {
         /* the page's own handler threw — nothing we can do from here */
       }
     }
-    return { ok: true, kind: found.kind };
+    return { ok: true, kind: found.kind, playing: narrationPlaying(found) };
   } catch (err) {
     return { ok: false, reason: String((err && err.message) || err) };
   }
