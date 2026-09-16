@@ -10,6 +10,30 @@
 import { stashArticle, loadSites, extUrl } from "./shared/settings.js";
 import { pageAudioBridge } from "./shared/page-audio-bridge.js";
 
+const ARTICLE_HANDOFF_PREFIX = "readtune_article:";
+const ARTICLE_TTL_MS = 10 * 60 * 1000;
+
+async function pruneExpiredLocalArticleHandoffs() {
+  try {
+    const all = await chrome.storage.local.get(null);
+    const now = Date.now();
+    const stale = Object.entries(all || {})
+      .filter(([key, value]) =>
+        key.startsWith(ARTICLE_HANDOFF_PREFIX) &&
+        (!Number(value && value.capturedAt) || now - Number(value.capturedAt) > ARTICLE_TTL_MS)
+      )
+      .map(([key]) => key);
+    if (stale.length) await chrome.storage.local.remove(stale);
+  } catch (err) {
+    console.warn("[ReadTune] stale article handoff cleanup failed:", err);
+  }
+}
+
+// Session storage is the normal handoff path. This cleans only the resilience
+// fallback in local storage so abandoned captured HTML never lingers across
+// browser restarts beyond the intended ten-minute window.
+pruneExpiredLocalArticleHandoffs();
+
 async function capturePage(tabId) {
   try {
     const [inj] = await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
@@ -32,20 +56,28 @@ async function openReaderFor(tab, { sameTab = false } = {}) {
   if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
   const res = await capturePage(tab.id);
   if (!res || !res.ok || !res.html) return;
-  res.tabId = tab.id;
-  // Keep shortcut and automatic Reader View on par with the popup: a page's
-  // own article narration is optional and never blocks opening the article.
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: pageAudioBridge,
-      args: ["detect"],
-    });
-    const narration = results && results[0] && results[0].result;
-    if (narration && narration.ok) res.narration = { kind: narration.kind };
-  } catch (err) {
-    console.warn("[ReadTune] page-audio detect failed:", err);
+
+  // Page-audio controls only work while the source tab remains alive. Auto-open
+  // replaces that tab with reader.html, so carrying its tab id/narration would
+  // create a control that can never reach the original page.
+  if (!sameTab) {
+    res.tabId = tab.id;
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: pageAudioBridge,
+        args: ["detect"],
+      });
+      const narration = results && results[0] && results[0].result;
+      if (narration && narration.ok) res.narration = { kind: narration.kind };
+    } catch (err) {
+      console.warn("[ReadTune] page-audio detect failed:", err);
+    }
+  } else {
+    delete res.tabId;
+    delete res.narration;
   }
+
   const handoffId = await stashArticle(res);
   if (!handoffId) return;
   const url = `${extUrl("reader.html")}?article=${encodeURIComponent(handoffId)}`;
@@ -112,7 +144,6 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-// the in-page bar's "open full Reader View" button
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg && msg.type === "readtune-open-reader" && sender.tab) {
     openReaderFor(sender.tab);
@@ -121,7 +152,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== "complete" || !tab || !/^https?:/i.test(tab.url || "")) return;
-  if (tab.url.startsWith(extUrl(""))) return; // never act on our own pages
+  if (tab.url.startsWith(extUrl(""))) return;
 
   let origin;
   try {
