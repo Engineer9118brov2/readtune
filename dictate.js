@@ -17,7 +17,10 @@
   }
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const EDITABLE = 'input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], textarea, [contenteditable=""], [contenteditable="true"]';
+  // Password fields are intentionally excluded. Chrome's speech recognition
+  // sends microphone audio to Google's speech service, so credentials should
+  // never be accepted as a dictation target.
+  const EDITABLE = 'input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], textarea, [contenteditable=""], [contenteditable="true"]';
 
   const COMMANDS = [
     [/\bnew paragraph\b/gi, "\n\n"],
@@ -38,6 +41,10 @@
     // tidy spaces around inserted punctuation
     out = out.replace(/\s+([.,?!:;])/g, "$1").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n");
     return out.replace(/[ \t]{2,}/g, " ").trim();
+  }
+
+  function isPasswordField(node) {
+    return !!node && node.nodeType === 1 && node.matches && node.matches('input[type="password"]');
   }
 
   function isEditable(node) {
@@ -139,6 +146,11 @@
   let rec = null;
 
   const onFocusIn = (e) => {
+    if (isPasswordField(e.target)) {
+      target = null;
+      if (running) setState("listening", "Dictation is disabled for password fields. Click another text field.");
+      return;
+    }
     if (isEditable(e.target)) {
       target = e.target;
       if (running) setState("listening", `Typing into: ${fieldLabel(target)}`);
@@ -171,11 +183,17 @@
         const res = event.results[i];
         if (res.isFinal) {
           const text = applyCommands(res[0].transcript.trim());
-          if (!target || !document.contains(target)) {
+          // Re-check at insertion time: a page can change an input's type to
+          // password after focus, and a stale target must never receive speech.
+          if (!isEditable(target) || !document.contains(target)) {
             target = isEditable(document.activeElement) ? document.activeElement : null;
           }
           if (target) insertText(target, text);
-          else setState("listening", "Click a text field — then what you said will go there");
+          else if (isPasswordField(document.activeElement)) {
+            setState("listening", "Dictation is disabled for password fields. Click another text field.");
+          } else {
+            setState("listening", "Click a text field — then what you said will go there");
+          }
         } else {
           interim += res[0].transcript;
         }
