@@ -12,6 +12,7 @@
 
 import { speakProvidersFromEnv, relaySpeak } from "./_speak-providers.mjs";
 import { applyRelayCors } from "./_cors.mjs";
+import { clientFingerprint, createMemoryClientLimiter, retryAfterSeconds } from "./_rate-limit.mjs";
 
 const MAX_INPUT = 800;
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
@@ -19,19 +20,22 @@ const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
-const RATE_LIMIT_PER_MINUTE = 200;
-const MEM_LIMIT_PER_MINUTE = 120;
+const RATE_LIMIT_SECRET = process.env.RELAY_RATE_LIMIT_SECRET || REDIS_TOKEN;
+const GLOBAL_LIMIT_PER_MINUTE = 200;
+const CLIENT_LIMIT_PER_MINUTE = 80;
+const MEM_GLOBAL_LIMIT_PER_MINUTE = 120;
+const memClientRateOk = createMemoryClientLimiter(CLIENT_LIMIT_PER_MINUTE);
 let memBucketKey = 0;
 let memBucketCount = 0;
 
-function memRateOk() {
+function memGlobalRateOk() {
   const now = Math.floor(Date.now() / 60000);
   if (now !== memBucketKey) {
     memBucketKey = now;
     memBucketCount = 0;
   }
   memBucketCount += 1;
-  return memBucketCount <= MEM_LIMIT_PER_MINUTE;
+  return memBucketCount <= MEM_GLOBAL_LIMIT_PER_MINUTE;
 }
 
 function redisFetch(path) {
@@ -42,15 +46,22 @@ function redisFetch(path) {
   return fetch(`${REDIS_URL}${path}`, opts);
 }
 
-async function rateLimitOk() {
-  if (!hasRedis) return memRateOk();
+async function incrementBucket(bucket, limit) {
+  const r = await redisFetch(`/incr/${encodeURIComponent(bucket)}`).then((x) => x.json());
+  if (r && r.result === 1) await redisFetch(`/expire/${encodeURIComponent(bucket)}/70`).catch(() => {});
+  return !r || (typeof r.result === "number" && r.result <= limit);
+}
+
+async function rateLimitOk(req) {
+  const clientId = clientFingerprint(req, RATE_LIMIT_SECRET);
+  const fallback = () => memClientRateOk(clientId) && memGlobalRateOk();
+  if (!hasRedis) return fallback();
   try {
-    const bucket = `speak:rl:${Math.floor(Date.now() / 60000)}`;
-    const r = await redisFetch(`/incr/${encodeURIComponent(bucket)}`).then((x) => x.json());
-    if (r && r.result === 1) await redisFetch(`/expire/${encodeURIComponent(bucket)}/70`).catch(() => {});
-    return !r || (typeof r.result === "number" && r.result <= RATE_LIMIT_PER_MINUTE);
+    const minute = Math.floor(Date.now() / 60000);
+    if (!(await incrementBucket(`speak:client:${clientId}:${minute}`, CLIENT_LIMIT_PER_MINUTE))) return false;
+    return await incrementBucket(`speak:rl:${minute}`, GLOBAL_LIMIT_PER_MINUTE);
   } catch {
-    return memRateOk();
+    return fallback();
   }
 }
 
@@ -76,7 +87,10 @@ export default async function handler(req, res) {
 
   const providers = speakProvidersFromEnv(text, speed, process.env, voice);
   if (!providers.length) return res.status(503).json({ error: "The premium voice isn't set up yet." });
-  if (!(await rateLimitOk())) return res.status(429).json({ error: "The premium voice is busy right now." });
+  if (!(await rateLimitOk(req))) {
+    res.setHeader("Retry-After", String(retryAfterSeconds()));
+    return res.status(429).json({ error: "The premium voice is busy right now." });
+  }
 
   try {
     const { audio, contentType } = await relaySpeak(providers);
