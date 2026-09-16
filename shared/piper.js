@@ -88,7 +88,8 @@ export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {
   function ensureWorker() {
     if (worker) return worker;
     worker = new Worker(new URL("./piper/worker.js", import.meta.url), { type: "module" });
-    worker.onmessage = ({ data }) => {
+    const created = worker;
+    created.onmessage = ({ data }) => {
       if (data.type === "progress") {
         const progress = describePiperProgress(data);
         onStatus({ kind: "loading", ...progress });
@@ -104,23 +105,43 @@ export function createPiperEngine({ voiceId = PIPER_VOICE.id, onStatus = () => {
       if (data.error) job.reject(new Error(data.error));
       else job.resolve(data);
     };
-    worker.onerror = (event) => {
+    created.onerror = (event) => {
       const error = new Error(event.message || "The natural voice couldn't start.");
       for (const job of pending.values()) job.reject(error);
       pending.clear();
+      // A crashed Worker cannot be reused. Clear both cached handles so the
+      // next prepare/synthesize attempt creates a fresh worker instead of
+      // posting forever into a dead one. Guard against a late error from an
+      // older worker clobbering a newer replacement.
+      if (worker === created) {
+        worker = null;
+        ready = null;
+      }
+      try { created.terminate(); } catch {}
     };
-    return worker;
+    return created;
   }
 
   function call(type, payload = {}) {
     const id = ++serial;
-    ensureWorker().postMessage({ id, type, ...payload });
+    const target = ensureWorker();
+    target.postMessage({ id, type, ...payload });
     return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
   }
 
   return {
     prepare() {
-      if (!ready) ready = call("prepare", { voiceId }).then(() => undefined);
+      if (!ready) {
+        ready = call("prepare", { voiceId })
+          .then(() => undefined)
+          .catch((error) => {
+            // Preparation can fail without crashing the worker (for example a
+            // one-off model/download failure). Do not cache that rejection for
+            // the lifetime of the engine; the next Play press should retry.
+            ready = null;
+            throw error;
+          });
+      }
       return ready;
     },
     /* `rate` is baked into synthesis via the model's length_scale (see
