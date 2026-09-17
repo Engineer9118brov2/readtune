@@ -1,79 +1,91 @@
 # Premium voice (cloud read-aloud relay)
 
-**Goal:** a higher-quality read-aloud voice that stays *free* and *keyless for
-the reader*, without giving up the on-device default. Piper (see `PIPER.md`) is
-still the default and the floor; this is an opt-in upgrade in the read-aloud
-settings ("Voice source → Premium voice").
+ReadTune's default read-aloud voice is bundled Piper and runs on-device. Premium voice is an optional hosted path for readers who prefer a different voice without configuring their own provider key.
 
-## How it works
+## Request flow
 
-- **Client:** `shared/speak-cloud.js` — `createCloudEngine({ voice }).synthesize(text, { rate })`
-  posts one sentence to `https://readtune.tech/api/speak` and gets back an
-  audio blob (MP3). Same interface as `piper.js`, so `tts.js` runs it through
-  the exact same sentence loop, prefetch, and highlight estimate
-  (`sentenceSpeak` / `synthSentence` / `driveEstimate`). Each request is
-  bounded by a 20 s client-side timeout, and `destroy()` (stop / reload / fall
-  back to Piper) aborts an in-flight synthesis.
-- **Relay:** `api/speak.js` + `api/_speak-providers.mjs` (pure, unit-tested).
-  Tries each model in order and returns the first that gives audio (the whole
-  clip is buffered, then sent — not streamed). Only a `413`/`422` (the payload
-  itself is unusable) stops the chain; everything else — a `400`, a rate limit,
-  a 5xx — falls through. `api/speak.js` caps the input length first. With
-  nothing configured it returns `503` and the extension keeps using Piper. Any
-  failure mid-read also drops to Piper (`fallbackToPiper` in `tts.js`).
-- **Nothing is stored.** Only the sentence being spoken is sent — and, during
-  prefetch, the one after it — never the whole page. Every OpenRouter speech
-  request carries `provider: { zdr: true }`, so it's only routed to providers
-  under a zero-data-retention policy (no retention, no training on the text).
-  Coarse per-minute rate limit (Redis when configured, an in-memory counter
-  otherwise).
+- `shared/speak-cloud.js` sends one sentence at a time to `https://readtune.tech/api/speak`.
+- The next sentence may be prefetched so playback does not pause between sentences.
+- The client bounds each request with a timeout and aborts in-flight work on stop, teardown, or fallback.
+- The relay caps input length again server-side before contacting a provider.
+- `api/_speak-providers.mjs` builds the configured provider candidates.
+- Provider attempts are bounded by the relay's overall fallback/time budget so a long provider chain cannot make one sentence hang indefinitely.
+- The first valid audio response wins. If hosted synthesis fails, the read-aloud controller falls back to Piper.
 
-## Providers & order
+The hosted clip is buffered before being returned; this is not a streaming-audio protocol.
 
-Almost everything runs through OpenRouter's one speech endpoint
-(`/api/v1/audio/speech`, OpenAI-shaped) so there's a single key and a single
-code path. The model list is tried top to bottom:
+## Privacy boundary
 
-| Order | Model (OpenRouter) | Cost to us | Notes |
-| --- | --- | --- | --- |
-| 1 | `deepgram/aura-2` | free via a **BYOK Deepgram key** (add it in OpenRouter → Settings → Integrations) | best quality; honours `speed`; voices `aura-2-thalia-en` / `-andromeda-en` / `-orion-en` |
-| 2 | `deepgram/flux-tts:free` | free (no credits) | voice `flux-alexis-en` |
-| 3 | `fish-audio/s2.1-pro-free:free` | free (no credits) | voice `alloy` |
-| 4 | Cartesia `sonic-2` (direct) | free credits on the Cartesia key | OpenRouter can't BYOK Cartesia, so it's a direct call; UUID voice id; no `speed` on this endpoint |
-| — | on-device Piper | — | the floor, always available |
+Premium voice is opt-in and only runs while that voice source is selected.
 
-Models 2–3 have no speed control, so the clip plays at 1× and the highlight
-estimate adapts to the real duration.
+- Only the sentence being spoken, plus at most the next prefetched sentence, is sent.
+- The whole article is not uploaded for hosted read-aloud.
+- ReadTune's relay does not intentionally persist the submitted sentence or generated audio.
+- HTTP responses are marked `no-store` where appropriate.
+- The default Piper path sends no reading text to ReadTune's relay.
 
-## Env vars
+This is one of several optional network paths in the product. Cloud-routed AI, Premium voice, user-configured ElevenLabs, and Chrome speech recognition for Talk to type each have separate disclosures in `PRIVACY.md` / `privacy.html`.
 
-| Env var | Purpose |
+## Abuse protection
+
+`/api/speak` uses two throttling layers:
+
+1. a short-lived per-client bucket based on a pseudonymous HMAC identifier; raw client addresses are not written into Redis;
+2. a higher shared provider ceiling protecting the overall hosted-voice quota.
+
+When Redis is unavailable, a bounded per-instance in-memory guard is used instead. A throttled response returns HTTP 429 and includes `Retry-After`.
+
+The relay no longer exposes wildcard browser CORS. The same central relay-origin policy used by `/api/assist` applies to `/api/speak`; unrelated web origins are rejected while ReadTune/Chrome-extension clients and server-side requests remain supported.
+
+## Provider behavior
+
+Provider configuration lives in `api/_speak-providers.mjs` and Vercel environment variables. Treat that source file as authoritative for the current provider order; provider availability and free-tier behavior can change.
+
+Important invariants:
+
+- never expose provider API keys to the extension;
+- sanitize upstream provider errors before returning them to the reader;
+- enforce the relay's total provider/fallback time budget;
+- stop the provider chain on request-shape errors that cannot be fixed by trying another provider;
+- otherwise allow configured fallbacks to take over;
+- if no usable provider is configured, return a clean unavailable response and let the client fall back to Piper.
+
+Some hosted providers do not return word-level timestamps. In those cases ReadTune estimates word progress from the actual clip duration, using the same read-aloud UI rather than pretending exact alignment exists.
+
+## Configuration
+
+Common server-side variables include:
+
+| Variable | Purpose |
 | --- | --- |
-| `OPENROUTER_API_KEY` | the one relay key (shared with Summary); BYOK keys for Deepgram etc. are configured inside OpenRouter, not here |
-| `CARTESIA_API_KEY` | optional — the direct Cartesia fallback |
-| `SPEAK_CARTESIA_MODEL` / `SPEAK_CARTESIA_VOICE` | optional overrides (defaults `sonic-2` / a stock voice id) |
-| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | optional — shared rate limit |
+| `OPENROUTER_API_KEY` | Enables configured OpenRouter speech candidates. |
+| `CARTESIA_API_KEY` | Enables the optional direct Cartesia candidate when present in provider configuration. |
+| `SPEAK_CARTESIA_MODEL` / `SPEAK_CARTESIA_VOICE` | Optional Cartesia overrides. |
+| `UPSTASH_REDIS_REST_URL` / token | Enables distributed per-client + shared relay limits. |
+| `READTUNE_RATE_LIMIT_SECRET` | Optional stable server secret for pseudonymous client identifiers. |
 
-To retune the OpenRouter model list or its voices, edit `OPENROUTER_SPEECH` in
-`api/_speak-providers.mjs`.
+Provider-specific model and voice defaults belong in `_speak-providers.mjs`, not in UI code.
 
-## Not conflicting with Summary
+## Separation from AI
 
-Different endpoint (`/api/speak` vs `/api/assist`), different OpenRouter surface
-(the audio endpoint vs chat completions), separate rate-limit buckets. The
-shared `OPENROUTER_API_KEY` draws on different model pools. Setting up one
-doesn't require the other.
+Hosted voice and AI use different endpoints and different provider surfaces:
 
-## Privacy
+- `/api/speak` returns audio;
+- `/api/assist` returns generated text.
 
-Disclosed as a place where text leaves the device, alongside Summary — see
-`privacy.html` / `PRIVACY.md` / `store/listing.md`. The reader chooses it; the
-default sends nothing.
+They have separate rate-limit namespaces even if some deployments reuse a provider account or Redis instance.
 
-## Not in v1
+## Reader-facing behavior
 
-- On-device Kokoro-82M as a second local tier (deferred — its own PR).
-- Caching synthesised audio by `(sentence-hash, voice)` so a popular article is
-  synthesised once (needs blob storage; flagged, not built).
-- Per-character timings for exact word highlighting (the providers don't return
-  them; the duration-weight estimate from the Piper path is used).
+- Piper remains the default and local fallback.
+- Premium voice is explicitly selected by the reader.
+- AI-answer Play follows the same selected voice source as normal read-aloud: Piper, Premium voice, or ElevenLabs when configured.
+- A hosted-voice failure should never strand the transport in a permanent loading state; playback falls back or reports a bounded error.
+
+## Not currently implemented
+
+- persistent caching of synthesized hosted audio;
+- exact per-character timings from providers that do not return alignment data;
+- a requirement that hosted voice be available for core read-aloud to work.
+
+Core read-aloud must continue to function with Piper even when every hosted provider is unavailable.
