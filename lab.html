@@ -88,8 +88,9 @@
           ready, otherwise through ReadTune's free AI helper, which sends the
           article text — and, for a typed question, the question itself (it
           can be more personal than the article, so send only what you're
-          comfortable sharing) — and may cache the result, so a popular
-          article or question is generated once instead of per reader.
+          comfortable sharing). Only article summaries may be kept in the
+          relay's 30-day response cache; typed questions and their answers are
+          not stored in that cache.
         </p>
         <p class="lab-assist-status" id="lab-assist-status" role="status">Checking what this browser can do…</p>
         <p class="lab-assist-note">An AI answer is an aid, not a substitute for the words on the page — it can be wrong, so it always says so and points back at the original.</p>
@@ -131,7 +132,7 @@
         <button class="rt-btn rt-primary" id="lab-retake" type="button">Retake the calibration</button>
         <button class="rt-btn" id="lab-pdf" type="button">Open a PDF</button>
         <button class="rt-btn" id="lab-close" type="button">Done</button>
-        <a class="lab-feedback-link" id="lab-feedback" href="https://github.com/Engineer9118brov2/readtune/issues/new?template=feedback.yml" target="_blank" rel="noopener">Something off? Send feedback →</a>
+        <a class="lab-feedback-link" id="lab-feedback" href="https://github.com/Engineer9118brov2/readtune/issues/new?template=feedback.yml" target="_blank" rel="noopener noreferrer">Something off? Send feedback →</a>
       </div>
     </div>
 
