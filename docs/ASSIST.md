@@ -1,147 +1,131 @@
-# Reading assistant (Ask AI + Simplify)
+# Reading assistant (Ask AI + selection tools)
 
-**Goal:** the AI helpers that actually earn their place for a struggling
-reader — a short "what is this about" before committing to a long article,
-answers to the questions the article raises, and a plain-language rewrite of
-the one paragraph that won't come together.
+ReadTune's AI tools are reading aids, not a general chatbot. They help a reader get oriented, ask a question about the current text, define a word, explain a passage, or save useful explanations back into the reading workflow.
 
-**History, briefly:** shipped on-device-only in 0.9.0 (Chrome's built-in
-Gemini Nano). Then the bring-your-own-key fallback was removed — pasting a
-Google AI Studio key is not a real option for this extension's readers. Then
-on-device itself was dropped as the *default* path: real devices are
-storage/CPU-limited, and — the disqualifying case — students on shared school
-Chromebooks that don't keep a local profile between logins would re-download
-the ~2 GB model every single sign-in. ReadTune now never triggers that
-download at all.
+## Shipped behavior
 
-## As shipped
+### Article / PDF chat
 
-- **Ask AI** — a docked left rail in Reader View (`shared/assist-sidebar.js`).
-  On open it summarises the article (its opening, if it's long — capped at
-  ~12k characters). A composer at the bottom takes **freeform questions about
-  the article**; quick-ask chips pre-run "Summarise", "Key terms", "Explain
-  simply". Each answer gets a Play button. Single-turn — a new question
-  replaces the last answer; there's no running transcript yet. Routed to
-  on-device AI when it's already ready, otherwise ReadTune's cloud relay
-  (see below). `kind: "ask"` sends the article as context plus the typed
-  question; the answer budget is larger (`ASK_MAX_TOKENS`, 800) than a
-  summary's.
-- **Simplify** — a pill that appears over any selection of ~12+ characters
-  inside the reading flow. Rewrites that passage and shows it **beside the
-  original**, never in its place, under an "AI — may not be exact" line.
-  **On-device only for now** — if this browser doesn't already have a ready
-  Rewriter/Prompt model, Simplify says so rather than falling back to the
-  cloud relay. It isn't disclosed as a cloud feature yet, so it doesn't
-  become one silently; that migration (and the UI/UX pass for it) comes
-  after Summary's cloud path is verified solid.
+The Ask AI rail lives beside the reading surface.
 
-Simplify renders in a dismissible card (`shared/assist-ui.js`), modelled on
-the word-lookup popup: Escape / click-outside / Cancel, a copy button, and
-"Hear it" through the same read-aloud voice. Ask AI lives in the persistent
-rail — Escape or its × collapse it, and it does **not** close when you click
-the article.
+- Opening the rail **does not send a request**.
+- The reader explicitly chooses an action or submits a question.
+- Closing the rail collapses it without destroying the rendered thread for that reading screen; reopening restores the same conversation.
+- Quick actions include Summary, Key terms, Simple, and Annotate.
+- Free-form questions support three answer levels: **As written**, **Simpler**, and **Simplest**.
+- AI answers can be read aloud through the currently selected ReadTune voice path: Piper by default, or the optional hosted / ElevenLabs voice when configured.
+- Useful AI output can be saved back as a highlight/note instead of living only in chat.
 
-- **Define / Explain (backend only, no UI yet)** — `kind: "define"` and
-  `kind: "explain"` exist in `api/assist.js` and `shared/assist.js`
-  (`assistant.define(word, context, opts)` / `assistant.explain(passage,
-  opts)`), routed the same way as Ask (on-device first when ready, this
-  relay otherwise). Define takes a short word/phrase plus its sentence for
-  context; Explain takes a selected passage and reads out any figurative
-  language, tone, or theme in it. Neither has a selection-trigger pill yet —
-  that UI (alongside Highlight and Simplify) and the accompanying
-  `PRIVACY.md`/`privacy.html` disclosure land together in the next PR, once
-  there's an actual path for a reader's selection to reach either kind. Until
-  then these code paths are unreachable from the shipped extension, so
-  nothing changes about what leaves the device today.
+PDF extraction itself stays local. The PDF file is never uploaded. If the reader explicitly invokes a cloud-routed AI action in PDF mode, only the extracted text needed for that action can be sent to the relay.
 
-## How a request is routed (`shared/assist.js`)
+### Selection tools
 
-1. **On-device, but only if it's already ready.** Chrome's built-in
-   `Summarizer`/`Rewriter`/`LanguageModel`, checked via `.availability()`.
-   ReadTune only calls `.create()` when the status is already `"available"` —
-   never for `"downloadable"` or `"downloading"`. This is the whole point:
-   **ReadTune never initiates the one-time download.** If some other feature
-   (Chrome's own, or another site's) already triggered it, this path is free,
-   instant, and fully private. Otherwise, straight to step 2 — no download,
-   no prompt, no "requires a user gesture" dance.
-2. **ReadTune's own relay, Summary + Ask** (`api/assist.js`, deployed
-   alongside the marketing site on Vercel) — the article text (and its URL,
-   and for a question the typed question) is sent there, which forwards it to
-   a free chat model and returns the generated text. It goes through
-   **OpenRouter** (`api/_relay.mjs`):
-   `openai/gpt-oss-120b` as the primary, with `google/gemini-3.5-flash-lite`
-   and `mistralai/ministral-8b-2512` in OpenRouter's `models` fallback array.
-   Each is served by a provider key you add in OpenRouter's BYOK settings
-   (gpt-oss by Cerebras/Groq, the others by their own keys) — free to us as
-   long as those keys' "shared capacity" is left disabled — and OpenRouter
-   fails over between them itself. The request carries `provider: { zdr: true }`
-   so the text is only routed to providers under a zero-data-retention policy
-   (no retention, no training). `OLLAMA_API_KEY`, if set, adds Ollama Cloud as a first
-   provider ahead of OpenRouter. A provider that errors falls through —
-   including a bad key (401/403) or a missing model (404) — so one bad key
-   never takes Summary offline. Only a `400`/`413`/`422` (the request itself
-   is bad) stops the chain. With no key set the relay returns `503` and
-   Summary stays unavailable for cloud-path users.
-   **If Redis is configured**,
-   responses are cached by normalized article URL (bound to a hash of the
-   text, so no one can overwrite another article's cached summary) so a
-   popular article is summarized once, ever — every later reader gets the
-   cached text instantly, at no extra cost. Without Redis configured, every
-   request reaches the model. There's a coarse shared rate limit as an abuse
-   guard, not a per-user quota, also a no-op without Redis.
-3. **Never a ReadTune-hosted model.** The relay calls a third-party model;
-   it doesn't run one itself. **Never for Simplify** — see above.
+- **Simplify** rewrites a selected passage in plainer language and keeps the original visible. It remains on-device-only; if Chrome has no ready local model, ReadTune says so instead of silently sending the passage to the relay.
+- **Define** appears for a short word/phrase and uses nearby sentence context.
+- **Explain** appears for a longer selection and explains figurative language, tone, theme, or the main idea.
+- Define / Explain results can be saved as notes on highlights.
+- **Annotate this article** asks the cloud model for a small set of candidate passages, then lets the reader review Apply / Skip before anything is saved.
 
-This is the default route for Ask AI when the browser has no ready on-device
-model: article text — and anything the reader types into the Ask box — goes to
-the relay. A typed question can be more personal than article text; the UI and
-privacy copy say so. Premium voice and user-configured ElevenLabs are separate,
-optional routes that also send selected text as disclosed in `privacy.html` /
-`PRIVACY.md`. Core features (calibration, Reader View, Piper read-aloud, PDF
-mode, and Simplify as shipped today) still send no reading text anywhere.
-`describeAvailability()` reports
-two modes now:
-`"on-device"` (ready, on this browser) and `"cloud"` (routed through the
-relay) — both are always `ready: true`, since the assistant always has
-somewhere to run.
+All AI output is labelled approximate because a model can be wrong.
 
-## Configuring the relay (Vercel env)
+## Routing (`shared/assist.js`)
 
-Server-side only — no extension or manifest change to switch providers.
+ReadTune never triggers Chrome's large on-device model download itself.
 
-| Env var | Effect |
+1. **Already-ready Chrome built-in AI gets first chance.**
+   - `Summarizer`, `Rewriter`, and `LanguageModel` are checked with `.availability()`.
+   - ReadTune only creates a local session when Chrome reports the model is already available.
+   - A short hedge window prevents a slow local session from making the reader wait indefinitely; cloud-capable actions may race the relay after that head start.
+
+2. **Cloud-capable actions fall back to ReadTune's relay.**
+   - Endpoint: `https://readtune.tech/api/assist`.
+   - Cloud kinds: `summary`, `ask`, `define`, `explain`, `annotate`.
+   - `simplify` is intentionally excluded.
+   - URL query strings and fragments are removed before an article URL is sent.
+
+3. **The relay forwards to configured third-party model providers.**
+   - Provider routing lives in `api/_relay.mjs`.
+   - Provider failures fall through according to the relay's configured fallback behavior.
+   - Upstream provider error details are sanitized before a response reaches the extension.
+
+## Context limits
+
+The client and relay both cap payload sizes so a pathological page cannot wedge the model.
+
+- Summary / annotation article budget: 12,000 characters.
+- Ask context budget: 9,000 characters.
+- Ask question: 500 characters.
+- Define context: 800 characters; selected word/phrase: 80 characters.
+- Explain / Simplify selection: 2,400 characters.
+
+Ask uses block-level relevance selection before falling back to a simple article clip, so a question about material later in a long article can still retrieve that section.
+
+Summary currently keeps the existing `clipped` disclosure when a long article exceeds its context budget. Issue #66 tracks improving Summary from head-only clipping to representative beginning / middle / tail context without increasing the 12k payload ceiling.
+
+## Response caching
+
+The current privacy model is deliberately narrow:
+
+- **Only article summaries may be stored in the Redis response cache.**
+- Cached summaries expire after 30 days.
+- The cache key binds the normalized article URL to a hash of the submitted text, so a different body cannot overwrite another article's cached summary.
+- Typed Ask answers, Define results, Explain results, annotations, and voice output are **not** persisted in that response cache.
+- There is no ReadTune user account attached to a cached summary.
+
+## Relay abuse protection
+
+Both `/api/assist` and `/api/speak` have two layers:
+
+1. a short-lived **per-client pseudonymous bucket**, derived with HMAC so raw client addresses are not written into Redis;
+2. a higher shared global ceiling protecting the provider quota.
+
+If Redis is unavailable, each warm serverless instance falls back to a bounded in-memory guard. A throttled request returns HTTP 429 with `Retry-After`.
+
+Relay browser access is also origin-restricted rather than using wildcard CORS. The public ReadTune site and valid Chrome-extension origins can call the endpoints; unrelated web origins are rejected. Server/test calls without an Origin header remain supported.
+
+## Privacy boundary
+
+Core reading behavior does not require ReadTune's AI relay.
+
+Text can leave the device only through an optional path the reader invokes, including:
+
+- cloud-routed AI reading help;
+- Premium voice, sentence by sentence through `/api/speak`;
+- user-configured ElevenLabs read-aloud;
+- Chrome's own speech-recognition service when Talk to type is used.
+
+The default Piper voice, Reader View rendering, Restyle, calibration, highlights, and base PDF extraction are local. Extra on-device Piper voices may download their model file once, but reading text is not uploaded for those voices.
+
+See `PRIVACY.md`, `privacy.html`, and `school.html` for the user/admin-facing wording. Those files should stay aligned with this document whenever a network path changes.
+
+## UI / safety principles
+
+- No AI action should auto-run merely because a rail or screen opened.
+- Keep the source text visible whenever an AI transformation is shown.
+- Clearly mark approximate/model-generated output.
+- Abort in-flight generation and answer playback when the AI rail is collapsed or the reading screen is destroyed.
+- Do not turn Simplify into a cloud feature without updating product disclosure and tests in the same change.
+- Keep selection-triggered output text-only when rendering; saved notes must not become parsed HTML.
+
+## Configuration
+
+Server-side provider settings live in Vercel environment variables; no provider secret is shipped in the extension.
+
+Common variables include:
+
+| Variable | Purpose |
 | --- | --- |
-| `OPENROUTER_API_KEY` | The relay key. BYOK provider keys (Cerebras, Groq, Gemini, Mistral…) are configured inside OpenRouter, not here. |
-| `OPENROUTER_MODEL` | Optional; pins one model and drops the `models` fallback list. Default: the 3-model list in `_relay.mjs`. |
-| `OLLAMA_API_KEY` | Optional; adds Ollama Cloud as a provider ahead of OpenRouter. |
-| `OLLAMA_MODEL` | Optional; defaults to `gpt-oss:20b`. |
-| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Optional; enables the cross-reader cache + abuse guard. |
+| `OPENROUTER_API_KEY` | Enables the OpenRouter relay path. |
+| `OPENROUTER_MODEL` | Optional model override. |
+| `OLLAMA_API_KEY` | Optional additional provider path when supported by `_relay.mjs`. |
+| `OLLAMA_MODEL` | Optional Ollama model override. |
+| `UPSTASH_REDIS_REST_URL` / token | Enables summary caching plus distributed rate limiting. |
+| `READTUNE_RATE_LIMIT_SECRET` | Optional secret used when deriving pseudonymous client identifiers; deployment should set a stable server-side value. |
 
-With no provider key set, `/api/assist` returns `503` and the extension keeps
-Summary on-device-only. To change preference order, reorder the array in
-`providersFromEnv` (`api/_relay.mjs`).
+With no usable AI provider configured, cloud requests fail cleanly rather than exposing provider details.
 
-## What is and isn't claimed
+## What ReadTune claims
 
-- It is **"an optional plain-language rewrite of the part you pick"** or
-  **"the key points of an article"** — not "understand any article", not a
-  comprehension guarantee.
-- The rewrite prompt tells the model to keep every fact, name and number, add
-  nothing, and drop nothing — but a model can still get it wrong, so the
-  original is always on screen next to it.
-- The summary is "the main points as the text states them", capped to the
-  article's opening for a long piece, and labelled when it was clipped.
-- Ask AI answers **about the article you're reading** — the article is always
-  sent as context, and `ASK_SYSTEM` tells the model to stay close to it and
-  to flag plainly when the article doesn't cover the question. It is not
-  positioned as a general chatbot, and every answer carries the "AI — may not
-  be exact" line.
-- Store answer to "do you use remote code?" stays **No**: this sends and
-  receives data (text in, generated text out), it doesn't fetch or
-  execute code. The on-device path, where it applies, is part of the browser.
+ReadTune offers reading assistance: key points, article-grounded questions, definitions, explanations, annotations, and optional plain-language rewrites. It does **not** claim to understand an article for the reader, diagnose a reading condition, or guarantee model accuracy.
 
-## Not in v1
-
-A running multi-turn transcript in the Ask rail (each question currently
-replaces the last answer). Simplify's cloud path — still on-device-only,
-still not disclosed as a cloud feature.
+Remote AI responses are data returned to the extension, not remote executable code. The Chrome Web Store answer to "Do you use remote code?" remains **No**.
