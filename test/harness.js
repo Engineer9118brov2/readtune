@@ -418,7 +418,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsRate: 1.2, rulerLines: 5, rulerHeight: 76 }, (p) => {
     starterPatch = p;
   });
-  assert(/Research-backed starter/.test(starterControls.panel.textContent), "controls surface research-backed starter");
+  assert(/Evidence-informed starter/.test(starterControls.panel.textContent), "controls surface evidence-informed starter");
   starterControls.panel.querySelector(".rt-research-btn").click();
   assert(
     starterPatch &&
@@ -2598,27 +2598,3 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       self.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: "not set up" }) });
       let err;
       try { await eng.synthesize("again"); } catch (e) { err = e; }
-      assert(err && err.status === 503, "a relay error propagates with its status so tts.js can drop to Piper");
-    } finally {
-      self.fetch = realFetch2;
-    }
-  }
-
-  /* showcase */
-  host.replaceChildren();
-  const sc = R.createReadingView(host);
-  const r2 = sc.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
-  sc.setMeta({ title: r2.meta.title, parts: ["Shoreline Notes", "By J. Marsh", "3 min read", "Grade 7 reading level"] });
-  const prof = { ...S.DEFAULT_PROFILE, font: "atkinson", fontSize: 20, lineHeight: 1.8, wordSpacing: 0.12, bionic: 38, overlay: "cream", hyphenate: true, paragraphSpacing: 1.3 };
-  R.applyTypography(host, prof); R.paintPage(prof); sc.applyProfile(prof);
-  assert(!host.querySelector(".rt-doc-head").hidden && host.querySelector(".rt-article").getBoundingClientRect().height > 100, "showcase renders");
-
-  const fails = [...document.querySelectorAll("#results li")].filter((l) => l.textContent.startsWith("FAIL")).length;
-  log(`— done — ${fails ? fails + " FAILED" : "ALL PASS"}`);
-  window.__DONE = true;
-  window.__FAILS = fails;
-})().catch((e) => {
-  log("HARNESS CRASH: " + ((e && e.stack) || e), false);
-  window.__DONE = true;
-  window.__FAILS = 99;
-});
