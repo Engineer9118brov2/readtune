@@ -24,7 +24,7 @@ ReadTune has no account, analytics, or telemetry. Its optional AI and cloud-voic
 - **Talk to type (dictation):** if you use it, ReadTune turns on Chrome's built-in speech recognition. Chrome sends your microphone audio to Google's speech service to transcribe it — this is the browser's own engine, not ReadTune's. The transcribed text is placed into the field you're typing in. ReadTune does not record, store, or transmit the audio or transcript itself. Dictation is disabled for password fields.
 - **ElevenLabs voice (optional):** only if you enter your own API key — the passage being read aloud and your key are sent from your browser to `https://api.elevenlabs.io` to generate audio and word timings. ElevenLabs' handling of that request is covered by ElevenLabs' own privacy policy. Choosing **Remove key** also removes ReadTune's optional permission to contact the ElevenLabs API.
 - **AI reading help (optional):** the Ask AI rail is available in Reader View and PDF mode. Merely opening the rail sends nothing. When you explicitly request a Summary, Ask, Define, Explain, or Annotate action, ReadTune first uses on-device AI when a compatible Chrome model is already ready. Otherwise, the relevant article text — or relevant **locally extracted PDF text** — is sent to **ReadTune's AI relay**, which forwards it to a third-party AI model and returns the result. A typed Ask question is sent with the selected context. The **PDF file itself is never sent**. A typed question can be more personal than reading text, so only send what you're comfortable sharing.
-- **AI response retention:** only generated article **summaries** are eligible for ReadTune's shared 30-day response cache. Typed Ask answers, Define/Explain results, annotations, and other interactive AI responses are not written to that cache. Cached summaries are keyed to the article content/URL rather than a ReadTune account.
+- **AI response retention:** only generated article **summaries** are eligible for ReadTune's shared 30-day response cache. Typed Ask answers, Define/Explain results, annotations, and other interactive AI responses are not written to that cache. Cached summaries are keyed to a hash of the article content rather than a ReadTune account. ReadTune does not send the article URL to its AI relay.
 - **Simplify** (the passage-rewrite pill) is on-device only for now. If your browser does not already have a ready local model, it says so instead of sending the selection to ReadTune's AI relay.
 
 ## Service providers and infrastructure
@@ -61,6 +61,10 @@ services.
 | host access to `huggingface.co` (optional) | Only if you select one of the extra on-device voices, to download its model once |
 | host access to `api.elevenlabs.io` (optional) | Only if you enable the ElevenLabs voice; removed when you remove the key |
 | host access to a specific site (optional) | Only if you turn on "auto-open" / "auto-restyle" for that site |
+
+## Chrome Web Store Limited Use
+
+ReadTune's use of information is limited to providing or improving its disclosed reading-accessibility features and related security/operational purposes. ReadTune does not sell user data, use it for advertising, creditworthiness, or lending, or transfer it for unrelated purposes. The use of information received from Chrome APIs adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ## What ReadTune does not do
 
