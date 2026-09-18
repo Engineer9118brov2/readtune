@@ -517,7 +517,6 @@ export function buildControls(profile, onChange, opts = {}) {
   const resetBtn = el("button", { class: "rt-link rt-reset", type: "button" }, "Reset to defaults");
   resetBtn.addEventListener("click", () => onChange({ __reset: true }));
   body.append(resetBtn);
-
   /* ---- open / close ---- */
   const isOpen = () => !panel.hidden;
   const open = (opts = {}) => {
@@ -536,9 +535,10 @@ export function buildControls(profile, onChange, opts = {}) {
   };
   toggleBtn.addEventListener("click", () => (isOpen() ? close() : open()));
   closeBtn.addEventListener("click", close);
-  document.addEventListener("keydown", (e) => {
+  const onDocumentKeyDown = (e) => {
     if (e.key === "Escape" && isOpen()) close();
-  });
+  };
+  document.addEventListener("keydown", onDocumentKeyDown);
 
   function emit(patch) {
     Object.assign(state, patch);
@@ -656,6 +656,10 @@ export function buildControls(profile, onChange, opts = {}) {
       reg.ttsState.status = "";
       Object.assign(reg.ttsState, next);
       paintTTS();
+    },
+    destroy() {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+      panel.remove();
     },
   };
 }

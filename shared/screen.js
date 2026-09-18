@@ -707,10 +707,12 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
     cancelAnimationFrame(autoRAF);
     syncTransport();
   }
-  ["wheel", "touchstart", "keydown"].forEach((e) =>
-    window.addEventListener(e, () => {
-      if (autoScrolling) stopAuto();
-    }, { passive: true })
+  const manualAutoStopEvents = ["wheel", "touchstart", "keydown"];
+  const onManualAutoStop = () => {
+    if (autoScrolling) stopAuto();
+  };
+  manualAutoStopEvents.forEach((eventName) =>
+    window.addEventListener(eventName, onManualAutoStop, { passive: true })
   );
 
   /* ---- apply / change ---- */
@@ -820,6 +822,8 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
     getProfile: () => profile,
     destroy() {
       stopPreview();
+      stopAuto();
+      clearTimeout(saveTimer);
       toast.destroy();
       aids.destroy();
       wordLook.destroy();
@@ -831,10 +835,13 @@ export async function createReadingScreen({ surface, view, pageUrl = "", sourceT
       clearTimeout(seekTimer);
       pageAudioDisposed = true;
       pageAudioTimers.forEach((timer) => clearTimeout(timer));
+      manualAutoStopEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, onManualAutoStop)
+      );
       document.removeEventListener("keydown", onKeyDown);
       view.getFlowEl().removeEventListener("click", onFlowClick);
       chrome_.remove();
-      controls.panel.remove();
+      controls.destroy();
       document.body.classList.remove("rt-shell");
       view.destroy();
     },
