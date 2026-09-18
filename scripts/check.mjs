@@ -221,12 +221,6 @@ if (readFileSync(join(ROOT, "docs/SCHOOL-DISTRICTS.md"), "utf8").includes("the o
   fail("docs/SCHOOL-DISTRICTS.md contains stale single-exception copy");
 }
 
-if (failures) {
-  console.error(`\n${failures} problem(s).`);
-  process.exit(1);
-}
-console.log("✓ all checks passed (" + files.length + " files)");
-
 // 9. Legal/compliance release files and disclosure anchors must ship.
 for (const rel of ["THIRD_PARTY_NOTICES.md", "terms.html"]) {
   if (!existsSync(join(ROOT, rel))) fail(`missing legal release file: ${rel}`);
@@ -243,3 +237,31 @@ for (const [rel, snippets] of Object.entries({
     if (!contents.includes(snippet)) fail(`${rel} is missing legal/compliance invariant: ${snippet}`);
   }
 }
+
+try {
+  const labCss = readFileSync(join(ROOT, "lab.css"), "utf8");
+  const sidebar = readFileSync(join(ROOT, "shared", "assist-sidebar.js"), "utf8");
+  const assistApi = readFileSync(join(ROOT, "api", "assist.js"), "utf8");
+  if (!labCss.includes("grid-template-columns: repeat(2, minmax(0, 1fr))")) {
+    fail("Voice Fit must retain the two-column comparison grid on wide screens");
+  }
+  if (sidebar.includes("From the start of a long article.")) {
+    fail("assistant still claims long summaries only use the start of the article");
+  }
+  if (!assistApi.includes("const ANNOTATE_MAX_TOKENS = 1800;") || !assistApi.includes("pick 4 to 6 short passages")) {
+    fail("annotation anti-truncation guard changed");
+  }
+  for (const rel of ["lab.html", "popup.html", "shared/controls.js"]) {
+    if (readFileSync(join(ROOT, rel), "utf8").includes("Research-backed starter")) {
+      fail(`${rel} still overstates the starter as research-backed`);
+    }
+  }
+} catch (e) {
+  fail("submission UX invariant check failed: " + e.message);
+}
+
+if (failures) {
+  console.error(`\n${failures} problem(s).`);
+  process.exit(1);
+}
+console.log("✓ all checks passed (" + files.length + " files)");
