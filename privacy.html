@@ -43,6 +43,10 @@
       <p>Otherwise, the relevant article text — or relevant <strong>locally extracted PDF text</strong> — is sent to <strong>ReadTune's AI relay</strong>, which forwards it to a third-party AI model and returns the result. A typed Ask question is sent with the selected context. <strong>The PDF file itself is never sent.</strong> A question you type can be more personal than reading text, so only send what you're comfortable sharing. AI output can be wrong and is labelled as approximate.</p>
       <p><strong>Only article summaries are eligible for ReadTune's shared 30-day response cache.</strong> Typed Ask answers, Define/Explain results, annotations, and other interactive AI responses are not written to that cache. Cached summaries are not tied to a ReadTune account.</p>
       <p>The "Simplify" rewrite pill is <strong>on-device only for now</strong>. If your browser doesn't already have a ready model, it says so rather than sending your selection to ReadTune's relay.</p>
+      <h2>Service providers and infrastructure</h2>
+      <p>When you explicitly use an optional network feature, the current route may involve <strong>Vercel</strong> (hosting the site and ReadTune relays), <strong>Upstash Redis</strong> (when configured, for the shared summary cache and short-lived rate-limit counters), <strong>OpenRouter</strong> and its configured model/voice providers, <strong>Ollama Cloud</strong> as an optional AI route, <strong>Deepgram</strong> or <strong>Fish Audio</strong> through OpenRouter, and <strong>Cartesia</strong> as a direct Premium voice fallback. ElevenLabs, Hugging Face, and Google/Chrome speech recognition are used only for the specific optional features described above. Provider availability and routing can change; this policy will be updated before a materially different data-sharing route is shipped.</p>
+      <h2>Abuse prevention and request metadata</h2>
+      <p>ReadTune's relays use the requesting network address only to derive a short pseudonymous HMAC fingerprint for per-client rate limiting. The raw address is not written into ReadTune's Redis rate-limit key, and minute-level counters expire automatically. Vercel and other infrastructure providers may separately process ordinary request, security, and network logs needed to operate their services.</p>
       <h2>Permissions</h2>
       <ul>
         <li><strong>Active tab and scripting:</strong> used only when you invoke ReadTune on the current tab — to open Reader View, restyle the page in place, or start dictation. Access ends when you navigate away.</li>
@@ -60,7 +64,7 @@
       <p>For questions or bug reports, use the project's <a href="https://github.com/Engineer9118brov2/readtune/issues" target="_blank" rel="noreferrer">GitHub Issues</a>.</p>
       <p class="mono-label">Last updated: September 2026</p>
     </main>
-    <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="/school.html">For schools</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+    <footer class="site-footer shell"><div class="brand"><img class="brand-mark" src="/icons/icon48.png" alt="" aria-hidden="true" /><span>ReadTune</span></div><p>Measured reading support for the open web.</p><div class="footer-links"><a href="/">Home</a><a href="/school.html">For schools</a><a href="/terms.html">Terms</a><a href="https://github.com/Engineer9118brov2/readtune" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
     <script src="site.js"></script>
   </body>
 </html>
