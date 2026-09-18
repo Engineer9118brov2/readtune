@@ -177,12 +177,12 @@ const publicCopy = {
     "Premium voice and ElevenLabs are separate optional voice paths",
   ],
   "privacy.html": [
-    "Premium voice, ElevenLabs, and cloud-routed Ask AI",
+    "Only article summaries are eligible for ReadTune's shared 30-day response cache.",
     "There is no ReadTune account.",
   ],
   "school.html": [
     "Ask AI, Premium voice, and reader-configured ElevenLabs",
-    "The default Piper voice remains local",
+    "Read-aloud uses Piper, a neural voice that runs entirely on the device.",
   ],
   "docs/DEVPOST.md": [
     "six short readings plus a\nwarm-up",
