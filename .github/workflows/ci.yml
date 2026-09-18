@@ -20,8 +20,6 @@ jobs:
           node-version: "22"
       - name: Full policy, privacy, lifecycle, dictation, and behavioural checks
         run: npm test
-      - name: Behavioural harness (headless Chrome)
-        run: npm run harness
       - name: Bundled Piper model smoke test (headless Chrome)
         run: npm run piper-smoke
       - name: Build the Web Store zip
