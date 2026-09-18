@@ -114,7 +114,7 @@ function configureSetupBox(show) {
 }
 
 function configureFirstRun() {
-  $("tagline").textContent = "Start with research-backed reading defaults, then try a quick preference check for settings to explore.";
+  $("tagline").textContent = "Start with evidence-informed reading defaults, then try a quick preference check for settings to explore.";
   $("onboard").hidden = false;
   $("profile-box").hidden = true;
   $("setup-box").hidden = true;
