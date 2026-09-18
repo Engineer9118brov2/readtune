@@ -11,7 +11,9 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PIPER_SMOKE = process.env.HARNESS_MODE === "piper";
+const HARNESS_MODE = process.env.HARNESS_MODE || "harness";
+const PIPER_SMOKE = HARNESS_MODE === "piper";
+const DICTATE_SMOKE = HARNESS_MODE === "dictate";
 const TYPES = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
   ".css": "text/css", ".json": "application/json", ".woff2": "font/woff2",
@@ -36,7 +38,7 @@ const server = createServer(async (req, res) => {
 
 await new Promise((r) => server.listen(0, r));
 const port = server.address().port;
-const url = `http://127.0.0.1:${port}${PIPER_SMOKE ? "/test/piper-smoke.html" : "/test/harness.html"}`;
+const url = `http://127.0.0.1:${port}${PIPER_SMOKE ? "/test/piper-smoke.html" : DICTATE_SMOKE ? "/test/dictate-smoke.html" : "/test/harness.html"}`;
 
 function findChrome() {
   if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
@@ -142,12 +144,14 @@ try {
       {
         expression: PIPER_SMOKE
           ? "window.__PIPER_SMOKE ?? null"
-          : "({done: !!window.__DONE, fails: window.__FAILS ?? -1})",
+          : DICTATE_SMOKE
+            ? "window.__DICTATE_SMOKE ?? null"
+            : "({done: !!window.__DONE, fails: window.__FAILS ?? -1})",
         returnByValue: true,
       },
       sessionId
     );
-    if (PIPER_SMOKE) {
+    if (PIPER_SMOKE || DICTATE_SMOKE) {
       smokeResult = r.result.value;
       done = !!smokeResult;
       fails = smokeResult && smokeResult.ok ? 0 : 1;
@@ -165,6 +169,8 @@ try {
       sessionId
     );
     console.log(JSON.stringify({ result: smokeResult, progress: progress.result.value }));
+  } else if (DICTATE_SMOKE) {
+    console.log(JSON.stringify({ result: smokeResult }));
   } else {
     const summary = await send(
       "Runtime.evaluate",
@@ -178,7 +184,11 @@ try {
     console.error("\n✗ harness did not finish");
     cleanup(1);
   } else if (fails > 0) {
-    console.error(PIPER_SMOKE ? `\n✗ Piper smoke failed: ${smokeResult && smokeResult.error}` : `\n✗ ${fails} assertion(s) failed`);
+    console.error(PIPER_SMOKE
+      ? `\n✗ Piper smoke failed: ${smokeResult && smokeResult.error}`
+      : DICTATE_SMOKE
+        ? `\n✗ dictation smoke failed: ${smokeResult && smokeResult.error}`
+        : `\n✗ ${fails} assertion(s) failed`);
     cleanup(1);
   } else {
     console.log("\n✓ harness passed");
