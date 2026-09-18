@@ -69,18 +69,6 @@ const now = () =>
    own cloud path is built and disclosed — see docs/ASSIST.md. */
 const CLOUD_KINDS = new Set(["summary", "ask", "define", "explain", "annotate"]);
 
-/* Never forward a query string or fragment to the relay — a URL can carry a
-   session token or other identifying junk. The relay re-normalizes on receipt
-   anyway; this just keeps that off the wire in the first place. */
-function sanitizeUrl(url) {
-  try {
-    const u = new URL(String(url || ""));
-    return u.origin + u.pathname;
-  } catch {
-    return "";
-  }
-}
-
 /* Summary input is capped so a pathological page can't wedge the model. Long
    summaries sample blocks from across the article rather than taking only the
    opening; a rewrite acts on a selection the reader made. */
@@ -182,7 +170,7 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}, levelHint = "") {
+async function cloudGenerate(kind, text, _url, signal, question = "", log = () => {}, levelHint = "") {
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   const timer = new AbortController();
   const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
@@ -192,7 +180,7 @@ async function cloudGenerate(kind, text, url, signal, question = "", log = () =>
   log(`cloud → POST ${CLOUD_URL} (kind=${kind}${question ? ", +question" : ""}${levelHint ? ", +level" : ""}, ${text.length} chars)`);
   let res;
   try {
-    const body = { kind, text, url };
+    const body = { kind, text };
     if (question) body.question = question;
     // Kept separate from `question` end-to-end (never concatenated into it)
     // so a reading-level phrasing hint can't (a) get silently truncated when
