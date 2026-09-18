@@ -45,7 +45,7 @@ No account. No subscription. No extension analytics. Your reading profile stays 
 
 THE PROBLEM
 
-Between 1 in 5 and 1 in 7 people have dyslexia. About 1 in 15 have ADHD. For many of them — and for anyone with low vision or plain eye strain — a wall of tight text on a bright white screen is slower and more tiring than it needs to be. Not because they can't read, but because the presentation is working against them.
+Many people find dense digital text tiring or difficult to track, including some readers with dyslexia, ADHD, low vision, or eye strain. ReadTune is built to reduce presentation friction without claiming that one setup works for everyone.
 
 Tools that help do exist: roomier spacing, calmer colour, a cleaner layout, text read aloud. Two problems. First, WHICH of those helps is different for every person, and most tools just hand you twenty toggles and let you guess. Second, the tools that do the most put the useful parts behind a subscription or a school-district licence — so a student who needs this and has no money or school login gets nothing.
 
@@ -53,7 +53,7 @@ Tools that help do exist: roomier spacing, calmer colour, a cleaner layout, text
 
 WHAT READTUNE DOES DIFFERENTLY
 
-It opens with a short check — a warm-up plus six short passages, about four minutes, or skip it and start reading on a research-backed default. Standard text appears twice on different passages; the other four passages each change exactly one thing versus that default: the font, the spacing, or leading-letter bolding. The order is shuffled. For each one it notes your reading time, a fill-in-the-blank check that a skim can't pass, and a 1–5 "how did that feel" rating. Passages don't repeat if you retake it.
+It opens with a short check — a warm-up plus six short passages, about four minutes, or skip it and start reading on a evidence-informed default. Standard text appears twice on different passages; the other four passages each change exactly one thing versus that default: the font, the spacing, or leading-letter bolding. The order is shuffled. For each one it notes your reading time, a fill-in-the-blank check that a skim can't pass, and a 1–5 "how did that feel" rating. Passages don't repeat if you retake it.
 
 Then it compares every change against your own baseline — so a naturally slower reader isn't penalised — allows for the practice speed-up, and keeps only the changes that clear a real margin. If nothing clears the bar, it tells you that instead of inventing a winner.
 
@@ -116,7 +116,7 @@ Memory
 
 WHAT WE'RE HONEST ABOUT
 
-Read-aloud with follow-along, roomier spacing, and softer contrast have the strongest research support. Dyslexia-specific fonts, coloured overlays and bionic bolding have mixed or weak evidence — some people clearly prefer them, but that's comfort, not a cure. ReadTune labels each feature by how well it's supported and treats the weaker ones as experiments you opt into. The check is a quick estimate from six scored short readings plus a warm-up, not a clinical assessment, and it says so on the results screen.
+ReadTune is informed by accessibility research. Read-aloud with follow-along and spacing have stronger support than many visual preference features. Dyslexia-specific fonts, coloured overlays and bionic bolding have mixed or weak evidence — some people clearly prefer them, but that's comfort, not a cure. ReadTune labels each feature by how well it's supported and treats the weaker ones as experiments you opt into. The check is a quick preference estimate from six scored short readings plus a warm-up. It is not a diagnosis, clinical assessment, medical device, or treatment, and it does not guarantee faster reading or better comprehension.
 
 ————————————————————
 
@@ -128,9 +128,9 @@ Read-aloud uses the bundled on-device Piper voice by default. Optional extra on-
 
 Optional features send data only when you choose them. Talk to type uses Chrome's built-in speech recognition, which sends microphone audio to Google to transcribe; password fields are blocked. ElevenLabs read-aloud, if you add your own key, sends the passage and key directly to your ElevenLabs account. Premium voice sends each sentence as it is spoken to ReadTune's text-to-speech relay, which forwards it to a third-party voice provider and does not store the text or generated audio.
 
-Ask AI is available in Reader View and PDF mode. Opening the panel sends nothing. Where Chrome has compatible on-device AI already ready, it can run locally. Otherwise, the relevant article text — or relevant text extracted locally from a PDF — and any typed Ask question are sent through ReadTune's relay to a third-party AI model. The PDF file itself is never uploaded. Only article summaries are eligible for the shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that cache.
+Ask AI is available in Reader View and PDF mode. Opening the panel sends nothing. Where Chrome has compatible on-device AI already ready, it can run locally. Otherwise, the relevant article text — or relevant text extracted locally from a PDF — and any typed Ask question are sent through ReadTune's relay. Current relay infrastructure/providers may include Vercel, Upstash Redis for summary caching/rate limiting, OpenRouter and its configured model providers, and Ollama Cloud when configured. The PDF file itself is never uploaded. Only article summaries are eligible for the shared 30-day response cache; typed Ask answers, Define/Explain results, and annotations are not stored in that cache. For abuse prevention, the relay derives a short pseudonymous rate-limit identifier from the requesting network address; the raw address is not written into ReadTune's Redis rate-limit key.
 
-Free and open source. The full code is at github.com/Engineer9118brov2/readtune
+Free and open source. The full code, Terms, Privacy Policy, and third-party license notices are available from the ReadTune project.
 ```
 
 ## Category
