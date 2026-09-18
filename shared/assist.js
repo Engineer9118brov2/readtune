@@ -290,6 +290,39 @@ const contentStemsOf = (s) =>
     .filter((w) => w.length > 2 && !ASK_STOPWORDS.has(w))
     .map(stem);
 
+/**
+ * Build broad summary context from across a long article instead of silently
+ * spending the whole budget on the opening. The sampled blocks stay in source
+ * order and share the same total character ceiling used by the relay.
+ */
+export function selectSummaryContext(blocks, maxChars) {
+  if (!Array.isArray(blocks) || blocks.length <= 1 || maxChars <= 0) return null;
+  const clean = blocks
+    .map((block) => String(block || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  if (clean.length <= 1) return null;
+
+  const full = clean.join("\n\n");
+  if (full.length <= maxChars) return full;
+
+  const sampleCount = Math.min(9, clean.length);
+  const indexes = [];
+  for (let i = 0; i < sampleCount; i++) {
+    const idx = sampleCount === 1 ? 0 : Math.round((i * (clean.length - 1)) / (sampleCount - 1));
+    if (!indexes.includes(idx)) indexes.push(idx);
+  }
+
+  const separatorChars = Math.max(0, indexes.length - 1) * 2;
+  const perBlock = Math.max(120, Math.floor((maxChars - separatorChars) / indexes.length));
+  const parts = indexes.map((idx) => {
+    const block = clean[idx];
+    if (block.length <= perBlock) return block;
+    const clipped = block.slice(0, perBlock);
+    return clipped.replace(/\s+\S*$/, "").trim() || clipped.trim();
+  });
+  return parts.join("\n\n").slice(0, maxChars).trim() || null;
+}
+
 /** Pick the article blocks most likely to answer `question`, in their
     original order, up to `maxChars`. Falls back to the article's start when
     the question shares no real words with any block (a vague or off-topic
@@ -483,8 +516,11 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
   return {
     describe: () => describeAvailability(),
     async summarize({ onProgress, onLog, signal } = {}) {
-      const { text, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
-      if (!text) throw new Error("There's no article text to summarize.");
+      const { text: headText, clipped } = clip(getArticleText(), MAX_SUMMARY_INPUT);
+      if (!headText) throw new Error("There's no article text to summarize.");
+      const blocks = typeof getArticleBlocks === "function" ? getArticleBlocks() : null;
+      const representative = clipped ? selectSummaryContext(blocks, MAX_SUMMARY_INPUT) : null;
+      const text = representative || headText;
       return { text: await run({ kind: "summary", text, onProgress, onLog, signal }), clipped };
     },
     async simplify(passage, { onProgress, onLog, signal } = {}) {
