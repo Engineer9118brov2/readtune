@@ -4,7 +4,7 @@ These files map directly to the Chrome Web Store Developer Dashboard:
 
 | Dashboard field | File | Notes |
 | --- | --- | --- |
-| Screenshots | `01-reader-view.png` | Reader View with the settings panel and research-backed starter |
+| Screenshots | `01-reader-view.png` | Reader View with the settings panel and evidence-informed starter |
 | Screenshots | `02-focus-ruler.png` | Reader View with the adaptive reading guide |
 | Screenshots | `03-read-along.png` | Read-aloud screen with sentence/word follow-along |
 | Screenshots | `04-restyle-page.png` | Restyle this page in place with the floating control bar |
