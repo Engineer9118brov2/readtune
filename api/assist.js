@@ -24,7 +24,7 @@ const SUMMARY_MAX_TOKENS = 600;
 const ASK_MAX_TOKENS = 800;
 const DEFINE_MAX_TOKENS = 150;
 const EXPLAIN_MAX_TOKENS = 300;
-const ANNOTATE_MAX_TOKENS = 1200;
+const ANNOTATE_MAX_TOKENS = 1800;
 const CACHEABLE_KINDS = new Set(["summary"]);
 
 const SUMMARY_SYSTEM =
@@ -45,8 +45,9 @@ const EXPLAIN_SYSTEM =
   "You explain what a passage means for a reader who finds reading difficult — any figurative language, tone, or theme. " +
   "If nothing figurative is present, explain the main idea instead. Two to four short sentences, plain words, no preamble.";
 const ANNOTATE_SYSTEM =
-  "Read the article and pick 5 to 10 short passages worth annotating for a reader who finds reading difficult: hard vocabulary, " +
-  "figurative language, and important themes. Reply with ONLY a JSON array, no prose, no code fences, no markdown — just the array: " +
+  "Read the article and pick 4 to 6 short passages worth annotating for a reader who finds reading difficult: hard vocabulary, " +
+  "figurative language, and important themes. Keep every quote under 18 words and every note under 18 words. " +
+  "Reply with ONLY a JSON array, no prose, no code fences, no markdown — just the array: " +
   '[{"quote": "...", "note": "...", "kind": "define"|"explain"|"theme"}]. ' +
   "Each \"quote\" must be copied exactly, word-for-word, from the article — not paraphrased, not summarized. " +
   'Each "note" is one short plain sentence explaining that passage.';
