@@ -12,10 +12,10 @@ setup worth keeping, then applies it everywhere. Free, local-first, no account.
 
 ## The problem
 
-Somewhere between 1 in 5 and 1 in 7 people have dyslexia. Roughly 1 in 15 have
-ADHD. For all of them, reading a wall of dense text on a bright white screen is
-slower and more tiring than it needs to be — not because they can't read, but
-because the *presentation* is working against them.
+Many people find dense digital text tiring or difficult to track, including
+some readers with dyslexia, ADHD, low vision, or eye strain. ReadTune focuses on
+the presentation problem without claiming that one setup works for everyone or
+that a formatting preference diagnoses or treats a reading condition.
 
 There are tools that help: bigger spacing, calmer colours, a cleaner layout,
 text read aloud. The problem is **which** ones help is different for every
@@ -29,9 +29,9 @@ nothing.
 ## What ReadTune does differently
 
 **It runs the experiment on you.** The first thing you do is a ~4-minute
-calibration test — or you skip it and start reading on a research-backed
+calibration test — or you skip it and start reading on a evidence-informed
 default. The test is a warm-up, then six short passages in a shuffled order. Standard text appears twice on different passages; the other four passages each change
-*exactly one* thing from that research-backed page — the font, the spacing, or
+*exactly one* thing from that evidence-informed page — the font, the spacing, or
 bionic bolding. It times your reading (correcting for the speed-up everyone gets
 from practice), runs a **cloze check** (two words blanked in a middle sentence,
 pick the missing pair — you can't answer it from the title or a skim), and asks
