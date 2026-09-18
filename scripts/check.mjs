@@ -226,8 +226,8 @@ for (const rel of ["THIRD_PARTY_NOTICES.md", "terms.html"]) {
   if (!existsSync(join(ROOT, rel))) fail(`missing legal release file: ${rel}`);
 }
 for (const [rel, snippets] of Object.entries({
-  "PRIVACY.md": ["Service providers and infrastructure", "pseudonymous HMAC fingerprint"],
-  "privacy.html": ["Service providers and infrastructure", "pseudonymous HMAC fingerprint"],
+  "PRIVACY.md": ["Service providers and infrastructure", "pseudonymous HMAC fingerprint", "does not send the article URL", "Chrome Web Store Limited Use"],
+  "privacy.html": ["Service providers and infrastructure", "pseudonymous HMAC fingerprint", "does not send the article URL", "Chrome Web Store Limited Use"],
   "terms.html": ["not a diagnosis, clinical assessment, medical device, treatment", "Third-Party Notices"],
   "store/listing.md": ["not a diagnosis, clinical assessment, medical device, or treatment", "pseudonymous rate-limit identifier"],
   "THIRD_PARTY_NOTICES.md": ["espeak-ng", "GPL-3.0-or-later"],
