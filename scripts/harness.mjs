@@ -5,7 +5,7 @@
  */
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join, extname, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
@@ -64,12 +64,13 @@ if (!CHROME) {
   process.exit(1);
 }
 
+const CHROME_PROFILE = join(ROOT, `.chrome-ci-${HARNESS_MODE}-${process.pid}`);
 const CHROME_FLAGS = [
   "--headless=new", "--disable-gpu", "--no-sandbox", "--no-first-run",
   // /dev/shm is tiny on CI containers; without this Chrome crashes on startup
   // intermittently ("DevTools endpoint never came up").
   "--disable-dev-shm-usage", "--disable-software-rasterizer",
-  "--user-data-dir=" + join(ROOT, ".chrome-ci"),
+  "--user-data-dir=" + CHROME_PROFILE,
   "about:blank",
 ];
 
@@ -86,6 +87,7 @@ function launchChrome(dbgPort) {
 
 function cleanup(code) {
   try { chrome && chrome.kill("SIGKILL"); } catch {}
+  try { rmSync(CHROME_PROFILE, { recursive: true, force: true }); } catch {}
   server.close();
   process.exit(code);
 }
@@ -138,7 +140,7 @@ try {
   let done = false;
   let fails = -1;
   let smokeResult = null;
-  for (let i = 0; i < (PIPER_SMOKE ? 900 : 100); i++) {
+  for (let i = 0; i < (PIPER_SMOKE ? 900 : DICTATE_SMOKE ? 120 : 300); i++) {
     const r = await send(
       "Runtime.evaluate",
       {
