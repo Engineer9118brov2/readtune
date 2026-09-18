@@ -27,6 +27,30 @@ ReadTune has no account, analytics, or telemetry. Its optional AI and cloud-voic
 - **AI response retention:** only generated article **summaries** are eligible for ReadTune's shared 30-day response cache. Typed Ask answers, Define/Explain results, annotations, and other interactive AI responses are not written to that cache. Cached summaries are keyed to the article content/URL rather than a ReadTune account.
 - **Simplify** (the passage-rewrite pill) is on-device only for now. If your browser does not already have a ready local model, it says so instead of sending the selection to ReadTune's AI relay.
 
+## Service providers and infrastructure
+
+When an optional network feature is used, the current service path may involve:
+
+- **Vercel** — hosts `readtune.tech` and the ReadTune AI / Premium voice relays.
+- **Upstash Redis** — when configured, stores shared article-summary cache entries and short-lived rate-limit counters. Interactive Ask/Define/Explain/Annotate responses and Premium voice audio/text are not stored in that response cache.
+- **OpenRouter** — one route for AI and Premium voice requests; OpenRouter may route the request to the configured model or voice provider under the relay's provider settings.
+- **Ollama Cloud** — an optional AI-provider route when configured.
+- **Deepgram and Fish Audio through OpenRouter, and Cartesia directly** — current Premium voice provider routes when configured/available.
+- **ElevenLabs** — only when you add your own key and choose ElevenLabs read-aloud.
+- **Hugging Face** — only to download an optional on-device voice model; reading text is not sent with that download.
+- **Google/Chrome speech recognition** — only when you use Talk to type.
+
+Provider availability and routing can change as upstream services change. ReadTune's code and this policy should be updated before a materially different data-sharing route is shipped.
+
+## Abuse prevention and request metadata
+
+ReadTune's relays use the requesting network address only to derive a short
+pseudonymous HMAC fingerprint for per-client rate limiting. The raw address is
+not written into ReadTune's Redis rate-limit key. Minute-level counters expire
+automatically. Vercel and other infrastructure providers may separately process
+ordinary request, security, and network logs as part of operating their
+services.
+
 ## Permissions
 
 | Permission | Why |
@@ -44,7 +68,7 @@ The extension does not sell or share data, run analytics, create an account, sen
 
 ## The readtune.tech website
 
-The public marketing pages at `readtune.tech` are hosted on Vercel. ReadTune does **not** load a pageview analytics SDK, advertising pixel, or product-tracking script on those pages. Like ordinary web hosting, Vercel may process basic request and security logs needed to deliver the site; ReadTune does not use those logs to build reader profiles or connect website visits to extension activity. **Nothing you read inside the extension is visible to the marketing website.**
+The public marketing pages at `readtune.tech` are hosted on Vercel. ReadTune's optional relay endpoints are hosted there as well. ReadTune does **not** load a pageview analytics SDK, advertising pixel, or product-tracking script on those pages. Like ordinary web hosting, Vercel may process basic request and security logs needed to deliver the site; ReadTune does not use those logs to build reader profiles or connect website visits to extension activity. **Nothing you read inside the extension is visible to the marketing website.**
 
 ## Your control
 
