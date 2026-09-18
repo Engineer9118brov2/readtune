@@ -15,16 +15,15 @@
  *      path only fires when it costs nothing: the model Chrome already has
  *      ready for some other feature.
  *   2. Otherwise, ReadTune's own small relay (`/api/assist`, see that file),
- *      which forwards to a free chat model — Ollama Cloud first, then
- *      OpenRouter — and caches the response by article URL so a popular
- *      article is summarized once, ever.
+ *      which forwards to configured AI providers. Only article summaries are
+ *      eligible for the shared 30-day response cache; interactive answers are
+ *      not stored there.
  *
- * This is the one place in ReadTune where text leaves the device — see
- * privacy.html / PRIVACY.md for the plain disclosure. Every other feature
- * (calibration, Reader View, Piper read-aloud, PDF mode) still sends nothing
- * anywhere. There used to be a "bring your own Gemini key" third tier here;
- * it's gone — pasting an API key is not a real option for the readers this
- * extension is for.
+ * AI is one of ReadTune's explicitly optional network paths — see
+ * privacy.html / PRIVACY.md for the full disclosure. The default reading
+ * profile, Reader View, PDF extraction, and Piper read-aloud remain local;
+ * Premium voice, ElevenLabs, optional voice downloads, and dictation have
+ * their own separately disclosed network boundaries.
  *
  * What this is NOT: a comprehension engine. It offers a rewrite of a passage
  * you choose, or the key points of an article, and labels the result
@@ -82,9 +81,9 @@ function sanitizeUrl(url) {
   }
 }
 
-/* A summary reads the top of the article; a rewrite acts on a selection the
-   reader made. Both are capped so a pathological page can't wedge the model —
-   matches the cap the cloud relay re-enforces server-side. */
+/* Summary input is capped so a pathological page can't wedge the model. Long
+   summaries sample blocks from across the article rather than taking only the
+   opening; a rewrite acts on a selection the reader made. */
 const MAX_SUMMARY_INPUT = 12000;
 const MAX_SIMPLIFY_INPUT = 2400;
 /* Ask sends the article as context alongside the question — a tighter cap than
