@@ -12,13 +12,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
 const version = manifest.version;
 
-const SHIP_FILES = ["manifest.json", "background.js", "content.js", "inpage.js", "inpage.css", "dictate.js", "LICENSE"];
+const SHIP_FILES = ["manifest.json", "background.js", "content.js", "inpage.js", "inpage.css", "dictate.js", "LICENSE", "THIRD_PARTY_NOTICES.md"];
 const SHIP_GLOBS = [
   "popup.html", "popup.js", "popup.css",
   "reader.html", "reader.js",
   "pdf.html", "pdfview.js", "pdf.css",
   "calibration.html", "calibration.js", "calibration.css",
   "lab.html", "lab.js", "lab.css",
+  "terms.html",
 ];
 const SHIP_DIRS = ["icons", "shared", "lib"];
 
@@ -50,6 +51,7 @@ const requiredArchivePaths = [
   "readtune/lib/ort/ort.wasm.min.js",
   "readtune/lib/piper/piper_phonemize.wasm",
   "readtune/lib/piper/voices/en_US-ljspeech-medium.onnx",
+  "readtune/THIRD_PARTY_NOTICES.md",
 ];
 for (const required of requiredArchivePaths) {
   if (!archivePaths.includes(required)) {
