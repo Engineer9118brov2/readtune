@@ -170,7 +170,7 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, _url, signal, question = "", log = () => {}, levelHint = "") {
+async function cloudGenerate(kind, text, signal, question = "", log = () => {}, levelHint = "") {
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   const timer = new AbortController();
   const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
@@ -468,7 +468,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       const cloudAfterHeadStart = new Promise((resolve, reject) => {
         hedgeTimer = setTimeout(() => {
           if (onProgress) onProgress({ phase: "cloud" });
-          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log, levelHint).then(resolve, reject);
+          cloudGenerate(kind, text, cloudController.signal, question, log, levelHint).then(resolve, reject);
         }, CLOUD_HEDGE_MS);
         cloudController.signal.addEventListener("abort", () => {
           clearTimeout(hedgeTimer);
@@ -497,7 +497,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
     }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log, levelHint);
+    return await cloudGenerate(kind, text, signal, question, log, levelHint);
   }
 
   return {
