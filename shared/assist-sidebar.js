@@ -383,7 +383,7 @@ export function createAssistSidebar({
       }
       pushLog(`done in ${Date.now() - t0}ms → showing ${String(text).length} chars`);
       const kids = [];
-      if (clipped && kind !== "ask") kids.push(el("p", { class: "rt-assist-sub" }, "From the start of a long article."));
+      if (clipped && kind !== "ask") kids.push(el("p", { class: "rt-assist-sub" }, "Sampled from across a long article."));
       kids.push(resultBlock(text), disclaimer());
       if (typeof speak === "function") kids.push(el("div", { class: "rt-assist-actions" }, [playButton(() => text)]));
       pending.className = "rt-chat-row rt-chat-row-ai";
