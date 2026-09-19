@@ -19,6 +19,8 @@ window.chrome = {
 };
 
 const log = (msg, ok) => {
+  window.__HARNESS_LAST = msg;
+  window.__HARNESS_COUNT = (window.__HARNESS_COUNT || 0) + 1;
   const li = document.createElement("li");
   li.textContent = (ok === undefined ? "· " : ok ? "PASS " : "FAIL ") + msg;
   li.style.color = ok === false ? "crimson" : ok === true ? "green" : "";
