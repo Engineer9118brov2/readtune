@@ -181,7 +181,16 @@ try {
   }
 
   if (!done) {
-    console.error("\n✗ harness did not finish");
+    let progress = null;
+    try {
+      const p = await send(
+        "Runtime.evaluate",
+        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0})", returnByValue: true },
+        sessionId
+      );
+      progress = p.result.value;
+    } catch {}
+    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; last: ${progress.last}` : ""));
     cleanup(1);
   } else if (fails > 0) {
     console.error(PIPER_SMOKE
