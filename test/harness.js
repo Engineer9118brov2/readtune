@@ -87,6 +87,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 </body></html>`;
 
 (async () => {
+  window.__HARNESS_PHASE = "imports";
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
@@ -103,6 +104,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const CI = await import("../shared/calibration-insights.js");
   const RM = await import("../shared/reading-modes.js");
   const RS = await import("../shared/research.js");
+  window.__HARNESS_PHASE = "inpage-frame";
 
   /* ---- in-page restyle: run the actual injected script in its isolated sandbox ---- */
   const inpageFrame = document.getElementById("inpage-frame");
@@ -110,6 +112,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     if (inpageFrame.contentDocument && inpageFrame.contentDocument.readyState === "complete") resolve();
     else inpageFrame.addEventListener("load", resolve, { once: true });
   });
+  window.__HARNESS_PHASE = "inpage-boot";
   const inpageWindow = inpageFrame.contentWindow;
   for (let attempt = 0; attempt < 40 && inpageWindow.__readtuneInpageBootStatus !== "ready"; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 50));
