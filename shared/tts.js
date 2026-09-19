@@ -634,18 +634,19 @@ export function createTTS({
         /* play() resolves when playback *starts*; the caller ducks narration
            around this call, so settle on ended/error instead. */
         await withTimeout(
-          new Promise((resolve) => {
-            const finish = () => resolve();
-            one.onended = finish;
-            one.onerror = finish;
-            one.play().catch(finish);
+          new Promise((resolve, reject) => {
+            one.onended = () => resolve();
+            one.onerror = () => reject(new Error("The voice audio couldn't play."));
+            one.play().catch(() => reject(new Error("The browser blocked voice playback. Try Play again.")));
           }),
           playMs,
           () => { try { one.pause(); } catch {} },
         );
         return one;
-      } catch {
-        /* a silent "Hear it" beats one stuck on "…" */
+      } catch (err) {
+        if (!(signal && signal.aborted)) {
+          throw (err instanceof Error ? err : new Error("The voice couldn't play that."));
+        }
       } finally {
         if (signal) signal.removeEventListener("abort", onAbort);
         if (one) { try { one.pause(); } catch {} } // stop a timed-out / aborted read
