@@ -19,8 +19,6 @@ window.chrome = {
 };
 
 const log = (msg, ok) => {
-  window.__HARNESS_LAST = msg;
-  window.__HARNESS_COUNT = (window.__HARNESS_COUNT || 0) + 1;
   const li = document.createElement("li");
   li.textContent = (ok === undefined ? "· " : ok ? "PASS " : "FAIL ") + msg;
   li.style.color = ok === false ? "crimson" : ok === true ? "green" : "";
@@ -87,7 +85,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
 </body></html>`;
 
 (async () => {
-  window.__HARNESS_PHASE = "imports";
   const S = await import("../shared/settings.js");
   const R = await import("../shared/render.js");
   const { buildControls } = await import("../shared/controls.js");
@@ -104,7 +101,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const CI = await import("../shared/calibration-insights.js");
   const RM = await import("../shared/reading-modes.js");
   const RS = await import("../shared/research.js");
-  window.__HARNESS_PHASE = "inpage-frame";
 
   /* ---- in-page restyle: run the actual injected script in its isolated sandbox ---- */
   const inpageFrame = document.getElementById("inpage-frame");
@@ -112,7 +108,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     if (inpageFrame.contentDocument && inpageFrame.contentDocument.readyState === "complete") resolve();
     else inpageFrame.addEventListener("load", resolve, { once: true });
   });
-  window.__HARNESS_PHASE = "inpage-boot";
   const inpageWindow = inpageFrame.contentWindow;
   for (let attempt = 0; attempt < 40 && inpageWindow.__readtuneInpageBootStatus !== "ready"; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -2603,3 +2598,27 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
       self.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: "not set up" }) });
       let err;
       try { await eng.synthesize("again"); } catch (e) { err = e; }
+      assert(err && err.status === 503, "a relay error propagates with its status so tts.js can drop to Piper");
+    } finally {
+      self.fetch = realFetch2;
+    }
+  }
+
+  /* showcase */
+  host.replaceChildren();
+  const sc = R.createReadingView(host);
+  const r2 = sc.setArticleHtml(ARTICLE, "https://shoreline.test/tide");
+  sc.setMeta({ title: r2.meta.title, parts: ["Shoreline Notes", "By J. Marsh", "3 min read", "Grade 7 reading level"] });
+  const prof = { ...S.DEFAULT_PROFILE, font: "atkinson", fontSize: 20, lineHeight: 1.8, wordSpacing: 0.12, bionic: 38, overlay: "cream", hyphenate: true, paragraphSpacing: 1.3 };
+  R.applyTypography(host, prof); R.paintPage(prof); sc.applyProfile(prof);
+  assert(!host.querySelector(".rt-doc-head").hidden && host.querySelector(".rt-article").getBoundingClientRect().height > 100, "showcase renders");
+
+  const fails = [...document.querySelectorAll("#results li")].filter((l) => l.textContent.startsWith("FAIL")).length;
+  log(`— done — ${fails ? fails + " FAILED" : "ALL PASS"}`);
+  window.__DONE = true;
+  window.__FAILS = fails;
+})().catch((e) => {
+  log("HARNESS CRASH: " + ((e && e.stack) || e), false);
+  window.__DONE = true;
+  window.__FAILS = 99;
+});
