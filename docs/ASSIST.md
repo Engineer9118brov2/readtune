@@ -21,9 +21,9 @@ PDF extraction itself stays local. The PDF file is never uploaded. If the reader
 ### Selection tools
 
 - **Simplify** rewrites a selected passage in plainer language and keeps the original visible. It remains on-device-only; if Chrome has no ready local model, ReadTune says so instead of silently sending the passage to the relay.
-- **Define** appears for a short word/phrase and uses nearby sentence context.
+- **Define** appears for a short word/phrase and opens that term in Merriam-Webster instead of spending an AI request on a dictionary lookup.
 - **Explain** appears for a longer selection and explains figurative language, tone, theme, or the main idea.
-- Define / Explain results can be saved as notes on highlights.
+- Explain results can be saved as notes on highlights; dictionary lookups open in a separate tab.
 - **Annotate this article** asks the cloud model for a small set of candidate passages, then lets the reader review Apply / Skip before anything is saved.
 
 All AI output is labelled approximate because a model can be wrong.
@@ -39,7 +39,7 @@ ReadTune never triggers Chrome's large on-device model download itself.
 
 2. **Cloud-capable actions fall back to ReadTune's relay.**
    - Endpoint: `https://readtune.tech/api/assist`.
-   - Cloud kinds: `summary`, `ask`, `define`, `explain`, `annotate`.
+   - Cloud kinds used by the current UI: `summary`, `ask`, `explain`, `annotate`. The older `define` relay kind remains for compatibility but the selection UI now uses a dictionary link.
    - `simplify` is intentionally excluded.
    - URL query strings and fragments are removed before an article URL is sent.
 
@@ -69,7 +69,7 @@ The current privacy model is deliberately narrow:
 - **Only article summaries may be stored in the Redis response cache.**
 - Cached summaries expire after 30 days.
 - The cache key binds the normalized article URL to a hash of the submitted text, so a different body cannot overwrite another article's cached summary.
-- Typed Ask answers, Define results, Explain results, annotations, and voice output are **not** persisted in that response cache.
+- Typed Ask answers, Explain results, annotations, and voice output are **not** persisted in that response cache.
 - There is no ReadTune user account attached to a cached summary.
 
 ## Relay abuse protection
