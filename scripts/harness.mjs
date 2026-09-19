@@ -116,8 +116,15 @@ try {
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0;
   const pend = new Map();
+  let lastRuntimeException = null;
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    if (m.method === "Runtime.exceptionThrown") {
+      lastRuntimeException = m.params && m.params.exceptionDetails
+        ? (m.params.exceptionDetails.exception && m.params.exceptionDetails.exception.description) ||
+          m.params.exceptionDetails.text || null
+        : null;
+    }
     if (m.id && pend.has(m.id)) {
       const { res, rej } = pend.get(m.id);
       pend.delete(m.id);
@@ -191,12 +198,12 @@ try {
     try {
       const p = await send(
         "Runtime.evaluate",
-        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0, phase: window.__HARNESS_PHASE || null})", returnByValue: true },
+        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0, phase: window.__HARNESS_PHASE || null, href: location.href, ready: document.readyState, title: document.title, scripts: [...document.scripts].map(s => ({src:s.src,type:s.type})), body: (document.body && document.body.innerText || '').slice(0,160)})", returnByValue: true },
         sessionId
       );
       progress = p.result.value;
     } catch {}
-    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; phase: ${progress.phase}; last: ${progress.last}` : ""));
+    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; phase: ${progress.phase}; last: ${progress.last}; href: ${progress.href}; ready: ${progress.ready}; title: ${progress.title}; scripts: ${JSON.stringify(progress.scripts)}; body: ${progress.body}` : "") + (lastRuntimeException ? `\nRuntime exception: ${lastRuntimeException}` : ""));
     cleanup(1);
   } else if (fails > 0) {
     console.error(PIPER_SMOKE
