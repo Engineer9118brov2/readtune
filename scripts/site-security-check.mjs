@@ -24,6 +24,27 @@ check(headers["x-frame-options"] === "DENY", "legacy frame protection must remai
 check(!!headers["referrer-policy"], "Referrer-Policy must remain configured");
 check(!!headers["permissions-policy"], "Permissions-Policy must remain configured");
 
+const home = readFileSync(join(ROOT, "index.html"), "utf8");
+check(home.includes('<link rel="canonical" href="https://readtune.tech/"'), "home page must canonically identify readtune.tech");
+check(home.includes('<meta property="og:site_name" content="ReadTune"'), "home page must declare ReadTune as og:site_name");
+check(home.includes('itemtype="https://schema.org/WebSite"'), "home page must expose WebSite structured data");
+check(home.includes('<meta itemprop="name" content="ReadTune"'), "WebSite structured data must name ReadTune");
+check(home.includes('<meta itemprop="alternateName" content="readtune.tech"'), "WebSite structured data must include readtune.tech as alternate name");
+
+for (const [file, canonical] of [
+  ["privacy.html", "https://readtune.tech/privacy.html"],
+  ["school.html", "https://readtune.tech/school.html"],
+  ["terms.html", "https://readtune.tech/terms.html"],
+]) {
+  const html = readFileSync(join(ROOT, file), "utf8");
+  check(html.includes(`<link rel="canonical" href="${canonical}"`), `${file} must point to its readtune.tech canonical URL`);
+  check(html.includes('<meta property="og:site_name" content="ReadTune"'), `${file} must preserve ReadTune site-name identity`);
+}
+const robots = readFileSync(join(ROOT, "robots.txt"), "utf8");
+const sitemap = readFileSync(join(ROOT, "sitemap.xml"), "utf8");
+check(robots.includes("Sitemap: https://readtune.tech/sitemap.xml"), "robots.txt must advertise the production sitemap");
+check(sitemap.includes("<loc>https://readtune.tech/</loc>"), "sitemap must include the canonical ReadTune home page");
+
 for (const file of ["index.html", "privacy.html", "school.html"]) {
   const html = readFileSync(join(ROOT, file), "utf8");
   const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
