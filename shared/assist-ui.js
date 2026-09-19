@@ -232,27 +232,17 @@ export function createAssistUi({
       `contextArg` is whatever surrounding text mountSelectionTrigger could
       find (see contextForRange) — optional, since a reader can select a word
       with nothing useful around it (a caption, a bare list item). */
-  async function defineSelection(wordArg, contextArg, rangeArg) {
+  function defineSelection(wordArg) {
     const word = String(wordArg || getSelectionText() || "").trim();
     if (!word) {
       onError("Select a word first, then choose Define.");
       return;
     }
-    const body = frame("Define");
-    const w = working(body, "Looking up the word…");
-    const signal = controller.signal;
-    try {
-      const { text } = await assistant.define(word, contextArg || "", { signal, onProgress: (p) => w.progress(p) });
-      if (signal.aborted) return;
-      fill(
-        body,
-        el("div", { class: "rt-assist-col" }, [el("h4", {}, word), resultBlock(text)]),
-        disclaimer(),
-        actions(() => text, signal, rangeArg),
-      );
-    } catch (err) {
-      if (!signal.aborted) await fail(body, (err && err.message) || "That word couldn't be defined.", () => defineSelection(word, contextArg, rangeArg));
-    }
+    // Definitions should be instant and deterministic. Send the selected term
+    // to a real dictionary instead of spending an AI request on a lookup.
+    const url = `https://www.merriam-webster.com/dictionary/${encodeURIComponent(word)}`;
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) onError("Your browser blocked the dictionary tab.");
   }
 
   /** Explain a selected passage — figurative language, tone, or theme, or
