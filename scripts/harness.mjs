@@ -185,12 +185,12 @@ try {
     try {
       const p = await send(
         "Runtime.evaluate",
-        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0})", returnByValue: true },
+        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0, phase: window.__HARNESS_PHASE || null})", returnByValue: true },
         sessionId
       );
       progress = p.result.value;
     } catch {}
-    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; last: ${progress.last}` : ""));
+    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; phase: ${progress.phase}; last: ${progress.last}` : ""));
     cleanup(1);
   } else if (fails > 0) {
     console.error(PIPER_SMOKE
