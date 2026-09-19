@@ -131,9 +131,15 @@ try {
       ws.send(JSON.stringify({ id: i, method, params, sessionId }));
     });
 
-  const { targetId } = await send("Target.createTarget", { url });
+  // Attach before navigation. Creating the target directly with `url` is
+  // racy in headless Chrome: on some CI runs the target remains at about:blank
+  // long enough that the harness never boots. Explicit Page.navigate makes the
+  // test deterministic.
+  const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Runtime.enable", {}, sessionId);
+  await send("Page.enable", {}, sessionId);
+  await send("Page.navigate", { url }, sessionId);
 
   let done = false;
   let fails = -1;
