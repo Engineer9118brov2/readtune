@@ -15,7 +15,7 @@
  * The Highlight pill (shared/aids.js) is a separate concern — marking, not
  * asking AI — and shows alongside these independently.
  *
- * Every result card carries an "AI — may not be exact" line, and — when the
+ * Every AI result card carries an "AI — may not be exact" line, and — when the
  * caller wires onSaveAsHighlight — a "Save as highlight" action that turns
  * the AI's own answer into a note on a highlight over the exact text that
  * was selected, without retyping anything.
