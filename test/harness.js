@@ -1854,8 +1854,9 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
     }
     {
       const box = AR.resultBlock("- first point\n- second point");
-      const ps = [...box.querySelectorAll("p")];
-      assert(ps.length === 2 && ps.every((p) => p.textContent.startsWith("• ")), "a markdown bullet list still renders as bullet lines");
+      const items = [...box.querySelectorAll("ul > li")];
+      assert(items.length === 2 && items.map((li) => li.textContent).join("|") === "first point|second point",
+        "markdown bullet lines render as a semantic list instead of leaking markdown syntax");
     }
 
     /* Control the built-in-AI globals so the tests don't depend on whether this

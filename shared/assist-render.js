@@ -36,11 +36,40 @@ function appendInline(p, line) {
 
 export function resultBlock(text) {
   const box = el("div", { class: "rt-assist-result" });
-  for (const line of String(text).split(/\n+/).map((s) => s.trim()).filter(Boolean)) {
+  const lines = String(text || "")
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s && !/^\`\`\`/.test(s));
+
+  let list = null;
+  const flushList = () => {
+    if (list) box.append(list);
+    list = null;
+  };
+
+  for (const raw of lines) {
+    const bullet = raw.match(/^[-*•]\s+(.+)$/);
+    const numbered = raw.match(/^\d+[.)]\s+(.+)$/);
+    if (bullet || numbered) {
+      const kind = numbered ? "ol" : "ul";
+      if (!list || list.tagName.toLowerCase() !== kind) {
+        flushList();
+        list = el(kind, { class: "rt-assist-list" });
+      }
+      const li = el("li", {});
+      appendInline(li, (bullet || numbered)[1]);
+      list.append(li);
+      continue;
+    }
+
+    flushList();
     const p = el("p", {});
-    appendInline(p, line.replace(/^[-•*]\s*/, "• "));
+    // Models occasionally leak a Markdown heading marker even when asked for
+    // plain text. Render the words, not the syntax.
+    appendInline(p, raw.replace(/^#{1,6}\s+/, ""));
     box.append(p);
   }
+  flushList();
   return box;
 }
 

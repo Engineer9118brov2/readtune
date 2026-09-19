@@ -109,12 +109,13 @@ export async function callChat(provider, system, user, fetchImpl = fetch, maxTok
   const data = await res.json();
   const choice = data && data.choices && data.choices[0];
   const text = choice && choice.message && choice.message.content;
+  const trimmed = (text || "").trim();
   if (choice && choice.finish_reason === "length") {
     const err = new Error("The AI helper stopped before finishing its answer.");
     err.status = 502;
+    err.partialText = trimmed;
     throw err;
   }
-  const trimmed = (text || "").trim();
   if (!trimmed) {
     const err = new Error("The AI helper returned nothing usable.");
     err.status = 502;
@@ -130,13 +131,19 @@ export async function relayChat(providers, system, user, fetchImpl = fetch, maxT
     throw err;
   }
   let lastErr;
+  let bestPartial = "";
   for (const provider of providers) {
     try {
       return await callChat(provider, system, user, fetchImpl, maxTokens);
     } catch (e) {
       lastErr = e;
+      if (e && e.partialText && e.partialText.length > bestPartial.length) bestPartial = e.partialText;
       if (e && REQUEST_FATAL.has(e.status)) throw e;
     }
   }
+  // A length-limited answer is still more useful than replacing the entire
+  // response with an error card. We try every provider first; only when none
+  // can complete do we return the best partial with an explicit disclosure.
+  if (bestPartial) return `${bestPartial}\n\n(Answer shortened.)`;
   throw lastErr;
 }
