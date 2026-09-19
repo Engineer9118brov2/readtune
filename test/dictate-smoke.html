@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>ReadTune dictation smoke</title>
+<label for="plain">Plain</label><input id="plain" type="text" />
+<label for="other">Other</label><textarea id="other"></textarea>
+<label for="secret">Password</label><input id="secret" type="password" />
+<script>
+  class MockSpeechRecognition {
+    constructor() {
+      this.continuous = false;
+      this.interimResults = false;
+      this.lang = "";
+      window.__mockRecognition = this;
+    }
+    start() {
+      queueMicrotask(() => this.onstart && this.onstart());
+    }
+    stop() { this.stopped = true; }
+    emit(text, isFinal = true) {
+      const alt = { transcript: text };
+      const result = [alt];
+      result.isFinal = isFinal;
+      const results = [result];
+      this.onresult && this.onresult({ resultIndex: 0, results });
+    }
+  }
+  window.SpeechRecognition = MockSpeechRecognition;
+</script>
+<script src="../dictate.js"></script>
+<script>
+(async () => {
+  const wait = (ms=0) => new Promise(r => setTimeout(r, ms));
+  const fail = (msg) => { throw new Error(msg); };
+  try {
+    await wait(20);
+    const rec = window.__mockRecognition;
+    if (!rec) fail("speech recognition instance was not created");
+
+    const plain = document.getElementById("plain");
+    let plainInputs = 0;
+    plain.addEventListener("input", () => plainInputs++);
+    plain.focus();
+    rec.emit("hello comma world period");
+    if (plain.value !== "hello, world.") fail("final transcript/punctuation was not inserted");
+    if (!plainInputs) fail("dictation did not dispatch an input event");
+
+    const other = document.getElementById("other");
+    other.focus();
+    rec.emit("first line new line second line");
+    if (other.value !== "first line\nsecond line") fail("new-line voice command failed");
+
+    const secret = document.getElementById("secret");
+    secret.focus();
+    rec.emit("do not type this");
+    if (secret.value) fail("password field received dictated text");
+    if (other.value !== "first line\nsecond line") fail("speech leaked into stale prior target");
+
+    plain.type = "text";
+    plain.value = "";
+    plain.focus();
+    plain.type = "password";
+    rec.emit("still secret");
+    if (plain.value) fail("field changed to password still received speech");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(0);
+    if (window.__readtuneDictate) fail("Escape did not tear dictation down");
+    if (document.getElementById("readtune-dictate-host")) fail("dictation panel survived teardown");
+
+    window.__DICTATE_SMOKE = { ok: true };
+  } catch (e) {
+    window.__DICTATE_SMOKE = { ok: false, error: e && e.message || String(e) };
+  }
+})();
+</script>

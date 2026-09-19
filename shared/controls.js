@@ -200,7 +200,7 @@ export function buildControls(profile, onChange, opts = {}) {
     el("summary", {}, [
       el("span", { class: "rt-research-summary-mark", "aria-hidden": "true" }, "✓"),
       el("span", { class: "rt-research-summary-copy" }, [
-        el("strong", {}, "Research-backed starter"),
+        el("strong", {}, "Evidence-informed starter"),
         el("small", {}, "What tends to help most"),
       ]),
     ]),
@@ -215,7 +215,7 @@ export function buildControls(profile, onChange, opts = {}) {
     el("section", { class: "rt-research-box" }, [
       el("div", { class: "rt-research-top" }, [
         el("div", {}, [
-          evidenceChip("strong", "Research-backed starter"),
+          evidenceChip("strong", "Evidence-informed starter"),
           el("strong", { class: "rt-research-title" }, "Start with the changes that tend to help most"),
         ]),
         researchButton,

@@ -418,7 +418,7 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   const starterControls = buildControls({ ...S.DEFAULT_PROFILE, ttsRate: 1.2, rulerLines: 5, rulerHeight: 76 }, (p) => {
     starterPatch = p;
   });
-  assert(/Research-backed starter/.test(starterControls.panel.textContent), "controls surface research-backed starter");
+  assert(/Evidence-informed starter/.test(starterControls.panel.textContent), "controls surface evidence-informed starter");
   starterControls.panel.querySelector(".rt-research-btn").click();
   assert(
     starterPatch &&

@@ -18,10 +18,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      - name: Static checks (syntax, manifest, asset references)
-        run: npm run check
-      - name: Behavioural harness (headless Chrome)
-        run: npm run harness
+      - name: Full policy, privacy, lifecycle, dictation, and behavioural checks
+        run: npm test
       - name: Bundled Piper model smoke test (headless Chrome)
         run: npm run piper-smoke
       - name: Build the Web Store zip

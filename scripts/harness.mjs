@@ -11,7 +11,9 @@ import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PIPER_SMOKE = process.env.HARNESS_MODE === "piper";
+const HARNESS_MODE = process.env.HARNESS_MODE || "harness";
+const PIPER_SMOKE = HARNESS_MODE === "piper";
+const DICTATE_SMOKE = HARNESS_MODE === "dictate";
 const TYPES = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
   ".css": "text/css", ".json": "application/json", ".woff2": "font/woff2",
@@ -36,7 +38,7 @@ const server = createServer(async (req, res) => {
 
 await new Promise((r) => server.listen(0, r));
 const port = server.address().port;
-const url = `http://127.0.0.1:${port}${PIPER_SMOKE ? "/test/piper-smoke.html" : "/test/harness.html"}`;
+const url = `http://127.0.0.1:${port}${PIPER_SMOKE ? "/test/piper-smoke.html" : DICTATE_SMOKE ? "/test/dictate-smoke.html" : "/test/harness.html"}`;
 
 function findChrome() {
   if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
@@ -114,8 +116,15 @@ try {
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0;
   const pend = new Map();
+  let lastRuntimeException = null;
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data);
+    if (m.method === "Runtime.exceptionThrown") {
+      lastRuntimeException = m.params && m.params.exceptionDetails
+        ? (m.params.exceptionDetails.exception && m.params.exceptionDetails.exception.description) ||
+          m.params.exceptionDetails.text || null
+        : null;
+    }
     if (m.id && pend.has(m.id)) {
       const { res, rej } = pend.get(m.id);
       pend.delete(m.id);
@@ -129,25 +138,33 @@ try {
       ws.send(JSON.stringify({ id: i, method, params, sessionId }));
     });
 
-  const { targetId } = await send("Target.createTarget", { url });
+  // Attach before navigation. Creating the target directly with `url` is
+  // racy in headless Chrome: on some CI runs the target remains at about:blank
+  // long enough that the harness never boots. Explicit Page.navigate makes the
+  // test deterministic.
+  const { targetId } = await send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
   await send("Runtime.enable", {}, sessionId);
+  await send("Page.enable", {}, sessionId);
+  await send("Page.navigate", { url }, sessionId);
 
   let done = false;
   let fails = -1;
   let smokeResult = null;
-  for (let i = 0; i < (PIPER_SMOKE ? 900 : 100); i++) {
+  for (let i = 0; i < (PIPER_SMOKE ? 900 : DICTATE_SMOKE ? 120 : 300); i++) {
     const r = await send(
       "Runtime.evaluate",
       {
         expression: PIPER_SMOKE
           ? "window.__PIPER_SMOKE ?? null"
-          : "({done: !!window.__DONE, fails: window.__FAILS ?? -1})",
+          : DICTATE_SMOKE
+            ? "window.__DICTATE_SMOKE ?? null"
+            : "({done: !!window.__DONE, fails: window.__FAILS ?? -1})",
         returnByValue: true,
       },
       sessionId
     );
-    if (PIPER_SMOKE) {
+    if (PIPER_SMOKE || DICTATE_SMOKE) {
       smokeResult = r.result.value;
       done = !!smokeResult;
       fails = smokeResult && smokeResult.ok ? 0 : 1;
@@ -165,6 +182,8 @@ try {
       sessionId
     );
     console.log(JSON.stringify({ result: smokeResult, progress: progress.result.value }));
+  } else if (DICTATE_SMOKE) {
+    console.log(JSON.stringify({ result: smokeResult }));
   } else {
     const summary = await send(
       "Runtime.evaluate",
@@ -175,10 +194,23 @@ try {
   }
 
   if (!done) {
-    console.error("\n✗ harness did not finish");
+    let progress = null;
+    try {
+      const p = await send(
+        "Runtime.evaluate",
+        { expression: "({last: window.__HARNESS_LAST || null, count: window.__HARNESS_COUNT || 0, phase: window.__HARNESS_PHASE || null, href: location.href, ready: document.readyState, title: document.title, scripts: [...document.scripts].map(s => ({src:s.src,type:s.type})), body: (document.body && document.body.innerText || '').slice(0,160)})", returnByValue: true },
+        sessionId
+      );
+      progress = p.result.value;
+    } catch {}
+    console.error("\n✗ harness did not finish" + (progress ? ` after ${progress.count} checks; phase: ${progress.phase}; last: ${progress.last}; href: ${progress.href}; ready: ${progress.ready}; title: ${progress.title}; scripts: ${JSON.stringify(progress.scripts)}; body: ${progress.body}` : "") + (lastRuntimeException ? `\nRuntime exception: ${lastRuntimeException}` : ""));
     cleanup(1);
   } else if (fails > 0) {
-    console.error(PIPER_SMOKE ? `\n✗ Piper smoke failed: ${smokeResult && smokeResult.error}` : `\n✗ ${fails} assertion(s) failed`);
+    console.error(PIPER_SMOKE
+      ? `\n✗ Piper smoke failed: ${smokeResult && smokeResult.error}`
+      : DICTATE_SMOKE
+        ? `\n✗ dictation smoke failed: ${smokeResult && smokeResult.error}`
+        : `\n✗ ${fails} assertion(s) failed`);
     cleanup(1);
   } else {
     console.log("\n✓ harness passed");

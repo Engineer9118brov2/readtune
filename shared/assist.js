@@ -15,16 +15,15 @@
  *      path only fires when it costs nothing: the model Chrome already has
  *      ready for some other feature.
  *   2. Otherwise, ReadTune's own small relay (`/api/assist`, see that file),
- *      which forwards to a free chat model — Ollama Cloud first, then
- *      OpenRouter — and caches the response by article URL so a popular
- *      article is summarized once, ever.
+ *      which forwards to configured AI providers. Only article summaries are
+ *      eligible for the shared 30-day response cache; interactive answers are
+ *      not stored there.
  *
- * This is the one place in ReadTune where text leaves the device — see
- * privacy.html / PRIVACY.md for the plain disclosure. Every other feature
- * (calibration, Reader View, Piper read-aloud, PDF mode) still sends nothing
- * anywhere. There used to be a "bring your own Gemini key" third tier here;
- * it's gone — pasting an API key is not a real option for the readers this
- * extension is for.
+ * AI is one of ReadTune's explicitly optional network paths — see
+ * privacy.html / PRIVACY.md for the full disclosure. The default reading
+ * profile, Reader View, PDF extraction, and Piper read-aloud remain local;
+ * Premium voice, ElevenLabs, optional voice downloads, and dictation have
+ * their own separately disclosed network boundaries.
  *
  * What this is NOT: a comprehension engine. It offers a rewrite of a passage
  * you choose, or the key points of an article, and labels the result
@@ -70,21 +69,9 @@ const now = () =>
    own cloud path is built and disclosed — see docs/ASSIST.md. */
 const CLOUD_KINDS = new Set(["summary", "ask", "define", "explain", "annotate"]);
 
-/* Never forward a query string or fragment to the relay — a URL can carry a
-   session token or other identifying junk. The relay re-normalizes on receipt
-   anyway; this just keeps that off the wire in the first place. */
-function sanitizeUrl(url) {
-  try {
-    const u = new URL(String(url || ""));
-    return u.origin + u.pathname;
-  } catch {
-    return "";
-  }
-}
-
-/* A summary reads the top of the article; a rewrite acts on a selection the
-   reader made. Both are capped so a pathological page can't wedge the model —
-   matches the cap the cloud relay re-enforces server-side. */
+/* Summary input is capped so a pathological page can't wedge the model. Long
+   summaries sample blocks from across the article rather than taking only the
+   opening; a rewrite acts on a selection the reader made. */
 const MAX_SUMMARY_INPUT = 12000;
 const MAX_SIMPLIFY_INPUT = 2400;
 /* Ask sends the article as context alongside the question — a tighter cap than
@@ -183,7 +170,7 @@ const safeDestroy = (o) => { try { o && o.destroy && o.destroy(); } catch {} };
 
 /* ---------- cloud: ReadTune's own relay to a free model ---------- */
 
-async function cloudGenerate(kind, text, url, signal, question = "", log = () => {}, levelHint = "") {
+async function cloudGenerate(kind, text, signal, question = "", log = () => {}, levelHint = "") {
   if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
   const timer = new AbortController();
   const to = setTimeout(() => timer.abort(new DOMException("cloud timed out", "AbortError")), CLOUD_TIMEOUT_MS);
@@ -193,7 +180,7 @@ async function cloudGenerate(kind, text, url, signal, question = "", log = () =>
   log(`cloud → POST ${CLOUD_URL} (kind=${kind}${question ? ", +question" : ""}${levelHint ? ", +level" : ""}, ${text.length} chars)`);
   let res;
   try {
-    const body = { kind, text, url };
+    const body = { kind, text };
     if (question) body.question = question;
     // Kept separate from `question` end-to-end (never concatenated into it)
     // so a reading-level phrasing hint can't (a) get silently truncated when
@@ -481,7 +468,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       const cloudAfterHeadStart = new Promise((resolve, reject) => {
         hedgeTimer = setTimeout(() => {
           if (onProgress) onProgress({ phase: "cloud" });
-          cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), cloudController.signal, question, log, levelHint).then(resolve, reject);
+          cloudGenerate(kind, text, cloudController.signal, question, log, levelHint).then(resolve, reject);
         }, CLOUD_HEDGE_MS);
         cloudController.signal.addEventListener("abort", () => {
           clearTimeout(hedgeTimer);
@@ -510,7 +497,7 @@ export function createAssistant({ getArticleText = () => "", getArticleBlocks = 
       throw new Error("This browser doesn't have on-device AI ready for Simplify right now.");
     }
     if (onProgress) onProgress({ phase: "cloud" });
-    return await cloudGenerate(kind, text, sanitizeUrl(getArticleUrl()), signal, question, log, levelHint);
+    return await cloudGenerate(kind, text, signal, question, log, levelHint);
   }
 
   return {

@@ -1,7 +1,7 @@
 /*
  * ReadTune — talk to type (dictation)
  *
- * Injected on demand (activeTab) by the popup button or Alt+D. Uses the
+ * Injected on demand (activeTab) by the popup button or Alt+Shift+D. Uses the
  * browser's speech recognition to type what you say into whatever text field
  * you're working in — an email, a doc, a form, a comment box. Injecting again,
  * pressing Stop, or Esc removes it cleanly.

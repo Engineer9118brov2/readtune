@@ -1,5 +1,5 @@
 .lab-wrap {
-  max-width: 1080px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: clamp(24px, 5vw, 56px) clamp(18px, 4vw, 32px) 80px;
   display: flex;
@@ -235,17 +235,33 @@
 
 .lab-voice-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.7fr);
   gap: 16px;
   align-items: start;
   margin-top: 16px;
 }
 
-.lab-voice-stage,
-.lab-voice-list {
+.lab-voice-stage {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.lab-voice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.lab-voice-list .lab-voice-group,
+.lab-voice-list .lab-voice-empty,
+.lab-voice-list .lab-voice-upgrade {
+  grid-column: 1 / -1;
+}
+
+.lab-voice-card {
+  min-width: 0;
 }
 
 .lab-voice-group {
@@ -439,12 +455,22 @@
     grid-template-columns: 1fr;
   }
 
+  .lab-voice-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .lab-hero-copy h1 {
     max-width: none;
   }
 
   .lab-inline-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .lab-voice-list {
+    grid-template-columns: 1fr;
   }
 }
 
