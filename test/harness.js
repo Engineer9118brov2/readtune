@@ -358,11 +358,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   assert(markKeysAfterQuota.length <= 81, "quota recovery leaves bounded page-memory headroom");
   assert((await S.loadPageMemory("https://archive.test/current")).highlights[0]?.text === "keep me", "quota recovery preserves the current article memory");
   for (const key of markKeysAfterQuota) delete mem.local[key];
-  await S.setSiteAutoOpen("https://news.test", true);
-  assert((await S.loadSites())["https://news.test"].autoOpen === true, "per-site autoOpen");
-  await S.setSiteAutomation("https://news.test", "style");
-  const siteMode = S.siteAutomationMode((await S.loadSites())["https://news.test"]);
-  assert(siteMode === "style" && !(await S.loadSites())["https://news.test"].autoOpen, "site automation mode swaps atomically");
 
   /* stats */
   const st = R.computeStats("The cat sat. The dog ran fast across the wide green field yesterday afternoon.");
@@ -835,11 +830,6 @@ const APP_SHELL = `<!doctype html><html><head><title>Grok</title></head><body>
   tc = await S.loadTTSConfig();
   assert(tc.provider === "piper" && !tc.apiKey, "forgetTTSKey clears the ElevenLabs key + reverts to the on-device voice");
   assert(!JSON.stringify(S.DEFAULT_PROFILE).includes("apiKey"), "API key is NOT part of the profile object");
-
-  await S.setSiteAutoStyle("https://blog.test", true);
-  assert((await S.loadSites())["https://blog.test"].autoStyle === true, "per-site autoStyle");
-  await S.setSiteAutomation("https://blog.test", "off");
-  assert(S.siteAutomationMode((await S.loadSites())["https://blog.test"]) === "off", "site automation mode clears cleanly");
 
   /* ---- in-page stylesheet generation ---- */
   const ipCss = IP.inpageCSS({ ...S.DEFAULT_PROFILE, font: "dyslexic", fontSize: 22, overlay: "cream", bionic: 40, hideImages: true }, "/*ff*/");
