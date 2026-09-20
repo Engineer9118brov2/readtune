@@ -34,7 +34,7 @@
       <h1>Your reading profile<br /><em>stays yours.</em></h1>
       <p>ReadTune has no account, and the extension has no analytics or telemetry. Its core reading tools work locally. This page explains what it stores and when an optional feature can send text away from your device. <a href="#this-website">The public website</a> is covered separately at the bottom.</p>
       <h2>What stays on your device</h2>
-      <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, the dyslexia-friendly-menus preference, and the sites where you explicitly enable automatic behavior. These are saved in Chrome's local extension storage, on your device. There is no ReadTune account.</p>
+      <p>ReadTune stores your reading profile, calibration history, per-page reading position and highlights, the dyslexia-friendly-menus preference. These are saved in Chrome's local extension storage, on your device. There is no ReadTune account.</p>
       <p>Reader View and "Restyle this page" process the page locally to reformat it. <strong>PDF mode extracts text locally in your browser, and the PDF file itself is never uploaded.</strong> If you later choose a cloud-routed AI action inside PDF mode, only the extracted text needed for that AI action can leave the device, as described below.</p>
       <h2>Read-aloud</h2>
       <p>Read-aloud uses <strong>Piper</strong> by default, a neural voice that runs entirely on your device. The default voice ships inside the extension, so it works offline with nothing to download. If you pick one of the other on-device voices in the Reading Lab, its model file is downloaded once from Hugging Face and cached on your device; the text you have read aloud is never uploaded for those on-device voices.</p>
@@ -55,7 +55,6 @@
       <ul>
         <li><strong>Active tab and scripting:</strong> used only when you invoke ReadTune on the current tab — to open Reader View, restyle the page in place, or start dictation. Access ends when you navigate away.</li>
         <li><strong>Local storage:</strong> keeps your settings and progress on your device.</li>
-        <li><strong>Optional site access:</strong> requested only if you turn on automatic Reader View or restyle for a specific site.</li>
         <li><strong>Network access to ReadTune's own relay</strong> (readtune.tech/api): used for explicitly requested cloud-routed AI actions when no on-device model is used, and for the optional Premium voice.</li>
         <li><strong>Optional network access</strong> (huggingface.co, api.elevenlabs.io): requested only when you choose an extra on-device voice or add an ElevenLabs key, as described above.</li>
       </ul>
