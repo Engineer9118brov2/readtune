@@ -21,29 +21,55 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://readtune.tech/api/*"],
-  "optional_host_permissions": ["https://api.elevenlabs.io/*", "https://huggingface.co/*", "https://*.hf.co/*", "*://*/*"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://readtune.tech/api/*"
+  ],
+  "optional_host_permissions": [
+    "https://api.elevenlabs.io/*",
+    "https://huggingface.co/*",
+    "https://*.hf.co/*"
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
-      "resources": ["inpage.css", "lib/fonts/*.woff2", "shared/settings.js", "shared/research.js", "shared/inpage-style.js", "shared/ruler.js", "shared/page-audio.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "inpage.css",
+        "lib/fonts/*.woff2",
+        "shared/settings.js",
+        "shared/research.js",
+        "shared/inpage-style.js",
+        "shared/ruler.js",
+        "shared/page-audio.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "commands": {
     "open-reader": {
-      "suggested_key": { "default": "Alt+R" },
+      "suggested_key": {
+        "default": "Alt+R"
+      },
       "description": "Open the current article in ReadTune Reader View"
     },
     "toggle-inpage": {
-      "suggested_key": { "default": "Alt+Shift+R" },
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
       "description": "Restyle the current page in place with your ReadTune settings"
     },
     "toggle-dictation": {
-      "suggested_key": { "default": "Alt+Shift+D" },
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
       "description": "Talk to type — dictate into the current text field"
     }
   }
