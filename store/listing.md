@@ -102,7 +102,6 @@ Where it works
 • "Restyle this page" — reformats the page you're already on, in place, with a small floating bar; toggle off to restore it exactly
 • If the page publishes its own "Listen to this article" narration, ReadTune can surface that source audio rather than reading over it
 • PDF mode — extracts selectable text locally from a worksheet or handout and reads it through the same engine; the file itself is not uploaded
-• Optional per-site automation: auto-open Reader View, or auto-restyle, on a site you choose (asks for that one site's permission only when you turn it on)
 
 Accessibility of the app itself
 • A "dyslexia-friendly menus" switch makes ReadTune's own buttons, sliders and settings roomier and uses the high-legibility Atkinson/Lexend UI stack
@@ -225,10 +224,6 @@ Not requested at install. Requested only if the user enters their own ElevenLabs
 Not requested at install. Requested only if the user selects one of the optional extra on-device voices in the Reading Lab. Used once to download that voice's model weights, which are then cached on the device. The default voice ships inside the extension and needs no network. The text being read aloud is never transmitted for these on-device voices.
 ```
 
-**Optional host permission — *://*/***
-```
-Not requested at install. Requested only if the user turns on "automatically open Reader View" or "automatically restyle" for a specific site, and is scoped to that site. The permission is returned when the user disables automation for that origin.
-```
 
 ## Are you using remote code?
 
