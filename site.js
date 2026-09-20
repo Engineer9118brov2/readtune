@@ -149,11 +149,13 @@ dysToggle?.addEventListener("click", () => {
     image.src = `/assets/site/${filename}`;
   };
 
-  document.querySelectorAll("[data-video-slot], [data-image-slot]").forEach((figure) => {
+  document.querySelectorAll("[data-video-file], [data-video-slot], [data-image-slot]").forEach((figure) => {
+    const directVideoFile = figure.dataset.videoFile;
     const videoSlot = figure.dataset.videoSlot;
     const imageSlot = figure.dataset.imageSlot;
-    const videoFile = videoSlot ? `${videoSlot}.mp4` : "";
-    if (!videoFile || !available.has(videoFile)) {
+    const videoFile = directVideoFile || (videoSlot ? `${videoSlot}.mp4` : "");
+    const videoAvailable = directVideoFile ? Boolean(videoFile) : available.has(videoFile);
+    if (!videoFile || !videoAvailable) {
       promoteImage(figure, imageSlot);
       return;
     }
@@ -168,7 +170,7 @@ dysToggle?.addEventListener("click", () => {
     video.setAttribute("aria-label", figure.querySelector("strong")?.textContent || "ReadTune feature video");
     if (!reduced) video.autoplay = true;
     const source = document.createElement("source");
-    source.src = `/assets/site/${videoFile}`;
+    source.src = directVideoFile ? `/assets/${encodeURIComponent(videoFile)}` : `/assets/site/${videoFile}`;
     source.type = "video/mp4";
     video.append(source);
     video.addEventListener("loadeddata", () => {
