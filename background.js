@@ -1,13 +1,12 @@
 /*
  * ReadTune — background service worker (module)
  *
- * Handles the Alt+R keyboard command and, for sites the user has explicitly
- * opted in, either auto-opens Reader View or auto-restyles the page when it
- * finishes loading. Site automation needs host permission for that site, which
- * the popup requests at opt-in time — the base install only asks for activeTab.
+ * Handles the explicit keyboard commands for Reader View, in-page restyling,
+ * and dictation. ReadTune deliberately avoids persistent all-sites access:
+ * current-page actions use activeTab + scripting after a user gesture.
  */
 
-import { stashArticle, loadSites, extUrl } from "./shared/settings.js";
+import { stashArticle, extUrl } from "./shared/settings.js";
 import { pageAudioBridge } from "./shared/page-audio-bridge.js";
 
 const ARTICLE_HANDOFF_PREFIX = "readtune_article:";
@@ -110,29 +109,6 @@ async function toggleDictation(tab) {
   }
 }
 
-async function ensureInpage(tab) {
-  if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) return;
-  try {
-    const [check] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: async () => {
-        if (window.__readtuneInpageBoot) {
-          try {
-            await window.__readtuneInpageBoot;
-          } catch {
-            /* retry below */
-          }
-        }
-        return !!window.__readtuneInpage;
-      },
-    });
-    if (check && check.result) return;
-  } catch {
-    /* page not ready yet, fall through to a fresh inject */
-  }
-  await toggleInpage(tab);
-}
-
 chrome.commands.onCommand.addListener(async (command) => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -150,30 +126,3 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  if (info.status !== "complete" || !tab || !/^https?:/i.test(tab.url || "")) return;
-  if (tab.url.startsWith(extUrl(""))) return;
-
-  let origin;
-  try {
-    origin = new URL(tab.url).origin;
-  } catch {
-    return;
-  }
-
-  const sites = await loadSites();
-  const site = sites[origin];
-  if (!site || (!site.autoOpen && !site.autoStyle)) return;
-
-  const allowed = await chrome.permissions
-    .contains({ origins: [origin + "/*"] })
-    .catch(() => false);
-  if (!allowed) return;
-
-  if (site.autoOpen) {
-    await openReaderFor(tab, { sameTab: true });
-    return;
-  }
-
-  if (site.autoStyle) await ensureInpage(tab);
-});
