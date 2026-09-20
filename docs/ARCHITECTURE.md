@@ -37,9 +37,9 @@ soon only, extension format) adds two constraints that shape the code:
 2. **Minimal permissions, requested late.** The install only asks for
    `activeTab`, `scripting`, `storage`. `activeTab` grants access to the current
    tab *only after you click the toolbar button or press the shortcut* — a user
-   gesture. Anything broader (`api.elevenlabs.io`, or a whole site for
-   auto-open or auto-restyle) is an **optional** permission requested at the moment you opt in,
-   and revoked when you opt out.
+   gesture. Narrow network permissions such as `api.elevenlabs.io` are optional
+   and requested only when the user enables the matching feature. ReadTune does
+   not declare broad persistent all-sites host access.
 
 ---
 
@@ -176,8 +176,8 @@ you why.
 ## File map
 
 ```
-manifest.json         MV3. activeTab + scripting + storage; optional api.elevenlabs.io, huggingface.co, <all_urls>
-background.js          Service worker — Alt+R / Alt+Shift+R / Alt+Shift+D commands, per-site auto-open/restyle
+manifest.json         MV3. activeTab + scripting + storage; narrow relay + optional ElevenLabs/Hugging Face hosts
+background.js          Service worker — explicit Alt+R / Alt+Shift+R / Alt+Shift+D commands only
 content.js             One-shot page capture for Reader View
 inpage.js / .css       "Restyle this page" — content script + shadow-DOM bar
 dictate.js             "Talk to type" — content script, Chrome speech recognition → caret, spoken punctuation
