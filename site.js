@@ -176,12 +176,15 @@ dysToggle?.addEventListener("click", () => {
     video.addEventListener("loadeddata", () => {
       figure.querySelector(".media-placeholder-inner")?.setAttribute("hidden", "");
       figure.querySelector(".slot-image")?.remove();
-      figure.classList.remove("has-image");
+      figure.classList.remove("has-image", "media-missing");
       figure.classList.add("has-video");
       figure.insertBefore(video, figure.querySelector("figcaption"));
       if (!reduced) video.play().catch(() => {});
     }, { once: true });
-    video.addEventListener("error", () => promoteImage(figure, imageSlot), { once: true });
+    video.addEventListener("error", () => {
+      figure.classList.add("media-missing");
+      promoteImage(figure, imageSlot);
+    }, { once: true });
     video.load();
   });
 })();
