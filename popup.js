@@ -12,9 +12,6 @@ import {
   loadCalibrations,
   loadSetup,
   stashArticle,
-  loadSites,
-  setSiteAutomation,
-  siteAutomationMode,
   applyDyslexicUi,
   extUrl,
 } from "./shared/settings.js";
@@ -301,98 +298,6 @@ function wireDyslexicToggle(initial) {
   });
 }
 
-async function initSiteAutomationRows() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !/^https?:/i.test(tab.url || "")) return;
-    const origin = new URL(tab.url).origin;
-    const host = new URL(tab.url).hostname.replace(/^www\./, "");
-    $("auto-host").textContent = host;
-    $("site-box").hidden = false;
-
-    const modeInputs = [...document.querySelectorAll('input[name="site-mode"]')];
-    const setBusy = (busy) => modeInputs.forEach((input) => (input.disabled = busy));
-
-    async function syncToggles() {
-      const nextSites = await loadSites();
-      const mode = siteAutomationMode(nextSites[origin] || {});
-      for (const input of modeInputs) input.checked = input.value === mode;
-      return mode;
-    }
-
-    await syncToggles();
-
-    async function ensurePermission() {
-      const alreadyGranted = await chrome.permissions.contains({ origins: [origin + "/*"] }).catch(() => false);
-      if (alreadyGranted) return true;
-      const granted = await chrome.permissions.request({ origins: [origin + "/*"] }).catch(() => false);
-      if (!granted) setStatus("ReadTune needs permission for this site before it can automate it.", "info");
-      return granted;
-    }
-
-    async function releasePermissionIfUnused() {
-      const mode = await syncToggles();
-      if (mode !== "off") return;
-      chrome.permissions.remove({ origins: [origin + "/*"] }).catch(() => {});
-    }
-
-    async function enableAuto(mode) {
-      if (!(await ensurePermission())) {
-        await syncToggles();
-        return;
-      }
-      const result = await setSiteAutomation(origin, mode);
-      const nextMode = await syncToggles();
-      if (!result) {
-        setStatus("ReadTune couldn't save that site automation setting.", "warn");
-        return;
-      }
-      setStatus(
-        nextMode === "open"
-          ? `ReadTune will open Reader View automatically on ${host}.`
-          : nextMode === "style"
-            ? `ReadTune will restyle ${host} automatically in place.`
-            : `Automatic ReadTune is off on ${host}.`,
-        "info"
-      );
-    }
-
-    async function disableAuto() {
-      const result = await setSiteAutomation(origin, "off");
-      if (!result) {
-        await syncToggles();
-        setStatus("ReadTune couldn't update that site automation setting.", "warn");
-        return;
-      }
-      const mode = await syncToggles();
-      await releasePermissionIfUnused();
-      setStatus(
-        mode !== "off"
-          ? mode === "open"
-            ? `Reader View auto-open stays on for ${host}.`
-            : `Auto-restyle stays on for ${host}.`
-          : `Automatic ReadTune is off on ${host}.`,
-        "info"
-      );
-    }
-
-    for (const input of modeInputs) {
-      input.addEventListener("change", async (e) => {
-        if (!e.target.checked) return;
-        setBusy(true);
-        try {
-          if (e.target.value === "off") await disableAuto();
-          else await enableAuto(e.target.value);
-        } finally {
-          setBusy(false);
-        }
-      });
-    }
-  } catch (err) {
-    console.warn("[ReadTune] site automation rows failed:", err);
-  }
-}
-
 (async function init() {
   try {
     const [profile, history, setup] = await Promise.all([loadProfile(), loadCalibrations(), loadSetup()]);
@@ -410,5 +315,4 @@ async function initSiteAutomationRows() {
     console.warn("[ReadTune] popup init failed:", err);
     configureFirstRun();
   }
-  initSiteAutomationRows();
 })();
