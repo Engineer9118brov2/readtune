@@ -434,3 +434,27 @@ html.dys-mode .nav{gap:20px}
     border-radius:22px;
   }
 }
+
+/* Scroll-driven demo audio */
+.scroll-audio-unlock{
+  position:fixed;
+  z-index:80;
+  left:50%;
+  bottom:24px;
+  transform:translateX(-50%);
+  border:1px solid rgba(16,33,31,.16);
+  border-radius:999px;
+  padding:11px 16px;
+  background:rgba(246,241,231,.96);
+  color:var(--ink);
+  font:700 .78rem/1 var(--sans);
+  letter-spacing:.01em;
+  box-shadow:0 12px 36px rgba(0,0,0,.16);
+  backdrop-filter:blur(12px);
+  cursor:pointer;
+}
+.scroll-audio-unlock[hidden]{display:none!important}
+.scroll-audio-unlock:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
+@media (max-width:700px){
+  .scroll-audio-unlock{bottom:16px;max-width:calc(100% - 32px)}
+}

@@ -149,6 +149,103 @@ dysToggle?.addEventListener("click", () => {
     image.src = `/assets/site/${filename}`;
   };
 
+  const demoVideos = new Set();
+  const visibility = new Map();
+  let activeVideo = null;
+  let unlockPrompt = null;
+
+  const getUnlockPrompt = () => {
+    if (unlockPrompt) return unlockPrompt;
+    unlockPrompt = document.createElement("button");
+    unlockPrompt.type = "button";
+    unlockPrompt.className = "scroll-audio-unlock";
+    unlockPrompt.textContent = "Enable demo audio";
+    unlockPrompt.hidden = true;
+    document.body.append(unlockPrompt);
+    unlockPrompt.addEventListener("click", () => {
+      unlockPrompt.hidden = true;
+      if (activeVideo) {
+        activeVideo.muted = false;
+        activeVideo.play().catch(() => {});
+      }
+    });
+    return unlockPrompt;
+  };
+
+  const pauseOthers = (except = null) => {
+    demoVideos.forEach((video) => {
+      if (video !== except && !video.paused) video.pause();
+    });
+  };
+
+  const playActive = async (video) => {
+    if (!video || document.hidden || reduced) return;
+    pauseOthers(video);
+    video.muted = false;
+    try {
+      await video.play();
+      getUnlockPrompt().hidden = true;
+    } catch (error) {
+      if (error?.name !== "NotAllowedError") return;
+      getUnlockPrompt().hidden = false;
+      video.muted = true;
+      video.play().catch(() => {});
+    }
+  };
+
+  const chooseActiveVideo = () => {
+    const candidates = [...visibility.entries()]
+      .filter(([video, state]) => video.isConnected && state.isIntersecting && state.ratio >= .18)
+      .map(([video, state]) => {
+        const rect = video.getBoundingClientRect();
+        const centerDistance = Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2);
+        return { video, ratio: state.ratio, centerDistance };
+      })
+      .sort((a, b) => {
+        const ratioGap = b.ratio - a.ratio;
+        return Math.abs(ratioGap) > .08 ? ratioGap : a.centerDistance - b.centerDistance;
+      });
+
+    const next = candidates[0]?.video || null;
+    if (!next) {
+      pauseOthers();
+      activeVideo = null;
+      if (unlockPrompt) unlockPrompt.hidden = true;
+      return;
+    }
+
+    if (next !== activeVideo) {
+      activeVideo?.pause();
+      activeVideo = next;
+    }
+    playActive(activeVideo);
+  };
+
+  const playbackObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      visibility.set(entry.target, {
+        isIntersecting: entry.isIntersecting,
+        ratio: entry.intersectionRatio,
+      });
+    });
+    chooseActiveVideo();
+  }, { threshold: [0, .18, .3, .45, .6, .75, .9, 1] });
+
+  const unlockFromGesture = () => {
+    document.removeEventListener("pointerdown", unlockFromGesture, true);
+    document.removeEventListener("keydown", unlockFromGesture, true);
+    if (!activeVideo) return;
+    activeVideo.muted = false;
+    playActive(activeVideo);
+  };
+  document.addEventListener("pointerdown", unlockFromGesture, { capture: true, passive: true });
+  document.addEventListener("keydown", unlockFromGesture, { capture: true });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) pauseOthers();
+    else chooseActiveVideo();
+  });
+
   document.querySelectorAll("[data-video-file], [data-video-slot], [data-image-slot]").forEach((figure) => {
     const directVideoFile = figure.dataset.videoFile;
     const videoSlot = figure.dataset.videoSlot;
@@ -163,12 +260,12 @@ dysToggle?.addEventListener("click", () => {
     const video = document.createElement("video");
     video.className = "slot-video";
     video.controls = true;
-    video.muted = true;
+    video.muted = false;
+    video.defaultMuted = false;
     video.loop = true;
     video.playsInline = true;
     video.preload = "metadata";
     video.setAttribute("aria-label", figure.querySelector("strong")?.textContent || "ReadTune feature video");
-    if (!reduced) video.autoplay = true;
     const source = document.createElement("source");
     source.src = directVideoFile ? `/assets/${encodeURIComponent(videoFile)}` : `/assets/site/${videoFile}`;
     source.type = "video/mp4";
@@ -179,7 +276,14 @@ dysToggle?.addEventListener("click", () => {
       figure.classList.remove("has-image", "media-missing");
       figure.classList.add("has-video");
       figure.insertBefore(video, figure.querySelector("figcaption"));
-      if (!reduced) video.play().catch(() => {});
+      demoVideos.add(video);
+      visibility.set(video, { isIntersecting: false, ratio: 0 });
+      playbackObserver.observe(video);
+      video.addEventListener("play", () => {
+        if (activeVideo !== video) activeVideo = video;
+        pauseOthers(video);
+      });
+      chooseActiveVideo();
     }, { once: true });
     video.addEventListener("error", () => {
       figure.classList.add("media-missing");
