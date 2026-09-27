@@ -493,6 +493,14 @@ html.dys-mode .nav{gap:20px}
 .home-page .home-card-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:20px;border-radius:12px;background:var(--mint-2);color:var(--mint-deep);font-family:var(--display);font-size:.85rem;font-weight:700}
 .home-page .home-note,.home-page .home-extra{max-width:850px;margin:22px auto 0;color:var(--ink-soft);font-size:.9rem;text-align:center}
 .home-page .home-note strong,.home-page .home-extra strong{color:var(--ink)}
+.home-page .home-demos{background:#f1ece3;border-block:1px solid var(--line)}
+.home-page .home-video-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.home-page .home-video-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 14px 36px rgba(31,42,39,.08)}
+.home-page .home-video-card video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#10211f}
+.home-page .home-video-card video:focus-visible{outline:3px solid var(--mint-deep);outline-offset:-3px}
+.home-page .home-video-copy{padding:17px 19px 19px}
+.home-page .home-video-copy h3{margin:0 0 7px;font-size:1.05rem;letter-spacing:-.035em}
+.home-page .home-video-copy p{margin:0;color:var(--ink-soft);font-size:.88rem;line-height:1.48}
 .home-page .home-privacy{padding-block:clamp(64px,8vw,96px);background:#0d1c1a;color:var(--paper)}
 .home-page .home-privacy-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:64px;align-items:start}
 .home-page .home-privacy-copy h2{margin-bottom:16px;color:var(--paper)}
@@ -508,6 +516,7 @@ html.dys-mode .nav{gap:20px}
 .home-page .footer-grid{align-items:center}
 @media(max-width:1050px){
   .home-page .home-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-page .home-video-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .home-page .home-privacy-grid{grid-template-columns:1fr;gap:34px}
 }
 @media(max-width:760px){
@@ -517,7 +526,7 @@ html.dys-mode .nav{gap:20px}
   .home-page .hero-actions{align-items:stretch}
   .home-page .hero-actions .button{width:100%}
   .home-page .proof-row{margin-top:28px}
-  .home-page .home-step-grid,.home-page .home-place-grid,.home-page .home-feature-grid{grid-template-columns:1fr}
+  .home-page .home-step-grid,.home-page .home-place-grid,.home-page .home-feature-grid,.home-page .home-video-grid{grid-template-columns:1fr}
   .home-page .home-card{padding:21px}
   .home-page .home-number{margin-bottom:16px}
   .home-page .home-privacy-list{grid-template-columns:1fr}

@@ -81,6 +81,12 @@ for (const f of files.filter((f) => extname(f) === ".html")) {
   for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     const ref = m[1];
     if (/^(https?:|data:|#|mailto:)/.test(ref) || /^\/install(?:[?#].*)?$/.test(ref)) continue;
+    if (/\.(?:mp4|webm|ogg)(?:[?#].*)?$/i.test(ref)) {
+      const assetRef = decodeURIComponent(ref.replace(/[?#].*$/, ""));
+      const assetPath = join(dirname(f), assetRef);
+      if (!existsSync(assetPath)) fail(`${f.replace(ROOT + "/", "")} → missing media asset ${ref}`);
+      continue;
+    }
     const target = join(dirname(f), ref);
     if (!existsSync(target)) fail(`${f.replace(ROOT + "/", "")} → missing ${ref}`);
   }

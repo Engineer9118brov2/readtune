@@ -28,6 +28,13 @@ const home = readFileSync(join(ROOT, "index.html"), "utf8");
 const installRedirect = (config.redirects || []).find((redirect) => redirect.source === "/install");
 check(installRedirect?.destination === "https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk" && installRedirect.permanent === true, "/install must permanently redirect to the live Chrome Web Store listing");
 check((home.match(/href="\/install"/g) || []).length >= 3, "home page must link its install calls to action through /install");
+check(home.includes('id="demos"'), "home page must include the product demo section");
+const videoPlayers = [...home.matchAll(/<video\b([^>]*)>([\s\S]*?)<\/video>/gi)];
+check(videoPlayers.length === 5, "home page must show all five product demos");
+check(videoPlayers.every(([, attrs, body]) => /\bcontrols\b/.test(attrs) && /\bplaysinline\b/i.test(attrs) && !/\bautoplay\b/i.test(attrs) && /<source\b[^>]*type="video\/mp4"/.test(body)), "product demos must be user-controlled inline MP4 players without autoplay");
+for (const video of ["calbiration.mp4", "reading%20settings.mp4", "AI-mode.mp4", "Reading%20Lab.mp4", "Restyle-page.mp4"]) {
+  check(home.includes(`src="assets/${video}"`), `home page must include the ${video} demo`);
+}
 check(home.includes('<link rel="canonical" href="https://readtune.tech/"'), "home page must canonically identify readtune.tech");
 check(home.includes('<meta property="og:site_name" content="ReadTune"'), "home page must declare ReadTune as og:site_name");
 check(home.includes('itemtype="https://schema.org/WebSite"'), "home page must expose WebSite structured data");
