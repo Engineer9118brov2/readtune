@@ -1,16 +1,16 @@
 # Chrome Web Store — submission pack
 
 Copy-paste, field by field, in dashboard order. Everything the review needs is
-here. The extension ID (draft) is `elcekcoadkgmdjboaflcbcbebghpgpn`.
+here. ReadTune is published on the Chrome Web Store: `https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk`.
 
-## What still blocks "Submit for review"
+## Live listing
 
-1. The **Privacy** tab is empty — fill every field in the "Privacy tab" section
-   below and the Submit button unlocks.
-2. The **Store listing** Description still holds an older draft — replace it with
-   the Description block below (it matches 0.9.5: Piper on-device read-aloud, the
-   word-lookup and line-tint additions, and the optional AI helpers).
-3. Upload `readtune-0.9.5.zip` (`npm run build`).
+The approved extension is live at:
+
+`https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk`
+
+The copy and disclosures below document the current listing. For a new package
+release, build and verify its ZIP before uploading an update for review.
 
 ---
 

@@ -71,9 +71,9 @@ The product now also ships a **research-backed starter** before calibration fini
 
 "Load unpacked" is the normal way to demo a hackathon project — no Web Store submission needed.
 
-## Getting on the Chrome Web Store
+## Install from the Chrome Web Store
 
-Everything for submission is prepared: [`PRIVACY.md`](PRIVACY.md) (host it as a URL), [`store/listing.md`](store/listing.md) (description + permission justifications), and `npm run build` (writes a clean `readtune-<version>.zip` with no dev files). One-time $5 developer registration; review is typically 1–3 business days for a low-permission extension like this one. See [`store/listing.md`](store/listing.md) for the full checklist.
+ReadTune is published and free to install: [Add ReadTune to Chrome](https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk). For local development, follow the unpacked-extension steps above. The [`store/listing.md`](store/listing.md) keeps the current listing details and privacy disclosures.
 
 ## Project layout
 

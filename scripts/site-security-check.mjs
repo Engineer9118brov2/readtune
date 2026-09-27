@@ -25,6 +25,9 @@ check(!!headers["referrer-policy"], "Referrer-Policy must remain configured");
 check(!!headers["permissions-policy"], "Permissions-Policy must remain configured");
 
 const home = readFileSync(join(ROOT, "index.html"), "utf8");
+const installRedirect = (config.redirects || []).find((redirect) => redirect.source === "/install");
+check(installRedirect?.destination === "https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk" && installRedirect.permanent === true, "/install must permanently redirect to the live Chrome Web Store listing");
+check((home.match(/href="\/install"/g) || []).length >= 3, "home page must link its install calls to action through /install");
 check(home.includes('<link rel="canonical" href="https://readtune.tech/"'), "home page must canonically identify readtune.tech");
 check(home.includes('<meta property="og:site_name" content="ReadTune"'), "home page must declare ReadTune as og:site_name");
 check(home.includes('itemtype="https://schema.org/WebSite"'), "home page must expose WebSite structured data");

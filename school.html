@@ -59,7 +59,6 @@
         <tr><td><code>activeTab</code></td><td>Read the current tab's article text — but only the moment the student clicks the ReadTune button or presses the keyboard shortcut. No standing access to any site.</td></tr>
         <tr><td><code>scripting</code></td><td>Inject ReadTune's bundled article-extraction, page-restyle, or dictation script on a user action.</td></tr>
         <tr><td><code>storage</code></td><td>Save the reading profile and progress locally on the device.</td></tr>
-        <tr><td>Optional, per-site<br />(not requested at install)</td><td>Only if a student turns on "automatically open Reader View" or "automatically restyle" for one specific site, Chrome asks them to grant that one site. Revoked when they turn it off.</td></tr>
       </table>
 
       <h2>Network behaviour</h2>
@@ -78,7 +77,8 @@
 
       <h2>How to allow ReadTune (Google Admin console)</h2>
       <div class="doc-steps">Devices → Chrome → Apps &amp; extensions → Users &amp; browsers<br />→ select the organizational unit<br />→ "＋" → Add Chrome app or extension by ID<br />→ paste the ReadTune extension ID<br />→ set to "Allow install" (or "Force install" for a class set)</div>
-      <p class="doc-note">Extension ID and Web Store link: <strong>published soon — check back, or email us for the ID.</strong> Until then, ReadTune can be evaluated by loading it unpacked from the GitHub source on a non-managed device.</p>
+      <p class="doc-note"><a class="button button-primary" href="/install" target="_blank" rel="noreferrer">Install ReadTune from the Chrome Web Store ↗</a></p>
+      <p class="doc-note">ReadTune’s Chrome Web Store ID is <code>hgppjhkjemchehbienigclgamffoakdk</code>. Use this ID to allow the extension for a managed organization.</p>
 
       <h2>Cost</h2>
       <p>Free. There is no paid tier, no per-seat pricing, no quote, and no upsell inside the product.</p>

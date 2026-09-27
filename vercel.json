@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/install",
+      "destination": "https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

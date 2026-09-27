@@ -51,12 +51,9 @@ a URL is easier to forward and can't be "an old version."
 
 > **To allow ReadTune for your users (Google Admin console):**
 > Devices → Chrome → Apps & extensions → Users & browsers → pick the OU →
-> "＋" → Add Chrome app or extension by ID → paste `<WEB STORE ID>` →
+> "＋" → Add Chrome app or extension by ID → paste `hgppjhkjemchehbienigclgamffoakdk` →
 > set to **Allow install** (or **Force install** for a class set).
-> Store URL: `https://chromewebstore.google.com/detail/<WEB STORE ID>`
-
-*(The ID is assigned when the extension is published. Fill it in everywhere in
-this doc and on the page once it's live.)*
+> Store URL: `https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk`
 
 ### 3. Copy-paste request emails
 
@@ -80,7 +77,7 @@ requests for the same tool for coursework is a priority.
 > free tool that does this without an account.
 >
 > A summary for IT is here: `https://readtune.tech/school.html`
-> Web Store page: `https://chromewebstore.google.com/detail/<WEB STORE ID>`
+> Web Store page: `https://chromewebstore.google.com/detail/readtune/hgppjhkjemchehbienigclgamffoakdk`
 >
 > From what I can tell it collects no personal data, stores everything on the
 > device, and installs with minimal permissions. Happy to talk to whoever

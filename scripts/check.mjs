@@ -80,7 +80,7 @@ for (const f of files.filter((f) => extname(f) === ".html")) {
   const html = readFileSync(f, "utf8");
   for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
     const ref = m[1];
-    if (/^(https?:|data:|#|mailto:)/.test(ref)) continue;
+    if (/^(https?:|data:|#|mailto:)/.test(ref) || /^\/install(?:[?#].*)?$/.test(ref)) continue;
     const target = join(dirname(f), ref);
     if (!existsSync(target)) fail(`${f.replace(ROOT + "/", "")} → missing ${ref}`);
   }
@@ -173,16 +173,19 @@ for (const need of [
 const publicCopy = {
   "index.html": [
     "four-minute preference check",
-    "Six short passages",
-    "Premium voice and ElevenLabs are separate optional voice paths",
+    "six short passages",
+    "A suggestion, not a diagnosis.",
+    "Opening AI sends nothing.",
+  ],
+  "school.html": [
+    "hgppjhkjemchehbienigclgamffoakdk",
+    "Install ReadTune from the Chrome Web Store",
+    "Ask AI, Premium voice, and reader-configured ElevenLabs",
+    "Read-aloud uses Piper, a neural voice that runs entirely on the device.",
   ],
   "privacy.html": [
     "Only article summaries are eligible for ReadTune's shared 30-day response cache.",
     "There is no ReadTune account.",
-  ],
-  "school.html": [
-    "Ask AI, Premium voice, and reader-configured ElevenLabs",
-    "Read-aloud uses Piper, a neural voice that runs entirely on the device.",
   ],
   "docs/DEVPOST.md": [
     "six short readings plus a\nwarm-up",
@@ -199,6 +202,13 @@ for (const [rel, stale] of Object.entries({
   "index.html": "A three-minute experiment",
   "docs/DEVPOST.md": "exactly one exception",
   "school.html": "The one exception",
+})) {
+  if (readFileSync(join(ROOT, rel), "utf8").includes(stale)) {
+    fail(`${rel} contains stale release copy: ${stale}`);
+  }
+}
+for (const [rel, stale] of Object.entries({
+  "school.html": "published soon — check back, or email us for the ID.",
 })) {
   if (readFileSync(join(ROOT, rel), "utf8").includes(stale)) {
     fail(`${rel} contains stale release copy: ${stale}`);
